@@ -1,0 +1,4 @@
+Sample runs:
+mpirun -np 2 ./driver_laplacian_gemslr_par.ex
+mpirun -np 2 ./driver_laplacian_gemslrz_par.ex -outfile out.log
+mpirun -np 2 ./driver_gen_gemslr_par.ex

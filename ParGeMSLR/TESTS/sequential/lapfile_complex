@@ -1,0 +1,8 @@
+2
+32 32 32   0.0 0.01   0.01 0.0 0.0 0.01 0.0 0.0
+32 32 32   0.1 0.01   0.01 0.0 0.0 0.01 0.0 0.0
+
+
+
+Line 1: Number of tests
+Line 2: Starting from this line, nx, ny, nz, shift, alpahx, alphay, alphaz.   Complex Laplacian problem info

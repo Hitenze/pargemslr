@@ -1,0 +1,100 @@
+USING_OPENMP = 0
+USING_BLAS = 0
+USING_OPENBLAS = 0
+USING_CUDA = 0
+USING_MKL = 0
+DEBUG_MODE = 1
+TIMING_MODE = 1
+
+# Path to support library
+HYPRE_PATH = ./hypre/src
+METIS_PATH = ./parmetis/build/Darwin-x86_64
+# also change LIBLAPACK when changing the LAPACK
+ifeq ($(USING_OPENBLAS),0)
+LAPACK_PATH = .
+LIBLAPACK = -lblas -llapack
+LAPACK_INCLUDE_PATH = .
+else
+LAPACK_PATH = ./OpenBLAS
+LAPACK_INCLUDE_PATH = ./OpenBLAS
+LIBLAPACK = -lopenblas
+endif
+MKL_PATH = $(MKLROOT)
+
+# Set compiler
+ifeq ($(USING_MKL),0)
+MPICC := mpicc
+MPICPP := mpicxx
+else
+#use intel compiler for MKL
+MPICC := mpiicc
+MPICPP := mpiicpc
+endif
+
+ifeq ($(USING_CUDA),0)
+CC = $(MPICC)
+CXX = $(MPICPP)
+NVCC = $(MPICPP)
+# -framework accelerate for MacOS
+LINK = $(MPICPP) -framework accelerate
+else
+CC = nvcc -ccbin=$(MPICC)
+CXX = nvcc -ccbin=$(MPICPP)
+NVCC = nvcc -ccbin=$(MPICPP)
+LINK = nvcc -ccbin=$(MPICPP)
+endif
+
+AR = ar crv
+RANLIB = ranlib
+
+# basic flag
+FLAGS := -DUNIX -O3 -g -std=c++11
+
+# extra flags
+
+ifneq ($(USING_OPENMP),0)
+# -DPARGEMSLR_OPENMP: enable openmp
+LINK += -Xpreprocessor -fopenmp
+FLAGS += -Xpreprocessor -fopenmp -DPARGEMSLR_OPENMP
+LIBOPENMP = -lomp
+endif
+
+ifeq ($(USING_CUDA),0)
+FLAGS += -Wall
+else
+# -DPARGEMSLR_CUDA: enable cuda
+# -DPARGEMSLR_CUDA_VERSION=xx: the default cuda version is 11, use this to set cuda version
+# for nvcc compiler command, use -Xcompiler "options"
+FLAGS += --forward-unknown-to-host-compiler -gencode arch=compute_60,"code=sm_60" -DPARGEMSLR_CUDA -DPARGEMSLR_CUDA_VERSION=10
+endif
+
+# -DPARGEMSLR_DEBUG: enbale debug mode, slower with many extra check.
+# -DPARGEMSLR_DEBUG_MEMORY: enable memory debug, much slower, with full memory check function.
+# -DPARGEMSLR_TIMING: show detail time information, with extra sychronization.
+ifneq ($(TIMING_MODE),0)
+FLAGS += -DPARGEMSLR_TIMING
+endif
+
+ifneq ($(DEBUG_MODE),0)
+FLAGS += -DPARGEMSLR_DEBUG -DPARGEMSLR_DEBUG_MEMORY
+endif
+
+ifneq ($(USING_BLAS),0)
+FLAGS += -DPARGEMSLR_BLAS
+endif
+
+ifneq ($(USING_CUDA),0)
+LIBCUDA = -lcublas -lcusparse -lcurand
+endif
+
+ifneq ($(USING_MKL),0)
+# -DPARGEMSLR_MKL: enable MKL in the code for multithread
+FLAGS += -DPARGEMSLR_MKL -qopenmp
+LINK += -qopenmp
+# MKLROOT is the path to MKL
+LIBMKL =  -Wl, --start-group  $(MKL_PATH)/lib/intel64/libmkl_intel_lp64.a $(MKL_PATH)/lib/intel64/libmkl_intel_thread.a $(MKL_PATH)/lib/intel64/libmkl_core.a -Wl, --end-group -lpthread -lm
+endif
+
+ifneq ($(USING_OPENBLAS),0)
+FLAGS += -DPARGEMSLR_OPENBLAS
+endif

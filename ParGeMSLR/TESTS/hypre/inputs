@@ -1,0 +1,31 @@
+ GEMSLR                     1. global_precond          = PRECOND: global preconditioenr option. (BJ, ESCHUR, GEMSLR).
+ 0                          2. use_global_partition    = PREPROCESSING: Use global parition on the top level? (1: yes, 0: no).
+ ILUK                       3. B_precond_top           = PRECOND: local preconditioner option for the top several levels (ILUT, ILUK, GEMSLR).
+ 1                          4. B_precond_top_levels    = PRECOND: number of levels we apply the first preconditioner.
+ ILUK                       5. B_precond_lower         = PRECOND: local preconditioner option for other levels (ILUT, ILUK, GEMSLR).
+ ILUK                       6. C_precond               = PRECOND: preconditioner option for the last C. (ILUT, ILUK, BJILUT, BJILUK).
+ 1                          7. C_iter                  = PRECOND: number of iterations with C^{-1} on the last level for BJ option (via PSLR).
+ 5    2                     8. nlev                    = PREPROCESSING: the number of levels of the global/local preconditioner.
+ 4   2                     9. ncomp                   = PREPROCESSING: the number of subdomains for the global/local GeMSLR.
+ RKWAY                     10. global_partition_option = PREPROCESSING: the global partition option (ND, RKWAY). ParMETIS ND is used.
+ RKWAY                     11. local_partition_option  = PREPROCESSING: the B preconditioner partition option (ND, RKWAY).
+ 1e-02 1e-02 1e-02 1e-02   12. ilu_droptol             = PRECOND: tolerance of ILUT for the B, EF, S, and C blocks.
+ 200   200   200           13. ilu_max_row_nnz         = PRECOND: maximum number of nonzeros per row of ILUT for the B, S, and C blocks.
+ 0     0     0             14. ilu_lfil                = PRECOND: level of fill of ILUK for the B,  block.
+ RCM                       15. ilu_perm_option         = PRECOND: permutation option. (NO, RCM).
+ TR                        16. lr_arnoldi_option1      = LOWRANK: the Low-rank Option in GEMSLR for the top level. (STD, TR, SUB).
+ TR                        17. lr_arnoldi_option2      = LOWRANK: the Low-rank Option in GEMSLR for other levels. (STD, TR, SUB).
+ 50     50                 18. lr_rank                 = LOWRANK: the target size of the low-rank correction on the top/other levels.
+ 1e-09 1e-09               19. lr_tol_eig              = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
+ 1.1   1.1                 20. lr_rank_factor          = LOWRANK: the target convergenced eigen-pairs is neig = lr_rankx * lr_rank_factor.
+ 3.0   3.0                 21. lr_arnoldi_factor       = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rankx * (1.0 + lr_rank_factor) * lr_arnoldi_factor.
+ 5     5                   22. lr_maxits               = LOWRANK: the max number of restarts for the thick-restart Arnoldi or subspace iteration.
+ 1                         23. inner_iteration         = SCHUR: apply FGMRES on the top level Schur Complement system in the solve phase (1: yes, 0: no).
+ 1e-02                     24. inner_iter_tol          = SCHUR: the tolorance of the SCHUR-FGMRES.
+ 5                         25. inner_iter_maxits       = SCHUR: the max number of FGMRES outer iteration of the SCHUR-FGMRES.
+ 0                         26. diag_shift              = ADVANCED: Complex Version Only. Enable complex shift in the complex ILUT? (1: yes, 0: no).
+ MMUL                        27. global_solve            = ADVANCED: the global solve option for GeMSLR (LU, U).
+ 0                         28. residual_correction     = ADVANCED: the number of residual correction with B solve with x = M^{-1}rhs, r = b - B*x, e = M^{-1}r, x = x + e.
+ 0                         29. gs_option               = ADVANCED: Gram-Schmidt option. 0: CGS-2; 1: MGS.
+ MILU                      30. B_smoother              = ADVANCED: B smoothing option for modified mulitplicative solve (MILU, ILU(extra memory cost)).
+ 1                         31. print_level             = GENERAL: the print option. 0: basic info only; 1: more info; 2: even more info with gnuplot graphics.

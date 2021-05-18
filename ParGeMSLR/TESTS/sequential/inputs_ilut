@@ -1,0 +1,38 @@
+ ILUT          1. B_precond_top           = PRECOND: local preconditioner option for the top several levels (ILUT, ILUK, GEMSLR).
+ 1             2. B_precond_top_levels    = PRECOND: number of levels we apply the first preconditioner.
+ ILUT          3. B_precond_lower         = PRECOND: local preconditioner option for other levels (ILUT, ILUK, GEMSLR).
+ 50            4. kdim                    = SOLVER: dimension of Krylov subspace in (outer) FGMRES.
+ 200           5. maxits                  = SOLVER: maxits in outer FGMRES.
+ 1e-08         6. tol                     = SOLVER: tolorance for FGMRES, stop when ||r|| < tol or ||r||/||b|| < tol.
+ 0             7. absolute_tol            = SOLVER: Use absolute tol ||r|| or relative tol ||r||/||b||. (1: absolute, 0: relative).
+ 1             8. nlev0                   = PREPROCESSING: the number of levels of the global preconditioner.
+ 1             9. nlev1                   = PREPROCESSING: the number of levels of the local preconditioner.
+ 1            10. ncomp0                  = PREPROCESSING: the number of subdomains for the global GeMSLR.
+ 1            11. ncomp1                  = PREPROCESSING: the number of subdomains for the B preconditioner GeMSLR.
+ ND           12. partition_option0       = PREPROCESSING: the global partition option (ND, RKWAY).
+ ND           13. partition_option1       = PREPROCESSING: the B preconditioner partition option (ND, RKWAY).
+ 1e-03        14. ilu_droptol0            = PRECOND: tolerance of ILUT for the B block.
+ 1e-03        15. ilu_droptol1            = PRECOND: tolerance of ILUT for the C block.
+ 200          16. ilu_max_row_nnz0        = PRECOND: maximum number of nonzeros per row of ILUT for the B block.
+ 200          17. ilu_max_row_nnz1        = PRECOND: maximum number of nonzeros per row of ILUT for the C block.
+ 1            18. ilu_lfil0               = PRECOND: level of fill of ILUK for the B block.
+ 1            19. ilu_lfil1               = PRECOND: level of fill of ILUK for the C block.
+ RCM          20. ilu_perm_option         = PRECOND: permutation option for ILUT. (NO, RCM).
+ TR           21. lr_arnoldi_option0      = LOWRANK: the Low-rank Option in GEMSLR for the top level, standard Arnoldi, Thick-restart Arnoldi, or subspace iteration (STD, TR, SUB).
+ TR           22. lr_arnoldi_option1      = LOWRANK: the Low-rank Option in GEMSLR for other levels, standard Arnoldi, Thick-restart Arnoldi, or subspace iteration (STD, TR, SUB).
+ 0            23. lr_rank0                = LOWRANK: the target size of the low-rank correction on the top level.
+ 0            24. lr_rank1                = LOWRANK: the target size of the low-rank correction on other levels.
+ 1e-09        25. lr_tol_eig0             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
+ 1e-09        26. lr_tol_eig1             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
+ 1.1          27. lr_rank_factor0         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.
+ 1.1          28. lr_rank_factor1         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.
+ 3.0          29. lr_arnoldi_factor0      = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rank * lr_rank_factor * lr_arnoldi_factor.
+ 3.0          30. lr_arnoldi_factor1      = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rank * lr_rank_factor * lr_arnoldi_factor.
+ 1000         31. lr_maxits0              = LOWRANK: the max number of restarts for the thick-restart Arnoldi.
+ 1000         32. lr_maxits1              = LOWRANK: the max number of restarts for the thick-restart Arnoldi.
+ 1            33. inner_iteration         = SCHUR: apply FGMRES on the top level Schur Complement system in the solve phase (1: yes, 0: no).
+ 1e-02        34. inner_iter_tol          = SCHUR: the tolorance of the SCHUR-FGMRES.
+ 5            35. inner_iter_maxits       = SCHUR: the max number of FGMRES outer iteration of the SCHUR-FGMRES.
+ 0.0          36. diag_shift              = ADVANCED: Complex Version Only. Enable complex shift in the complex ILUT? (1: yes, 0: no).
+ LU           37. global_solve            = ADVANCED: the global solve option for GeMSLR (LU, U).
+ 1            38. print_level             = GENERAL: the print option. 0: basic info only; 1: more info; 2: even more info with gnuplot graphics.

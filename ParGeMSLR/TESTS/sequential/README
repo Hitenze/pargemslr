@@ -1,0 +1,4 @@
+Sample runs:
+./driver_laplacian_gemslr_seq.ex -outfile out.log
+./driver_laplacian_gemslrz_seq.ex
+./driver_gen_gemslr_seq.ex

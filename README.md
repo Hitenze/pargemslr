@@ -81,16 +81,6 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
    3. Go to folder TESTS/hypre.
    4. Make the test with make command.
    
- * MFEM Interface
-   1. Make the libraray.
-   2. Set the HYPRE_PATH to the HYPRE's src folder in the makefile.in
-   3. Go to folder TESTS/hypre.
-   4. Make the test with make command.
-   5. Edit the config/config.mk for MFEM, link to parmetis 4.0 instead of metis 5.0.
-   6. Go to folder TESTS/hypre/mfem.
-   7. Update the path of mfem in makefile.
-   8. Make the tests with make command.
-
 **SAMPLE RUNS**
 
  * Sequential version 
@@ -143,9 +133,3 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
       - Solve general real matrix with GeMSLR.
       - Read solver/preconditioner settings from file "inputs".
       
- * MFEM interface
-   
-   - mpirun -np 2 ./ex1p -m ./data/sphere_in_sphere_25K.mesh3D -sid 0
-      - Solve Poisson equation with GeMSLR.
-      - Read solver/preconditioner settings from file "inputs".
-

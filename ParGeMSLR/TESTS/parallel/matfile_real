@@ -1,0 +1,14 @@
+1 
+./Matrices/gr_30_30.mtx
+1 ./Matrices/gr_30_30_b.mtx
+./Matrices/pde2961.mtx
+0
+
+
+Line 1:  Number of general matrices
+Line 2:  Starting from this line, the path of the matrix files
+         After that, the path of the vector files.
+         -Begin with 0: use one vector as solution.
+         -Begin with nonzero: load the vector file
+         Repeat, until enouth matrices are listed
+
