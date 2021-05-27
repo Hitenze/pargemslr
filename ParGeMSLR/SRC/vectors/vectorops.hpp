@@ -531,6 +531,17 @@ namespace pargemslr
     */
    int SequentialVectorReadFromFile(SequentialVectorClass<complexd> &vec, const char *vecfile, int idxin);
    
+   /**
+    * @brief   Copy data from vector of type T1 to vector of type T2.
+    * @details Copy data from vector of type T1 to vector of type T2. \n
+    *          Currently only supports float <-> double and complexs <-> conplexd
+    * @param [in]   vec_in The input vector.
+    * @param [out]  vec_out The output vector.
+    * @return       Return error message.
+    */
+   template <typename T1, typename T2>
+   int VectorCopy(VectorClass<T1> &vec_in, VectorClass<T2> &vec2_out);
+   
 }
 
 #endif

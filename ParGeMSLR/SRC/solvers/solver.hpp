@@ -29,6 +29,7 @@ namespace pargemslr
       kSolverIlu,
       kSolverPoly,
       kSolverBJ,
+      kSolverFloat,
       kSolverGemslr,
       kSolverParGemslr
    };
@@ -58,6 +59,12 @@ namespace pargemslr
        * @details The type of the solver.
        */
       SolverTypeEnum                                     _solver_type;
+      
+      /**
+       * @brief   Is the preconditioner a mixed precision preconditioner?
+       * @details Is the preconditioner a mixed precision preconditioner?
+       */
+      bool                                               _is_mixed;
       
       /**
        * @brief   The matrix.
@@ -134,6 +141,8 @@ namespace pargemslr
       {
          this->_solver_precision = kUnknownPrecision;
          this->_solver_type = kSolverUndefined;
+         /* if vector type not equal to data type, this is a mixed precision preconditioner */
+         this->_is_mixed = PargemslrIsDoublePrecision<VectorType>::value != PargemslrIsDoublePrecision<DataType>::value;
          this->_matrix = NULL;
          this->_own_matrix = false;
          this->_preconditioner = NULL;
@@ -153,11 +162,11 @@ namespace pargemslr
       {
          this->_solver_precision = solver._solver_precision;
          this->_solver_type = solver._solver_type;
+         this->_is_mixed = solver._is_mixed;
          this->_matrix = solver._matrix;
          this->_own_matrix = false;
          this->_preconditioner = solver._preconditioner;
          this->_own_preconditioner = false;
-         this->_solution = solver._solution;
          this->_right_hand_side = solver._right_hand_side;
          this->_ready = solver._ready;
          this->_print_option = solver._print_option;
@@ -174,6 +183,7 @@ namespace pargemslr
          solver._solver_precision = kUnknownPrecision;
          this->_solver_type = solver._solver_type;
          solver._solver_type = kSolverUndefined;
+         this->_is_mixed = solver._is_mixed;
          this->_matrix = solver._matrix;
          solver._matrix = NULL;
          this->_own_matrix = solver._own_matrix;
@@ -203,7 +213,7 @@ namespace pargemslr
          this->Clear();
          this->_solver_precision = solver._solver_precision;
          this->_solver_type = solver._solver_type;
-         this->_matrix = solver._matrix;
+         this->_is_mixed = solver._is_mixed;
          this->_own_matrix = false;
          this->_preconditioner = solver._preconditioner;
          this->_own_preconditioner = false;
@@ -227,6 +237,7 @@ namespace pargemslr
          solver._solver_precision = kUnknownPrecision;
          this->_solver_type = solver._solver_type;
          solver._solver_type = kSolverUndefined;
+         this->_is_mixed = solver._is_mixed;
          this->_matrix = solver._matrix;
          solver._matrix = NULL;
          this->_own_matrix = solver._own_matrix;
@@ -523,14 +534,18 @@ namespace pargemslr
       
 	};
    
-   typedef SolverClass<CsrMatrixClass<float>, SequentialVectorClass<float>, float>         solver_csr_seq_float;
-   typedef SolverClass<CsrMatrixClass<double>, SequentialVectorClass<double>, double>      solver_csr_seq_double;
-   typedef SolverClass<CsrMatrixClass<complexs>, SequentialVectorClass<complexs>, complexs>   solver_csr_seq_complexs;
+   typedef SolverClass<CsrMatrixClass<float>, SequentialVectorClass<float>, float>           solver_csr_seq_float;
+   typedef SolverClass<CsrMatrixClass<double>, SequentialVectorClass<double>, float>         solver_csr_seq_mix;
+   typedef SolverClass<CsrMatrixClass<double>, SequentialVectorClass<double>, double>        solver_csr_seq_double;
+   typedef SolverClass<CsrMatrixClass<complexs>, SequentialVectorClass<complexs>, complexs>  solver_csr_seq_complexs;
+   typedef SolverClass<CsrMatrixClass<complexd>, SequentialVectorClass<complexd>, complexs>  solver_csr_seq_complexmix;
    typedef SolverClass<CsrMatrixClass<complexd>, SequentialVectorClass<complexd>, complexd>  solver_csr_seq_complexd;
    
-   typedef SolverClass<ParallelCsrMatrixClass<float>, ParallelVectorClass<float>, float>         solver_csr_par_float;
-   typedef SolverClass<ParallelCsrMatrixClass<double>, ParallelVectorClass<double>, double>      solver_csr_par_double;
-   typedef SolverClass<ParallelCsrMatrixClass<complexs>, ParallelVectorClass<complexs>, complexs>   solver_csr_par_complexs;
+   typedef SolverClass<ParallelCsrMatrixClass<float>, ParallelVectorClass<float>, float>           solver_csr_par_float;
+   typedef SolverClass<ParallelCsrMatrixClass<double>, ParallelVectorClass<double>, double>        solver_csr_par_double;
+   typedef SolverClass<ParallelCsrMatrixClass<double>, ParallelVectorClass<double>, double>        solver_csr_par_double;
+   typedef SolverClass<ParallelCsrMatrixClass<complexs>, ParallelVectorClass<complexs>, complexs>  solver_csr_par_complexs;
+   typedef SolverClass<ParallelCsrMatrixClass<complexd>, ParallelVectorClass<complexd>, complexs>  solver_csr_par_complexmix;
    typedef SolverClass<ParallelCsrMatrixClass<complexd>, ParallelVectorClass<complexd>, complexd>  solver_csr_par_complexd;
 }
 

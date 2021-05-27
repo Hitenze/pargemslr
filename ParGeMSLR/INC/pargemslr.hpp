@@ -47,6 +47,7 @@
 #include "../SRC/preconditioners/ilu.hpp"
 #include "../SRC/preconditioners/poly.hpp"
 #include "../SRC/preconditioners/block_jacobi.hpp"
+#include "../SRC/preconditioners/parallel_mix_precond.hpp"
 #include "../SRC/preconditioners/gemslr.hpp"
 #include "../SRC/preconditioners/parallel_gemslr.hpp"
 

@@ -1291,4 +1291,56 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
    }
    
+   template <typename T1, typename T2>
+   int VectorCopy(VectorClass<T1> &vec_in, VectorClass<T2> &vec_out)
+   {
+      typedef typename std::conditional<PargemslrIsDoublePrecision<T1>::value, double, float>::type DataType1;
+      typedef typename std::conditional<PargemslrIsDoublePrecision<T2>::value, double, float>::type DataType2;
+      
+      DataType1 *val_1 = (DataType1*)vec_in.GetData();
+      DataType2 *val_2 = (DataType2*)vec_out.GetData();;
+      
+      int i, n;
+      n = vec_in.GetLengthLocal();
+      
+      PARGEMSLR_CHKERR(n != vec_out.GetLengthLocal());
+
+#ifdef PARGEMSLR_CUDA
+      int loc1 = vec_in.GetDataLocation();
+      int loc2 = vec_out.GetDataLocation();
+#endif
+
+      if(PargemslrIsComplex<T1>::value)
+      {
+         n = n * 2;
+      }
+#ifdef PARGEMSLR_OPENMP
+      /* avoid nested OpenMP call */
+      int num_threads = PargemslrGetOpenmpMaxNumThreads();
+      if(num_threads > 1)
+      {
+#pragma omp parallel for private(i) PARGEMSLR_OPENMP_SCHEDULE_DEFAULT
+         for(i = 0 ; i < n ; i ++)
+         {
+            val_2[i] = (DataType2) val_1[i];
+         }
+      }
+      else
+      {
+#endif
+         for(i = 0 ; i < n ; i ++)
+         {
+            val_2[i] = (DataType2) val_1[i];
+         }
+#ifdef PARGEMSLR_OPENMP
+      }
+#endif
+      
+      return PARGEMSLR_SUCCESS;
+      
+   }
+   template int VectorCopy(VectorClass<float> &vec_in, VectorClass<double> &vec_out);
+   template int VectorCopy(VectorClass<double> &vec_in, VectorClass<float> &vec_out);
+   template int VectorCopy(VectorClass<complexs> &vec_in, VectorClass<complexd> &vec_out);
+   template int VectorCopy(VectorClass<complexd> &vec_in, VectorClass<complexs> &vec_out);
 }

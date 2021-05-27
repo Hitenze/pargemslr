@@ -20,8 +20,8 @@
  RCM          20. ilu_perm_option         = PRECOND: permutation option for ILUT. (NO, RCM).
  TR           21. lr_arnoldi_option0      = LOWRANK: the Low-rank Option in GEMSLR for the top level, standard Arnoldi, Thick-restart Arnoldi, or subspace iteration (STD, TR, SUB).
  TR           22. lr_arnoldi_option1      = LOWRANK: the Low-rank Option in GEMSLR for other levels, standard Arnoldi, Thick-restart Arnoldi, or subspace iteration (STD, TR, SUB).
- 10           23. lr_rank0                = LOWRANK: the target size of the low-rank correction on the top level.
- 50           24. lr_rank1                = LOWRANK: the target size of the low-rank correction on other levels.
+ 32           23. lr_rank0                = LOWRANK: the target size of the low-rank correction on the top level.
+ 32           24. lr_rank1                = LOWRANK: the target size of the low-rank correction on other levels.
  1e-09        25. lr_tol_eig0             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
  1e-09        26. lr_tol_eig1             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
  1.1          27. lr_rank_factor0         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.

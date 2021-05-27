@@ -28,6 +28,7 @@ EXTRASRC = ./SRC/utils/utils.o\
 	./SRC/preconditioners/gemslr.o\
 	./SRC/preconditioners/poly.o\
 	./SRC/preconditioners/block_jacobi.o\
+	./SRC/preconditioners/parallel_mix_precond.o\
 	./SRC/preconditioners/parallel_gemslr.o
 
 ifneq ($(USING_CUDA),0)

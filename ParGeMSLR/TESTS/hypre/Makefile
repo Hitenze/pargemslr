@@ -6,7 +6,7 @@
 default:all
 
 include ../../makefile.in
-include $(HYPRE_PATH)/config/Makefile.config
+include ../../$(HYPRE_PATH)/config/Makefile.config
 
 LINK_CXX +=  -std=c++11
 CFLAGS += -I../../INC

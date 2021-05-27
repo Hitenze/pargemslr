@@ -1,13 +1,13 @@
 2
-./Matrices/Complex/iChem_Jacobian.mtx
-1 ./Matrices/Complex/iChem_Jacobian_b.mtx
-./Matrices/Complex/young4c.mtx
-0
+./Matrices/Complex/hel20.mtx
+0 .
+./Matrices/Complex/hel30.mtx
+0 .
 
 
 Line 1: Number of general matrices, starting from the next line, general matrices
 Line 2:  Starting from this line, the path of the matrix files
          After that, the path of the vector files.
-         -Begin with 0: use one vector as solution.
-         -Begin with nonzero: load the vector file
-
+         -"0 ." use one vector as solution. NOTE: use "0 ." instead of "0".
+         -"1 path" load the vector file
+         Repeat, until enouth matrices are listed

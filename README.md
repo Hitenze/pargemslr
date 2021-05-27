@@ -55,12 +55,14 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
  * TESTS
    - driver_laplacian_gemslr_seq.cpp   : driver for parallel real GeMSLR laplacian tests.
    - driver_laplacian_gemslr_par.cpp   : driver for parallel real GeMSLR laplacian tests.
+   - driver_laplacian_gemslrmix_par.cpp: driver for parallel real GeMSLR laplacian tests.
    - driver_laplacian_gemslrz_seq.cpp  : driver for parallel complex GeMSLR laplacian tests.
    - driver_laplacian_gemslrz_par.cpp  : driver for parallel complex GeMSLR laplacian tests.
    - driver_gen_gemslr_seq.cpp         : driver for parallel real GeMSLR general matrix tests.
    - driver_gen_gemslr_par.cpp         : driver for parallel real GeMSLR general matrix tests.
    - driver_gen_gemslrz_seq.cpp        : driver for parallel complex GeMSLR general matrix tests.
    - driver_gen_gemslrz_par.cpp        : driver for parallel complex GeMSLR general matrix tests.
+   - driver_gen_gemslrzmix_par.cpp     : driver for parallel complex GeMSLR general matrix tests.
 
 
 **INSTALLATION**

@@ -5,7 +5,7 @@
 namespace pargemslr
 {
    template <typename T>
-   VectorVirtualClass<T>::VectorVirtualClass()
+   VectorVirtualClass<T>::VectorVirtualClass() : ParallelLogClass()
    {
    }
    template VectorVirtualClass<int>::VectorVirtualClass();

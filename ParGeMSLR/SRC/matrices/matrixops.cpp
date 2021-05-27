@@ -7076,7 +7076,7 @@ namespace pargemslr
       
       int      nrows, ncols, nnz, col, p, i, i1, i2, j, jj, err = 0;
       int      *A_i, *A_j;
-      T        *A_data;
+      //T        *A_data;
       
       nrows = A.GetNumRowsLocal();
       ncols = A.GetNumColsLocal();
@@ -7106,9 +7106,10 @@ namespace pargemslr
       
       A_i = A.GetI();
       A_j = A.GetJ();
-      A_data = A.GetData();
+      //A_data = A.GetData();
       
       // Prepare data structures used by METIS
+      //long int lone = 1;
       IntVectorClass<long int> xadj;
       IntVectorClass<long int> adjncy;
       IntVectorClass<long int> vwgt;
@@ -7140,17 +7141,23 @@ namespace pargemslr
             if (col != i) 
             {
                adjncy[jj] = col;
-               adjwgt[jj++] = (long int) PargemslrAbs(A_data[j]);
+               /* at least should be 1 */
+               //adjwgt[jj] = PargemslrMax(adjwgt[jj], lone);
+               //adjwgt[jj] = (long int) PargemslrAbs(A_data[j]);
+               adjwgt[jj] = 1;
+               jj++;
             } 
             else 
             {
-               vwgt[i] = (long int) PargemslrAbs(A_data[j]);
+               //vwgt[i] = (long int) PargemslrAbs(A_data[j]);
+               //vwgt[i] = PargemslrMax(vwgt[i], lone);
+               vwgt[i] = 6;
             }
          }
          if(vwgt[i] == 0)
          {
             /* in this case, we don't have a diagonal entry */
-            vwgt[i] = 1.0;
+            vwgt[i] = 6;
          }
          xadj[i+1] = jj;
       }
@@ -8291,9 +8298,8 @@ namespace pargemslr
       * C-style 0-based index.
       * 
       *--------------------------------------------------------------------------*/
-      
       PARGEMSLR_ERROR("Csr matrix AMD ordering currenlty unsupported.");
-      
+      return PARGEMSLR_ERROR_INVALED_OPTION;
       /*
       if( A.GetDataLocation() == kMemoryDevice)
       {
@@ -8338,11 +8344,9 @@ namespace pargemslr
       err = amd_order( nA, A2.GetI(), A2.GetJ(), perm.GetData(), NULL, NULL); PARGEMSLR_CHKERR(err);
       
       A2.Clear();
-      
+       
       return err;
       */
-      
-      return PARGEMSLR_ERROR_INVALED_OPTION;
    }
    template int CsrMatrixAmdHost(CsrMatrixClass<float> &A, vector_int &perm);
    template int CsrMatrixAmdHost(CsrMatrixClass<double> &A, vector_int &perm);
@@ -9002,6 +9006,12 @@ namespace pargemslr
       RealDataType         reorth_tol = pargemslr_global::_reorth_tol;
       RealDataType         t, normv;
       
+      if(orth_tol < std::numeric_limits<RealDataType>::epsilon())
+      {
+         /* the tolerance should not be too small */
+         orth_tol = std::numeric_limits<RealDataType>::epsilon();
+      }
+      
       VectorType           v, w;
       
       A.SetupVectorPtrStr(v);
@@ -9237,6 +9247,12 @@ namespace pargemslr
       A.GetMpiInfo(np, myid, comm);
 #endif
 
+      if(tol_orth < std::numeric_limits<RealDataType>::epsilon())
+      {
+         /* the tolerance should not be too small */
+         tol_orth = std::numeric_limits<RealDataType>::epsilon();
+      }
+      
       /*------------------------
        * Start arnoldi loop
        * Compute matvec u = A*v
@@ -9338,7 +9354,7 @@ namespace pargemslr
       if(t < tol_orth)
       {
          /* in this case the new guess is not good enough, give up */
-         PARGEMSLR_PRINT("Thick restart can't add more eigenvectors.\n");
+         //PARGEMSLR_PRINT("Thick restart can't add more eigenvectors.\n");
          return -1;
       }
       
@@ -10188,6 +10204,18 @@ namespace pargemslr
          return 0;
       }
       
+      if(tol_orth < std::numeric_limits<RealDataType>::epsilon())
+      {
+         /* the tolerance should not be too small */
+         tol_orth = std::numeric_limits<RealDataType>::epsilon();
+      }
+      
+      if(tol_eig < std::numeric_limits<RealDataType>::epsilon())
+      {
+         /* the tolerance should not be too small */
+         tol_eig = std::numeric_limits<RealDataType>::epsilon();
+      }
+      
       /* - - - - - - - - - - - - - - - - - -
        * Thick-restart version Arnoldi.
        * 
@@ -10508,7 +10536,7 @@ namespace pargemslr
             /* if h_last is too small, we need to restart with new vector */
             if( PargemslrAbs(h_last) < tol_orth && PargemslrArnoldiThickRestartBuildThickRestartNewVector(V, H, m, tol_orth, tol_reorth, v) < 0)
             {
-               PARGEMSLR_PRINT("Thick restart can't add more eigenvectors.\n");
+               //PARGEMSLR_PRINT("Thick restart can't add more eigenvectors.\n");
                /* ncov already computed */
                break;
             }
@@ -11458,6 +11486,16 @@ namespace pargemslr
          return PARGEMSLR_ERROR_MEMORY_LOCATION;
       }
       
+      if(clvl == tlvl-1)
+      {
+         /* treat the last level as a single block */
+         domi = mapptr_v[clvl];
+         mapptr_v[clvl+1]=domi+1;
+         map_v.Fill(domi);
+         tlvl = clvl+1;
+         return PARGEMSLR_SUCCESS;
+      }
+      
       nA = A.GetNumRowsLocal();
       
       /* stop if we don't have enough number of nodes on the next level */
@@ -11556,6 +11594,10 @@ namespace pargemslr
       {
          /* use the standart edge seperator */
          num_dom2 = num_dom;
+         std::vector<vector_int> test;
+         int testcomp;
+         A.GetConnectedComponents( test, testcomp);
+         
          if(CsrMatrixMetisKwayHost( A, num_dom2, map, false, vtxsep, edgecut, perm, dom_ptr) == PARGEMSLR_RETURN_METIS_NO_INTERIOR )
          {
             /* in this case, at least one subdomain has no interior nodes, we should stop on this level 
@@ -11582,11 +11624,9 @@ namespace pargemslr
          return PARGEMSLR_SUCCESS;
       }
       
-      if( num_dom2 < num_dom || edgecut == nA || clvl == tlvl-1)
+      if( num_dom2 < num_dom || edgecut == nA )
       {
-         /* in this case, we have a bad permutation, or the permutation on the last level is not block diagonal 
-          * treat the last level as a single block
-          */
+         /* treat the last level as a single block */
          domi = mapptr_v[clvl];
          mapptr_v[clvl+1]=domi+1;
          map_v.Fill(domi);
@@ -11624,6 +11664,7 @@ namespace pargemslr
       }
       
       mapc.Setup(edgecut);
+      /* keep using nd */
       //SetupPermutationRKwayRecursive( C, vertexsep, clvl+1, tlvl, num_dom, minsep, kmin, kfactor, mapc, mapptr_v);
       /* only use vertex sep on the top level */
       SetupPermutationRKwayRecursive( C, false, clvl+1, tlvl, num_dom, minsep, kmin, kfactor, mapc, mapptr_v);
