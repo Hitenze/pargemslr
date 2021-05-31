@@ -1,5 +1,5 @@
  GEMSLR                     1. global_precond          = PRECOND: global preconditioenr option. (BJ, ESCHUR, GEMSLR).
- 1                          2. use_global_partition    = PREPROCESSING: Use global parition on the top level? (1: yes, 0: no).
+ 1                          2. use_global_partition    = PREPROCESSING: Use global parition on the top level? (GEMSLR only, 1: yes, 0: no).
  ILUT                       3. B_precond_top           = PRECOND: local preconditioner option for the top several levels (ILUT, ILUK, GEMSLR).
  1                          4. B_precond_top_levels    = PRECOND: number of levels we apply the first preconditioner.
  ILUT                       5. B_precond_lower         = PRECOND: local preconditioner option for other levels (ILUT, ILUK, GEMSLR).
@@ -29,10 +29,7 @@
  1e-03                     29. inner_iter_tol          = SCHUR: the tolorance of the SCHUR-FGMRES.
  5                         30. inner_iter_maxits       = SCHUR: the max number of FGMRES outer iteration of the SCHUR-FGMRES.
  0                         31. diag_shift              = ADVANCED: Complex Version Only. Enable complex shift in the complex ILUT? (1: yes, 0: no).
- LU                        32. global_solve            = ADVANCED: the global solve option for GeMSLR (LU, U, MUL, MMUL).
- 0                         33. residual_correction     = ADVANCED: the number of residual correction with B solve with x = M^{-1}rhs, r = b - B*x, e = M^{-1}r, x = x + e.
- 0                         34. gs_option               = ADVANCED: Gram-Schmidt option. 0: CGS-2; 1: MGS.
- MILU                      35. B_smoother              = ADVANCED: B smoothing option for modified mulitplicative solve (MILU, ILU(extra memory cost)).
- 1     1     2             36. npx, npy, npz           = PARALLEL: nproc decomposition on each direction.
- 4     4     4             37. ndx, ndy, ndz           = PARALLEL: domain decomposition on each direction (for laplacian only).
- 1                         38. print_level             = GENERAL: the print option. 0: basic info only; 1: more info; 2: even more info with gnuplot graphics.
+ LU                        32. global_solve            = ADVANCED: the global solve option for GeMSLR (LU, U).
+ 1     1     2             33. npx, npy, npz           = PARALLEL: nproc decomposition on each direction (for laplacian only, default is 1 np 1).
+ 4     4     4             34. ndx, ndy, ndz           = PARALLEL: domain decomposition on each direction (for laplacian only).
+ 1                         35. print_level             = GENERAL: the print option. 0: basic info only; 1: more info; 2: even more info with gnuplot graphics.

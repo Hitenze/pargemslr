@@ -1,4 +1,8 @@
+Tests for pGeMSLR.
+
 Sample runs:
-mpirun -np 2 ./driver_laplacian_gemslr_par.ex
-mpirun -np 2 ./driver_laplacian_gemslrz_par.ex -outfile out.log
-mpirun -np 2 ./driver_gen_gemslr_par.ex
+1. Load matrix from lapfile_real, read settings from "inputs", write solution to files "solxxxxx.solxxxxx"
+mpirun -np 2 ./driver_laplacian_gemslr_par.ex -writesol sol
+
+2. Load matrix from matfile_complex, read settings from "inputs", write output to out.log
+mpirun -np 2 ./driver_gen_gemslrz_par.ex -fromfile inputs_bj_ilu -outfile out.log

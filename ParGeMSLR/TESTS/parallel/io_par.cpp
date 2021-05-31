@@ -770,14 +770,6 @@ int read_inputs_from_file(const char *filename, double *params)
             {
                params[PARGEMSLR_IO_ADVANCED_GLOBAL_SOLVE] = kGemslrUSolve;
             }
-            else if(!strcmp(word, "MUL"))
-            {
-               params[PARGEMSLR_IO_ADVANCED_GLOBAL_SOLVE] = kGemslrMulSolve;
-            }
-            else if(!strcmp(word, "MMUL"))
-            {
-               params[PARGEMSLR_IO_ADVANCED_GLOBAL_SOLVE] = kGemslrMmulSolve;
-            }
             else
             {
                PARGEMSLR_PRINT("Error in inputs format at line %d.\n", linenum);
@@ -788,45 +780,15 @@ int read_inputs_from_file(const char *filename, double *params)
          }
          case 33:
          {
-            sscanf(line, "%lf", &params[PARGEMSLR_IO_ADVANCED_RESIDUAL_ITERS]);
+            sscanf(line, "%lf %lf %lf", &params[PARGEMSLR_IO_PARALLEL_NPROCX], &params[PARGEMSLR_IO_PARALLEL_NPROCY], &params[PARGEMSLR_IO_PARALLEL_NPROCZ]);
             break;
          }
          case 34:
          {
-            sscanf(line, "%lf", &params[PARGEMSLR_IO_ADVANCED_GRAM_SCHMIDT]);
-            break;
-         }
-         case 35:
-         {
-            PargemslrReadFirstWord( line, &word);
-            
-            if(!strcmp(word, "MILU"))
-            {
-               params[PARGEMSLR_IO_PRECOND_LOCAL_SMOOTHER1] = kGemslrBSmoothBMILU;
-            }
-            else if(!strcmp(word, "ILU"))
-            {
-               params[PARGEMSLR_IO_PRECOND_LOCAL_SMOOTHER1] = kGemslrBSmoothBILU;
-            }
-            else
-            {
-               PARGEMSLR_PRINT("Error in inputs format at line %d.\n", linenum);
-               return PARGEMSLR_ERROR_IO_ERROR;
-            }
-            free(word);
-            break;
-         }
-         case 36:
-         {
-            sscanf(line, "%lf %lf %lf", &params[PARGEMSLR_IO_PARALLEL_NPROCX], &params[PARGEMSLR_IO_PARALLEL_NPROCY], &params[PARGEMSLR_IO_PARALLEL_NPROCZ]);
-            break;
-         }
-         case 37:
-         {
             sscanf(line, "%lf %lf %lf", &params[PARGEMSLR_IO_PARALLEL_NDOMX], &params[PARGEMSLR_IO_PARALLEL_NDOMY], &params[PARGEMSLR_IO_PARALLEL_NDOMZ]);
             break;
          }
-         case 38:
+         case 35:
          {
             sscanf(line, "%lf", &params[PARGEMSLR_IO_GENERAL_PRINT_LEVEL]);
             break;

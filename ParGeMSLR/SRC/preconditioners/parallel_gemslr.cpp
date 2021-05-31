@@ -1372,16 +1372,6 @@ namespace pargemslr
                      PARGEMSLR_PRINT("\tAdditive U solve\n");
                      break;
                   }
-                  case kGemslrMulSolve:
-                  {
-                     PARGEMSLR_PRINT("\tMultiplicative solve\n");
-                     break;
-                  }
-                  case kGemslrMmulSolve:
-                  {
-                     PARGEMSLR_PRINT("\tMultiplicative solve with modified ILU\n");
-                     break;
-                  }
                   default:
                   {
                      PARGEMSLR_PRINT("\tUnknown solve\n");
@@ -1411,16 +1401,6 @@ namespace pargemslr
                   case kGemslrUSolve:
                   {
                      PARGEMSLR_PRINT("\tAdditive U solve\n");
-                     break;
-                  }
-                  case kGemslrMulSolve:
-                  {
-                     PARGEMSLR_PRINT("\tMultiplicative solve\n");
-                     break;
-                  }
-                  case kGemslrMmulSolve:
-                  {
-                     PARGEMSLR_PRINT("\tMultiplicative solve with modified ILU\n");
                      break;
                   }
                   default:
@@ -1612,19 +1592,6 @@ namespace pargemslr
                if(myid == 0)
                {
                   PARGEMSLR_WARNING("Single np, switch to GeMSLR with global reordering.");
-               }
-               break;
-            }
-            
-            if(this->_gemslr_setups._solve_option_setup == kGemslrMulSolve || 
-               this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve)
-            {
-               /* no multiplicative solve, goto GeMSLR with global reordering */
-               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
-               this->_gemslr_setups._global_partition_setup = true;
-               if(myid == 0)
-               {
-                  PARGEMSLR_WARNING("EsMSLR doens't support multiplicative solve, switch to GeMSLR.");
                }
                break;
             }
@@ -5717,16 +5684,7 @@ perm_gemslr_global:
          case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondGeMSLR:
          {
             /* standard GeMSLR solve */
-            if(this->_gemslr_setups._solve_option_setup == kGemslrMulSolve || 
-               this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve )
-            {
-               /* multiplicative solve */
-               this->SolveLevelGemslrMul( x, temp_rhs, 0, true);
-            }
-            else
-            {
-               this->SolveLevelGemslr( x, temp_rhs, 0, true);
-            }
+            this->SolveLevelGemslr( x, temp_rhs, 0, true);
             break;
          }
          case kGemslrGlobalPrecondESMSLR:
@@ -6113,352 +6071,6 @@ perm_gemslr_global:
    template int precond_gemslr_csr_par_double::SolveLevelGemslr( ParallelVectorClass<double> &x_out, ParallelVectorClass<double> &rhs_in, int level, bool doperm);
    template int precond_gemslr_csr_par_complexs::SolveLevelGemslr( ParallelVectorClass<complexs> &x_out, ParallelVectorClass<complexs> &rhs_in, int level, bool doperm);
    template int precond_gemslr_csr_par_complexd::SolveLevelGemslr( ParallelVectorClass<complexd> &x_out, ParallelVectorClass<complexd> &rhs_in, int level, bool doperm);
-   
-   template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SolveLevelGemslrMul( VectorType &x_out, VectorType &rhs_in, int level, bool doperm)
-   {
-      
-      /* Buffer used: 
-       * 1. _rhs_temp and _sol_temp if permutation enabled.
-       * 2. 1, 2 used when solving last level.
-       * 3. 1, 2 used when solving other levels, 3 and 4 used in inner iteration.
-       */
-      
-      /* define the data type */
-      typedef DataType T;
-
-#ifdef PARGEMSLR_TIMING
-      int np, myid;
-      MPI_Comm comm;
-      this->_matrix->GetMpiInfo(np, myid, comm);
-#endif
-      
-      /* the solve phase of GeMSLR */
-      
-      PARGEMSLR_CHKERR(level < 0);
-      PARGEMSLR_CHKERR(level >= this->_nlev_used);
-      
-      int n_local;
-      int solve_option = this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve ? 1 : 0;
-      
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
-      
-      /* might need to apply permutation 
-       * This is always done on the top level
-       * and on lower levels if edge separator is used
-       */
-      bool apply_perm = level_str._comm_helper._is_ready && doperm;
-      if(apply_perm)
-      {
-         
-         /* note that we are solving the equation with Apq, we might need to apply the permutation 
-          * Ax = b => PAQQ'x = Pb, we are solving with Q'x
-          * 
-          * Note on the permutation:
-          * 
-          * swap row: left,  P(i, pperm[i]) = 1;
-          * swap col: right, Q(qperm[i], i) = 1;
-          * 
-          * Q(qperm[i], i) = 1 => left apply Q is equal to Q(i, rqperm[i])
-          *                    => Q' has Q'(i, qperm[i]) = 1;
-          * 
-          */
-         level_str._comm_helper.DataTransfer(rhs_in, level_str._rhs_temp, this->_location, this->_location);
-         level_str._sol_temp.Fill(0.0);
-      }
-      
-      VectorType &x = apply_perm? level_str._sol_temp : x_out;
-      VectorType &rhs = apply_perm? level_str._rhs_temp : rhs_in;
-      
-      if(level == this->_nlev_used - 1)
-      {
-         /* in this case we apply solve on the last level, a B solve */
-         if(this->_gemslr_setups._level_setups._B_poly_order > 0 &&
-         (this->_gemslr_setups._level_setups._C_solve_option == kGemslrCSolveBJILUT ||
-         this->_gemslr_setups._level_setups._C_solve_option == kGemslrCSolveBJILUK))
-         {
-            /* solve for multiple times */
-            int i;
-            T one, zero, mone;
-            
-            one = 1.0;
-            zero = 0.0;
-            mone = -1.0;
-            
-            x.Fill(zero);
-            
-            VectorType y, z;
-            y.SetupPtrStr(x);
-            y.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 1, this->_location);
-            z.SetupPtrStr(x);
-            z.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 2, this->_location);
-
-#ifdef PARGEMSLR_DEBUG
-            PARGEMSLR_CHKERR(level_str._work_vector_occupied[1]);
-            PARGEMSLR_CHKERR(level_str._work_vector_occupied[2]);
-            level_str._work_vector_occupied[1] = 1;
-            level_str._work_vector_occupied[2] = 1;
-#endif
-
-            y.Fill(zero);
-            z.Fill(zero);
-            
-            /* [\sum(C\E)]/C = /C + C\E/C + C\E*(C\E/C) + ... 
-             * for MUL the E is -C_offd+2EB^{−1}F-EB^{−1}BB^{−1}F
-             */
-            if(level_str._lrc > 0)
-            {
-               /* apply the low-rank update */
-               y.Axpy(one, rhs);
-#ifdef PARGEMSLR_TIMING
-               if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
-               {
-                  PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELR, (this->SolveApplyLowRankLevel( level_str._xlr_temp, rhs, level)));
-               }
-               else
-               {
-                  PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->SolveApplyLowRankLevel( level_str._xlr_temp, rhs, level)));
-               }
-#else
-               this->SolveApplyLowRankLevel( level_str._xlr_temp, rhs, level);
-#endif
-               y.Axpy( one, level_str._xlr_temp);
-               this->SolveB(z, y, 0, level);
-            } 
-            else
-            {
-               this->SolveB(z, rhs, 0, level);
-            }
-            
-            x.Axpy(one, z);
-            
-            if(level == 0)
-            {
-               /* only one level, we need A^{-1} */
-               for(i = 0 ; i < this->_gemslr_setups._level_setups._B_poly_order ; i ++)
-               {
-                  level_str._C_mat.MatVecOffd( 'N', mone, z, zero, y);
-                  this->SolveB( z, y, 0, level);
-                  x.Axpy(one, z);
-               }
-            }
-            else
-            {
-               for(i = 0 ; i < this->_gemslr_setups._level_setups._B_poly_order ; i ++)
-               {
-                  /* -C_offd + EB^{-1}F */
-                  if(apply_perm)
-                  {
-                     /* in this case, we need to apply the permutation */
-                     level_str._comm_helper.DataTransferReverse(z, level_str._rhs3_temp, this->_location, this->_location);
-                     level_str._sol3_temp.Fill(0.0);
-                     this->SchurMatVec(level-1, 1, 'N', one, level_str._rhs3_temp, zero, level_str._sol3_temp);
-                     level_str._comm_helper.DataTransfer(level_str._sol3_temp, y, this->_location, this->_location);
-                  }
-                  else
-                  {
-                     this->SchurMatVec(level-1, 1, 'N', one, z, zero, y);
-                  }
-                  
-                  this->SolveB(z, y, 0, level);
-                  x.Axpy(one, z);
-               }
-            }
-            
-            y.Clear();
-            z.Clear();
-            
-#ifdef PARGEMSLR_DEBUG
-            level_str._work_vector_occupied[1] = 0;
-            level_str._work_vector_occupied[2] = 0;
-#endif
-
-         }
-         else
-         {
-#ifdef PARGEMSLR_TIMING
-            if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
-            {
-               PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU_L, this->SolveB(x, rhs, 0, level));
-            }
-            else
-            {
-               PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT_L, this->SolveB(x, rhs, 0, level));
-            }
-#else
-            this->SolveB(x, rhs, 0, level);
-#endif
-         }
-         
-         /* might need to apply permutation 
-          * This is always done on the top level
-          * and on lower levels if edge separator is used
-          */
-         if(apply_perm)
-         {
-            level_str._comm_helper.DataTransferReverse(level_str._sol_temp, x_out, this->_location, this->_location);
-         }
-         
-         return PARGEMSLR_SUCCESS;
-         
-      }
-      
-      n_local = level_str._F_mat.GetNumRowsLocal();
-      
-      T one, zero, mone;
-      
-      one = 1.0;
-      zero = 0.0;
-      mone = -1.0;
-      
-      VectorType y, z, rhsu, rhsl, xu, xl, yu, yl, zu, zl;
-      
-      y.SetupPtrStr(x);
-      y.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 1, this->_location);
-      z.SetupPtrStr(x);
-      z.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 2, this->_location);
-
-#ifdef PARGEMSLR_DEBUG
-      PARGEMSLR_CHKERR(level_str._work_vector_occupied[1]);
-      PARGEMSLR_CHKERR(level_str._work_vector_occupied[2]);
-      level_str._work_vector_occupied[1] = 1;
-      level_str._work_vector_occupied[2] = 1;
-#endif
-
-      y.Fill(zero);
-      z.Fill(zero);
-      rhsu.SetupPtrStr(level_str._F_mat);
-      rhsu.UpdatePtr(rhs.GetData(), this->_location);
-      rhsl.SetupPtrStr(level_str._E_mat);
-      rhsl.UpdatePtr(rhs.GetData()+n_local, this->_location);
-      xu.SetupPtrStr(level_str._F_mat);
-      xu.UpdatePtr(x.GetData(), this->_location);
-      xl.SetupPtrStr(level_str._E_mat);
-      xl.UpdatePtr(x.GetData()+n_local, this->_location);
-      zu.SetupPtrStr(level_str._F_mat);
-      zu.UpdatePtr(z.GetData(), this->_location);
-      zl.SetupPtrStr(level_str._E_mat);
-      zl.UpdatePtr(z.GetData()+n_local, this->_location);
-      yu.SetupPtrStr(level_str._F_mat);
-      yu.UpdatePtr(y.GetData(), this->_location);
-      yl.SetupPtrStr(level_str._E_mat);
-      yl.UpdatePtr(y.GetData()+n_local, this->_location);
-      
-      /* The multiplicative solve
-       * 1. x1 = M^{-1}b, the smoothing
-       * 2. r1 = b - Ax1
-       * 3. r = [-EB^{-1},I]r1
-       * 4. v = S^{-1}r
-       * 5. x = x1 + [-B^{-1}F;I]v
-       */
-      
-#ifdef PARGEMSLR_TIMING
-      /* Step 1：
-       * smoothing: x1 = M^{-1}b
-       * 
-       */
-      if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
-      {
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(xu, rhsu, 0, level)));
-      }
-      else
-      {
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT, (this->SolveB(xu, rhsu, 0, level)));
-      }
-#else
-      this->SolveB(xu, rhsu, 0, level);
-#endif
-      
-      /* Step 2: z = b - Ax 
-       *   |b_u| | B F | |x_u|   |b_u| |Bx_u|
-       * = |b_l|-| E C | | 0 | = |b_l|-|Ex_u|
-       */
-      zu.Fill(zero);
-      zu.Axpy(one, rhsu);
-      this->BMatVec( level, 0, 'N', mone, xu, one, zu);
-      
-      level_str._E_mat.MatVec( 'N', mone, xu, one, rhsl, zl); 
-      
-      /* Step 3: z_l = R*x = z_l - (EB^{-1})z_u 
-       * y_u is used as the temp buffer
-       */
-      //yu.Fill(zero);
-      this->SolveB(yu, zu, solve_option, level);
-      
-      level_str._E_mat.MatVec( 'N', mone, yu, one, zl);
-      
-      /* Step 4: apply the low-rank correction 
-       * z_l = C\z_l + W*H*W' * z_l
-       * or solve with inner FGMRES
-       */
-      if( this->_gemslr_setups._enable_inner_iters_setup && this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSolve && level == 0)
-      {
-         /* solve with 0 as initial guess
-          * buffer 3 and 4 are used.
-          */
-         xl.Fill(zero);
-         this->_inner_iters_solver.Solve(xl, zl);
-      }
-      else
-      {
-         if( level_str._lrc > 0)
-         {
-            /* apply the low-rank update */
-#ifdef PARGEMSLR_TIMING
-            if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
-            {
-               PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELR, (this->SolveApplyLowRankLevel( level_str._xlr_temp, zl, level)));
-            }
-            else
-            {
-               PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->SolveApplyLowRankLevel( level_str._xlr_temp, zl, level)));
-            }
-#else
-            this->SolveApplyLowRankLevel( level_str._xlr_temp, zl, level);
-#endif
-            zl.Axpy( one, level_str._xlr_temp);
-         }
-         this->SolveLevelGemslrMul( xl, zl, level+1, true);
-      }
-      
-      /* Step 5: 5. x = x + [-B^{-1}F;I]xl
-       * note that we know the original z has the lower part equals to 0, we can directly put zl into xl
-       */
-      level_str._F_mat.MatVec( 'N', mone, xl, zero, yu);
-      this->SolveB(zu, yu, solve_option, level);
-      
-      xu.Axpy(one, zu);
-      
-      /* might need to apply permutation 
-       * This is always done on the top level
-       * and on lower levels if edge separator is used
-       */
-      if(apply_perm)
-      {
-         level_str._comm_helper.DataTransferReverse(level_str._sol_temp, x_out, this->_location, this->_location);
-      }
-      
-      y.Clear();
-      z.Clear();
-      
-#ifdef PARGEMSLR_DEBUG
-      level_str._work_vector_occupied[1] = 0;
-      level_str._work_vector_occupied[2] = 0;
-#endif
-
-      rhsu.Clear();
-      rhsl.Clear();
-      xu.Clear();
-      xl.Clear();
-      zu.Clear();
-      zl.Clear();
-      
-      return PARGEMSLR_SUCCESS;
-   }
-   template int precond_gemslr_csr_par_float::SolveLevelGemslrMul( ParallelVectorClass<float> &x_out, ParallelVectorClass<float> &rhs_in, int level, bool doperm);
-   template int precond_gemslr_csr_par_double::SolveLevelGemslrMul( ParallelVectorClass<double> &x_out, ParallelVectorClass<double> &rhs_in, int level, bool doperm);
-   template int precond_gemslr_csr_par_complexs::SolveLevelGemslrMul( ParallelVectorClass<complexs> &x_out, ParallelVectorClass<complexs> &rhs_in, int level, bool doperm);
-   template int precond_gemslr_csr_par_complexd::SolveLevelGemslrMul( ParallelVectorClass<complexd> &x_out, ParallelVectorClass<complexd> &rhs_in, int level, bool doperm);
    
    template <class MatrixType, class VectorType, typename DataType>
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::SolveLevelEsmslr( VectorType &x_out, VectorType &rhs_in, int level, bool doperm)
@@ -7224,12 +6836,6 @@ perm_gemslr_global:
        * 1 and 2
        */
       
-      if(this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve || 
-         this->_gemslr_setups._solve_option_setup == kGemslrMulSolve)
-      {
-         return this->RAPEBFCMatVec(level, trans, alpha, x, beta, y);
-      }
-      
 #ifdef PARGEMSLR_TIMING
       int np, myid;
       MPI_Comm comm;
@@ -7314,129 +6920,6 @@ perm_gemslr_global:
    template int precond_gemslr_csr_par_double::EBFCMatVec( int level, char trans, const double &alpha, ParallelVectorClass<double> &x, const double &beta, ParallelVectorClass<double> &y);
    template int precond_gemslr_csr_par_complexs::EBFCMatVec( int level, char trans, const complexs &alpha, ParallelVectorClass<complexs> &x, const complexs &beta, ParallelVectorClass<complexs> &y);
    template int precond_gemslr_csr_par_complexd::EBFCMatVec( int level, char trans, const complexd &alpha, ParallelVectorClass<complexd> &x, const complexd &beta, ParallelVectorClass<complexd> &y);
-   
-   template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::RAPEBFCMatVec( int level, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y)
-   {
-      
-      /* Buffer used:
-       * 1 and 2
-       * 
-       * We are actually computing (2EB^{-1}F - EB^{-1}BB^{-1}F)C^{-1}x
-       */
-      
-#ifdef PARGEMSLR_TIMING
-      int np, myid;
-      MPI_Comm comm;
-      this->_matrix->GetMpiInfo(np, myid, comm);
-#endif
-      
-      /* define the data type */
-      typedef DataType T;
-      
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
-      
-      int solve_option = this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve? 1 : 0;
-      
-      T two, one, zero, mone;
-      
-      two = 2.0;
-      one = 1.0;
-      zero = 0.0;
-      mone = -1.0;
-      
-      VectorType zu, zl, yu;
-      
-      VectorType y_temp, z_temp;
-      y_temp.SetupPtrStr(x);
-      y_temp.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 1, this->_location);
-      z_temp.SetupPtrStr(x);
-      z_temp.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 2, this->_location);
-
-#ifdef PARGEMSLR_DEBUG
-      PARGEMSLR_CHKERR(level_str._work_vector_occupied[1]);
-      PARGEMSLR_CHKERR(level_str._work_vector_occupied[2]);
-      level_str._work_vector_occupied[1] = 1;
-      level_str._work_vector_occupied[2] = 1;
-#endif
-
-      y_temp.Fill(zero);
-      z_temp.Fill(zero);
-      
-      yu.SetupPtrStr(level_str._F_mat);
-      zu.SetupPtrStr(level_str._F_mat);
-      zl.SetupPtrStr(level_str._E_mat);
-      
-      yu.UpdatePtr( y_temp.GetData(), this->_location);
-      zu.UpdatePtr( z_temp.GetData(), this->_location);
-      zl.UpdatePtr( z_temp.GetData()+level_str._F_mat.GetNumRowsLocal(), this->_location);
-      
-      /* Solve with C with GeMSLR */
-      this->SolveLevelGemslrMul( zl, x, level+1, true);
-      
-      /* compute y = x - C_i * zl */
-      this->CMatVec( level, 0, 'N', mone, zl, zero, y);
-      y.Axpy(one, x);
-      
-      /* after that, we need 2EB^{-1}F - EB^{-1}BB^{-1}F */
-      
-#ifdef PARGEMSLR_TIMING
-      /* Matvec with F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
-      
-      /* Solve with B */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, solve_option, level)));
-      
-      /* y = 2EB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', two, yu, one, y)));
-      
-      /* zu = BB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_BMV, (this->BMatVec(level, 0, 'N', one, yu, zero, zu)));
-      
-      /* yu = B^{-1}BB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, solve_option, level)));
-      
-      /* y -= EB^{-1}BB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', mone, yu, one, y)));
-      
-#else
-      /* Matvec with F */
-      level_str._F_mat.MatVec( 'N', one, zl, zero, zu);
-      
-      /* Solve with B */
-      this->SolveB(yu, zu, solve_option, level);
-      
-      /* after this, we need (2E + EB^{-1}B)B^{-1}F */
-      
-      /* y = 2EB^{-1}F */
-      level_str._E_mat.MatVec( 'N', two, yu, one, y);
-      
-      /* zu = BB^{-1}F */
-      this->BMatVec(level, 0, 'N', one, yu, zero, zu);
-      
-      /* yu = B^{-1}BB^{-1}F */
-      this->SolveB(yu, zu, solve_option, level);
-      
-      /* y -= EB^{-1}BB^{-1}F */
-      level_str._E_mat.MatVec( 'N', mone, yu, one, y);
-      
-#endif
-      
-      y_temp.Clear();
-      z_temp.Clear();
-
-#ifdef PARGEMSLR_DEBUG
-      level_str._work_vector_occupied[1] = 0;
-      level_str._work_vector_occupied[2] = 0;
-#endif
-
-      return PARGEMSLR_SUCCESS;
-   
-   }
-   template int precond_gemslr_csr_par_float::RAPEBFCMatVec( int level, char trans, const float &alpha, ParallelVectorClass<float> &x, const float &beta, ParallelVectorClass<float> &y);
-   template int precond_gemslr_csr_par_double::RAPEBFCMatVec( int level, char trans, const double &alpha, ParallelVectorClass<double> &x, const double &beta, ParallelVectorClass<double> &y);
-   template int precond_gemslr_csr_par_complexs::RAPEBFCMatVec( int level, char trans, const complexs &alpha, ParallelVectorClass<complexs> &x, const complexs &beta, ParallelVectorClass<complexs> &y);
-   template int precond_gemslr_csr_par_complexd::RAPEBFCMatVec( int level, char trans, const complexd &alpha, ParallelVectorClass<complexd> &x, const complexd &beta, ParallelVectorClass<complexd> &y);
    
    template <class MatrixType, class VectorType, typename DataType>
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::SCMatVec( int level, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y)
@@ -7534,16 +7017,7 @@ perm_gemslr_global:
          case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondGeMSLR:
          {
             /* standard GeMSLR solve */
-            if(this->_gemslr_setups._solve_option_setup == kGemslrMulSolve || 
-               this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve )
-            {
-               /* multiplicative solve */
-               this->SolveLevelGemslrMul( y_temp, x, 0, true);
-            }
-            else
-            {
-               this->SolveLevelGemslr( y_temp, x, 0, true);
-            }
+            this->SolveLevelGemslr( y_temp, x, 0, true);
             break;
          }
          case kGemslrGlobalPrecondESMSLR:
@@ -7708,12 +7182,6 @@ perm_gemslr_global:
        * For the RAP: 3 and 4, sol2 and rhs2 on the next level.
        */
       
-      if(this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve || 
-         this->_gemslr_setups._solve_option_setup == kGemslrMulSolve)
-      {
-         return this->RAPMatVec(level, option, trans, alpha, x, beta, y);
-      }
-      
       /* define the data type */
       typedef DataType T;
       
@@ -7812,113 +7280,6 @@ perm_gemslr_global:
    template int precond_gemslr_csr_par_double::SchurMatVec( int level, int option, char trans, const double &alpha, ParallelVectorClass<double> &x, const double &beta, ParallelVectorClass<double> &y);
    template int precond_gemslr_csr_par_complexs::SchurMatVec( int level, int option, char trans, const complexs &alpha, ParallelVectorClass<complexs> &x, const complexs &beta, ParallelVectorClass<complexs> &y);
    template int precond_gemslr_csr_par_complexd::SchurMatVec( int level, int option, char trans, const complexd &alpha, ParallelVectorClass<complexd> &x, const complexd &beta, ParallelVectorClass<complexd> &y);
-   
-   template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::RAPMatVec( int level, int option, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y)
-   {
-      /* Buffer used:
-       * 3 and 4
-       */
-      
-      int solve_option = this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve? 1 : 0;
-      
-      /* define the data type */
-      typedef DataType T;
-      
-      /* y = alpha*S*x + beta*y 
-       * S = RAP = [-EB^{-1},I]|B F||-B^{-1}F|
-       *                       |E C||   I    |
-       */
-      
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
-      
-      int n_local;
-      T one, zero, malpha, mone;
-      
-#ifdef PARGEMSLR_TIMING
-      int np, myid;
-      MPI_Comm comm;
-      this->_matrix->GetMpiInfo(np, myid, comm);
-#endif
-
-      one = T(1.0);
-      mone = -one;
-      zero = T();
-      malpha = -alpha;
-      
-      n_local = level_str._F_mat.GetNumRowsLocal();
-      
-      VectorType v, w, vu, vl, wl, wu, xiu, xil, wiu, wil;
-      
-      v.SetupPtrStr(level_str._x_temp);
-      w.SetupPtrStr(level_str._x_temp);
-      
-      v.UpdatePtr(level_str._work_vector.GetData() + level_str._work_vector_unit_length * 3, this->_location);
-      w.UpdatePtr(level_str._work_vector.GetData() + level_str._work_vector_unit_length * 4, this->_location);
-
-#ifdef PARGEMSLR_DEBUG
-      PARGEMSLR_CHKERR(level_str._work_vector_occupied[3]);
-      PARGEMSLR_CHKERR(level_str._work_vector_occupied[4]);
-      level_str._work_vector_occupied[3] = 1;
-      level_str._work_vector_occupied[4] = 1;
-#endif
-
-      vu.SetupPtrStr(level_str._F_mat);
-      wu.SetupPtrStr(level_str._F_mat);
-      vl.SetupPtrStr(level_str._E_mat);
-      wl.SetupPtrStr(level_str._E_mat);
-      
-      vu.UpdatePtr(v.GetData(), this->_location);
-      wu.UpdatePtr(w.GetData(), this->_location);
-      vl.UpdatePtr(v.GetData()+n_local, this->_location);
-      wl.UpdatePtr(w.GetData()+n_local, this->_location);
-      
-      /* First compute v = Px = | -B^{-1}F| x
-       *                        |    I    |
-       */
-      
-      vl.Fill(zero);
-      vl.Axpy(one, x);
-      
-      level_str._F_mat.MatVec( 'N', mone, x, zero, wu);
-      this->SolveB(vu, wu, solve_option, level);
-      
-      /* APx = 
-       * |B F| |v_u|
-       * |E C| |v_l|
-       */
-      this->BMatVec(level, 0, 'N', one, vu, zero, wu);
-      level_str._F_mat.MatVec( 'N', one, vl, one, wu);
-      
-      /* standard C matvec */
-      level_str._E_mat.MatVec( 'N', one, vu, zero, wl);
-      this->CMatVec( level, option, 'N', one, vl, one, wl);
-      
-      /* RAPx = [-EB^{-1},I] |w_u|
-       *                     |w_l|
-       * 
-       * we need alpha*RAPx + beta * y
-       */
-      
-      this->SolveB(vu, wu, solve_option, level);
-      level_str._E_mat.MatVec( 'N', malpha, vu, beta, y);
-      y.Axpy(alpha, wl);
-      
-      v.Clear();
-      w.Clear();
-      
-#ifdef PARGEMSLR_DEBUG
-      level_str._work_vector_occupied[3] = 0;
-      level_str._work_vector_occupied[4] = 0;
-#endif
-
-      return PARGEMSLR_SUCCESS;
-   
-   }
-   template int precond_gemslr_csr_par_float::RAPMatVec( int level, int option, char trans, const float &alpha, ParallelVectorClass<float> &x, const float &beta, ParallelVectorClass<float> &y);
-   template int precond_gemslr_csr_par_double::RAPMatVec( int level, int option, char trans, const double &alpha, ParallelVectorClass<double> &x, const double &beta, ParallelVectorClass<double> &y);
-   template int precond_gemslr_csr_par_complexs::RAPMatVec( int level, int option, char trans, const complexs &alpha, ParallelVectorClass<complexs> &x, const complexs &beta, ParallelVectorClass<complexs> &y);
-   template int precond_gemslr_csr_par_complexd::RAPMatVec( int level, int option, char trans, const complexd &alpha, ParallelVectorClass<complexd> &x, const complexd &beta, ParallelVectorClass<complexd> &y);
    
    template <class MatrixType, class VectorType, typename DataType>
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::CMatVec( int level, int option, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y)

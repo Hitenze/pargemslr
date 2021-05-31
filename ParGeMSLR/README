@@ -53,14 +53,12 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
  * TESTS
    - driver_laplacian_gemslr_seq.cpp   : driver for parallel real GeMSLR laplacian tests.
    - driver_laplacian_gemslr_par.cpp   : driver for parallel real GeMSLR laplacian tests.
-   - driver_laplacian_gemslrmix_par.cpp: driver for parallel real GeMSLR laplacian tests.
    - driver_laplacian_gemslrz_seq.cpp  : driver for parallel complex GeMSLR laplacian tests.
    - driver_laplacian_gemslrz_par.cpp  : driver for parallel complex GeMSLR laplacian tests.
    - driver_gen_gemslr_seq.cpp         : driver for parallel real GeMSLR general matrix tests.
    - driver_gen_gemslr_par.cpp         : driver for parallel real GeMSLR general matrix tests.
    - driver_gen_gemslrz_seq.cpp        : driver for parallel complex GeMSLR general matrix tests.
    - driver_gen_gemslrz_par.cpp        : driver for parallel complex GeMSLR general matrix tests.
-   - driver_gen_gemslrzmix_par.cpp     : driver for parallel complex GeMSLR general matrix tests.
 
 
 **INSTALLATION**
@@ -75,12 +73,6 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
    3. For sequential tests, go to folder TESTS/parallel.
    3. Make those tests with make command.
 
- * hypre Interface
-   1. Make the libraray.
-   2. Set the HYPRE_PATH to the HYPRE's src folder in the makefile.in.
-   3. Go to folder TESTS/hypre.
-   4. Make the test with make command.
-   
 **SAMPLE RUNS**
 
  * Sequential version 
@@ -126,10 +118,3 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
       - Solve compplex Laplacian matrix with GeMSLR.
       - Read solver/preconditioner settings from file "inputs", write output to "out.log"
       - Load matrix from file "lapfile_complex".
-   
- * hypre interface
-   
-   - mpirun -np 2 ./ij -solver 83
-      - Solve general real matrix with GeMSLR.
-      - Read solver/preconditioner settings from file "inputs".
-      
