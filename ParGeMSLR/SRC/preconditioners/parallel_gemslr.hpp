@@ -1092,16 +1092,6 @@ namespace pargemslr
       int SetupBSolveILUK( VectorType &x, VectorType &rhs, int level);
       
       /**
-       * @brief   Setup the solve of B matrices of the GeMSLR with Poly.
-       * @details Setup the solve of B matrices of the GeMSLR with Poly.
-       * @param   [in]   x The initial guess.
-       * @param   [in]   rhs The right-hand-side.
-       * @param   [in]   level The target level.
-       * @return     Return error message.
-       */
-      int SetupBSolvePoly( VectorType &x, VectorType &rhs, int level);
-      
-      /**
        * @brief   Setup the solve of B matrices of the GeMSLR with GeMSLR.
        * @details Setup the solve of B matrices of the GeMSLR with GeMSLR.
        * @param   [in]   x The initial guess.
@@ -1210,6 +1200,17 @@ namespace pargemslr
        * @param   [in]     doperm Do we apply permutation on this level? (Some time the system is already permuted).
        * @return     Return error message.
        */
+      int         SolveLevelGemslrMul( VectorType &x_out, VectorType &rhs_in, int level, bool doperm);
+      
+      /**
+       * @brief   Solve starting from a certain level.
+       * @details Solve starting from a certain level.
+       * @param   [in,out] x_in The initial guess.
+       * @param   [in]     rhs_out The right-hand-side.
+       * @param   [in]     level The start level.
+       * @param   [in]     doperm Do we apply permutation on this level? (Some time the system is already permuted).
+       * @return     Return error message.
+       */
       int         SolveLevelEsmslr( VectorType &x_out, VectorType &rhs_in, int level, bool doperm);
       
       /**
@@ -1286,6 +1287,20 @@ namespace pargemslr
        */
       int EBFCMatVec( int level, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y);
       
+      
+      /**
+       * @brief   The matvec function y = G*x = (2EB^{-1}F + EB^{-1}BB^{-1}F)C^{-1}x. Note that alpha and beta are untouched.
+       * @details The matvec function y = G*x = (2EB^{-1}F + EB^{-1}BB^{-1}F)C^{-1}x. Note that alpha and beta are untouched.
+       * @param [in]       level The matvec level.
+       * @param [in]       trans Whether or not transpose matrix A.
+       * @param [in]       alpha The alpha value.
+       * @param [in]       x The left vector.
+       * @param [in]       beta The beta value.
+       * @param [in,out]   y The product vector.
+       * @return           Return error message.
+       */
+      int RAPEBFCMatVec( int level, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y);
+      
       /**
        * @brief   The matvec function y = G*x = C\S*x-x. Note that alpha and beta are untouched.
        * @details The matvec function y = G*x = C\S*x-x. Note that alpha and beta are untouched.
@@ -1336,6 +1351,20 @@ namespace pargemslr
        * @return           Return error message.
        */
       int SchurMatVec( int level, int option, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y);
+      
+      /**
+       * @brief   The matvec with the Schur Complement via RAP.
+       * @details The matvec with the Schur Complement via RAP.
+       * @param [in]       level The matvec level.
+       * @param [in]       option The matvec option. 0: use B_solve; 1: use B_precond.
+       * @param [in]       trans Whether or not transpose matrix A.
+       * @param [in]       alpha The alpha value.
+       * @param [in]       x The left vector.
+       * @param [in]       beta The beta value.
+       * @param [in,out]   y The product vector.
+       * @return           Return error message.
+       */
+      int RAPMatVec( int level, int option, char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y);
       
       /**
        * @brief   The matvec with the C on the current level.

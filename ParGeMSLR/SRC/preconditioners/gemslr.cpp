@@ -10,7 +10,6 @@
 #include "../matrices/csr_matrix.hpp"
 #include "../matrices/dense_matrix.hpp"
 #include "ilu.hpp"
-#include "poly.hpp"
 #include "gemslr.hpp"
 
 namespace pargemslr
@@ -781,22 +780,6 @@ namespace pargemslr
                
                break;
             }
-            case kSolverPoly:
-            {
-               /* ILU solve on the next level */
-               for(i = 0 ; i < this->_ncomps ; i ++)
-               {
-                  PARGEMSLR_PLACEMENT_NEW( this->_B_solver[i], kMemoryHost, PolyClass<MatrixType, VectorType, DataType>);
-                  
-                  PolyClass<MatrixType, VectorType, DataType> &poly1 = *(PolyClass<MatrixType, VectorType, DataType>*) str._B_solver[i];
-                  PolyClass<MatrixType, VectorType, DataType> &poly2 = *(PolyClass<MatrixType, VectorType, DataType>*) this->_B_solver[i];
-                  
-                  poly2 = poly1;
-                  
-               }
-               
-               break;
-            }
             case kSolverGemslr:
             {
                /* ILU solve on the next level */
@@ -875,22 +858,6 @@ namespace pargemslr
                   IluClass<MatrixType, VectorType, DataType> &ilu2 = *(IluClass<MatrixType, VectorType, DataType>*) this->_B_solver[i];
                   
                   ilu2 = ilu1;
-                  PARGEMSLR_FREE(str._B_solver[i], kMemoryHost);
-               }
-               
-               break;
-            }
-            case kSolverPoly:
-            {
-               /* ILU solve on the next level */
-               for(i = 0 ; i < this->_ncomps ; i ++)
-               {
-                  PARGEMSLR_PLACEMENT_NEW( this->_B_solver[i], kMemoryHost, PolyClass<MatrixType, VectorType, DataType>);
-                  
-                  PolyClass<MatrixType, VectorType, DataType> &poly1 = *(PolyClass<MatrixType, VectorType, DataType>*) str._B_solver[i];
-                  PolyClass<MatrixType, VectorType, DataType> &poly2 = *(PolyClass<MatrixType, VectorType, DataType>*) this->_B_solver[i];
-                  
-                  poly2 = poly1;
                   PARGEMSLR_FREE(str._B_solver[i], kMemoryHost);
                }
                
@@ -983,22 +950,6 @@ namespace pargemslr
                
                break;
             }
-            case kSolverPoly:
-            {
-               /* ILU solve on the next level */
-               for(i = 0 ; i < this->_ncomps ; i ++)
-               {
-                  PARGEMSLR_PLACEMENT_NEW( this->_B_solver[i], kMemoryHost, PolyClass<MatrixType, VectorType, DataType>);
-                  
-                  PolyClass<MatrixType, VectorType, DataType> &poly1 = *(PolyClass<MatrixType, VectorType, DataType>*) str._B_solver[i];
-                  PolyClass<MatrixType, VectorType, DataType> &poly2 = *(PolyClass<MatrixType, VectorType, DataType>*) this->_B_solver[i];
-                  
-                  poly2 = poly1;
-                  
-               }
-               
-               break;
-            }
             case kSolverGemslr:
             {
                /* ILU solve on the next level */
@@ -1080,22 +1031,6 @@ namespace pargemslr
                   IluClass<MatrixType, VectorType, DataType> &ilu2 = *(IluClass<MatrixType, VectorType, DataType>*) this->_B_solver[i];
                   
                   ilu2 = ilu1;
-                  PARGEMSLR_FREE(str._B_solver[i], kMemoryHost);
-               }
-               
-               break;
-            }
-            case kSolverPoly:
-            {
-               /* ILU solve on the next level */
-               for(i = 0 ; i < this->_ncomps ; i ++)
-               {
-                  PARGEMSLR_PLACEMENT_NEW( this->_B_solver[i], kMemoryHost, PolyClass<MatrixType, VectorType, DataType>);
-                  
-                  PolyClass<MatrixType, VectorType, DataType> &poly1 = *(PolyClass<MatrixType, VectorType, DataType>*) str._B_solver[i];
-                  PolyClass<MatrixType, VectorType, DataType> &poly2 = *(PolyClass<MatrixType, VectorType, DataType>*) this->_B_solver[i];
-                  
-                  poly2 = poly1;
                   PARGEMSLR_FREE(str._B_solver[i], kMemoryHost);
                }
                
@@ -2348,11 +2283,6 @@ namespace pargemslr
                this->SetupBSolveILUK( x, rhs, level);
                break;
             }
-            case kGemslrBSolvePoly:
-            {
-               this->SetupBSolvePoly( x, rhs, level);
-               break;
-            }
             case kGemslrBSolveGemslr:
             {
                this->SetupBSolveGemslr( x, rhs, level);
@@ -2567,55 +2497,6 @@ namespace pargemslr
    template int precond_gemslr_csr_seq_double::SetupBSolveGemslr( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int level);
    template int precond_gemslr_csr_seq_complexs::SetupBSolveGemslr( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int level);
    template int precond_gemslr_csr_seq_complexd::SetupBSolveGemslr( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int level);
-   
-   template <class MatrixType, class VectorType, typename DataType>
-   int GemslrClass<MatrixType, VectorType, DataType>::SetupBSolvePoly( VectorType &x, VectorType &rhs, int level)
-   {
-      /* B solver/preconditioner setup with ILU */
-      int         i, ncomp;
-      /* not going to need those in the setup */
-      VectorType  dummyx, dummyrhs;
-      
-      GemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
-      
-      ncomp = level_str._ncomps;
-      
-      /* start building the ILU on this level */
-      PARGEMSLR_MALLOC( level_str._B_solver, ncomp, kMemoryHost, SolverClass<MatrixType, VectorType, DataType>*);
-
-#ifdef PARGEMSLR_OPENMP
-#pragma omp parallel for private(i) PARGEMSLR_OPENMP_SCHEDULE_DEFAULT
-#endif
-      for(i = 0 ; i < ncomp ; i ++)
-      {
-         /* build ILU solver */
-         PARGEMSLR_PLACEMENT_NEW( level_str._B_solver[i], kMemoryHost, PolyClass<MatrixType, VectorType, DataType>);
-         PolyClass<MatrixType, VectorType, DataType> *polyp = (PolyClass<MatrixType, VectorType, DataType>*) level_str._B_solver[i];
-         
-         /* assign matrix */
-         polyp->SetMatrix(level_str._B_mat_v[i]);
-         
-         /* options */
-         polyp->SetOrder(this->_gemslr_setups._level_setups._B_poly_order);
-         
-         /* setup the solver */
-         polyp->Setup(dummyx, dummyrhs);
-         
-         /* TODO: currently the setup phase is host only, we first setup and move the preconditioner later */
-         polyp->SetSolveLocation(this->_location);
-         level_str._B_mat_v[i].MoveData(this->_location);
-      }
-      
-      level_str._E_mat.MoveData(this->_location);
-      level_str._F_mat.MoveData(this->_location);
-      
-      return PARGEMSLR_SUCCESS;
-      
-   }
-   template int precond_gemslr_csr_seq_float::SetupBSolvePoly( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int level);
-   template int precond_gemslr_csr_seq_double::SetupBSolvePoly( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexs::SetupBSolvePoly( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexd::SetupBSolvePoly( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int level);
    
    template <class MatrixType, class VectorType, typename DataType>
    int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRank( VectorType &x, VectorType &rhs)

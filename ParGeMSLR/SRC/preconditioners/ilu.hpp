@@ -12,7 +12,6 @@
 #include "../vectors/sequential_vector.hpp"
 #include "../matrices/csr_matrix.hpp"
 #include "../solvers/solver.hpp"
-#include "poly.hpp"
 
 /* IMPORTANT NOTE:
  * this file contains some functions from the package HYPRE 

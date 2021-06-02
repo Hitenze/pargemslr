@@ -26,7 +26,6 @@ EXTRASRC = ./SRC/utils/utils.o\
 	./SRC/matrices/matrixops.o\
 	./SRC/preconditioners/ilu.o\
 	./SRC/preconditioners/gemslr.o\
-	./SRC/preconditioners/poly.o\
 	./SRC/preconditioners/block_jacobi.o\
 	./SRC/preconditioners/parallel_gemslr.o
 

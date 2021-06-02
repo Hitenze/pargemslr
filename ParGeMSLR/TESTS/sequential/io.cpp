@@ -368,10 +368,6 @@ int read_inputs_from_file(const char *filename, double *params)
             {
                params[PARGEMSLR_IO_PRECOND_LOCAL_REPCOND1] = kGemslrBSolveGemslr;
             }
-            else if(!strcmp(word, "POLY"))
-            {
-               params[PARGEMSLR_IO_PRECOND_LOCAL_REPCOND1] = kGemslrBSolvePoly;
-            }
             else
             {
                PARGEMSLR_PRINT("Error in inputs format at line %d.\n", linenum);
@@ -400,10 +396,6 @@ int read_inputs_from_file(const char *filename, double *params)
             else if(!strcmp(word, "GEMSLR"))
             {
                params[PARGEMSLR_IO_PRECOND_LOCAL_REPCOND2] = kGemslrBSolveGemslr;
-            }
-            else if(!strcmp(word, "POLY"))
-            {
-               params[PARGEMSLR_IO_PRECOND_LOCAL_REPCOND2] = kGemslrBSolvePoly;
             }
             else
             {

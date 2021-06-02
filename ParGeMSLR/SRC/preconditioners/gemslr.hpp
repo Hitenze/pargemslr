@@ -63,8 +63,7 @@ namespace pargemslr
    {
       kGemslrBSolveILUT,
       kGemslrBSolveILUK,
-      kGemslrBSolveGemslr,
-      kGemslrBSolvePoly
+      kGemslrBSolveGemslr
    };
    
    /**
@@ -1702,16 +1701,6 @@ namespace pargemslr
        * @return     Return error message.
        */
       int SetupBSolveGemslr( VectorType &x, VectorType &rhs, int level);
-      
-      /**
-       * @brief   Setup the solve of B matrices of the GeMSLR with Poly.
-       * @details Setup the solve of B matrices of the GeMSLR with Poly.
-       * @param   [in]   x The initial guess.
-       * @param   [in]   rhs The right-hand-side.
-       * @param   [in]   level The target level.
-       * @return     Return error message.
-       */
-      int SetupBSolvePoly( VectorType &x, VectorType &rhs, int level);
       
       /* ------ Construct Low-rank correction ------ */
       

@@ -766,6 +766,10 @@ int read_inputs_from_file(const char *filename, double *params)
             {
                params[PARGEMSLR_IO_ADVANCED_GLOBAL_SOLVE] = kGemslrLUSolve;
             }
+            else if(!strcmp(word, "MUL"))
+            {
+               params[PARGEMSLR_IO_ADVANCED_GLOBAL_SOLVE] = kGemslrMulSolve;
+            }
             else if(!strcmp(word, "U"))
             {
                params[PARGEMSLR_IO_ADVANCED_GLOBAL_SOLVE] = kGemslrUSolve;

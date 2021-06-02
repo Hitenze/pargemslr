@@ -27,7 +27,6 @@ namespace pargemslr
       kSolverUndefined = -1,
       kSolverFgmres,
       kSolverIlu,
-      kSolverPoly,
       kSolverBJ,
       kSolverFloat,
       kSolverGemslr,
