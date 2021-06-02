@@ -48,7 +48,6 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
    - preconditioners                   : Preconditioenrs.
       - ilu.hpp                        : Incomplete LU factorization preconditioners.
       - gemslr.hpp                     : Sequential GeMSLR preconditioner.
-      - poly.hpp                       : Polynomial preconditioners.
       - block_jacobi.hpp               : Block Jacobi preconditioners.
       - parallel_gemslr.hpp            : Parallel GeMSLR preconditioenr.
 
@@ -72,7 +71,7 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
  * Tests
    1. Make the library.
    2. For sequential tests, go to folder TESTS/sequential.
-   3. For sequential tests, go to folder TESTS/parallel.
+   3. For parallel tests, go to folder TESTS/parallel.
    3. Make those tests with make command.
 
 **SAMPLE RUNS**

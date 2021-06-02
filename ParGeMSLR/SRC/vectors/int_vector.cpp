@@ -276,7 +276,7 @@ namespace pargemslr
       /* base class clear */
       VectorVirtualClass<T>::Clear();
       
-      if( this->_hold_data && this->_length > 0)
+      if( this->_hold_data && this->_maxlength > 0)
       {
          PARGEMSLR_FREE( this->_data, this->_location);
       }

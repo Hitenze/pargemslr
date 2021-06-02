@@ -366,6 +366,7 @@ namespace pargemslr
       this->_poly_order = 3;
       this->_row_perm_vec.Clear();
       this->_col_perm_vec.Clear();
+      this->_x_temp.Clear();
       
       return PARGEMSLR_SUCCESS;
       
