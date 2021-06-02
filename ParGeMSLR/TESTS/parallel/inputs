@@ -1,5 +1,5 @@
  GEMSLR                     1. global_precond          = PRECOND: global preconditioenr option. (BJ, ESCHUR, GEMSLR).
- 2                          2. use_global_partition    = PREPROCESSING: Use global parition on the top level? (GEMSLR only, 1: yes, 0: no).
+ 1                          2. use_global_partition    = PREPROCESSING: Use global parition on the top level? (GEMSLR only, 1: yes, 0: no).
  ILUT                       3. B_precond_top           = PRECOND: local preconditioner option for the top several levels (ILUT, ILUK, GEMSLR).
  1                          4. B_precond_top_levels    = PRECOND: number of levels we apply the first preconditioner.
  ILUT                       5. B_precond_lower         = PRECOND: local preconditioner option for other levels (ILUT, ILUK, GEMSLR).
