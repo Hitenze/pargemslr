@@ -1132,8 +1132,6 @@ namespace pargemslr
       this->_nlev_used                          = 0;
       this->_location                           = kMemoryHost;
       this->_global_precond_option              = kGemslrGlobalPrecondGeMSLR;
-      
-      this->_lev_A.resize(1);
    }
    template precond_gemslr_csr_par_float::ParallelGemslrClass();
    template precond_gemslr_csr_par_double::ParallelGemslrClass();
@@ -1160,8 +1158,11 @@ namespace pargemslr
          this->_levs_v[i] = precond._levs_v[i];
          this->_dom_ptr_v2[i] = precond._dom_ptr_v2[i];
       }
-      this->_lev_A.resize(1);
-      this->_lev_A[0] = precond._lev_A[0];
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = precond._lev_A[0];
+      }
       
       this->_global_precond_option = precond._global_precond_option;
       
@@ -1197,10 +1198,12 @@ namespace pargemslr
       }
       std::vector<IntVectorClass<int> >().swap(precond._dom_ptr_v2); 
       std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._levs_v); 
-      
-      this->_lev_A.resize(1);
-      this->_lev_A[0] = std::move(precond._lev_A[0]);
-      std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._lev_A); 
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = std::move(precond._lev_A[0]);
+         std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._lev_A); 
+      }
       
       this->_global_precond_option = precond._global_precond_option;precond._global_precond_option = kGemslrGlobalPrecondGeMSLR;
       
@@ -1236,8 +1239,11 @@ namespace pargemslr
          this->_levs_v[i] = precond._levs_v[i];
          this->_dom_ptr_v2[i] = precond._dom_ptr_v2[i];
       }
-      this->_lev_A.resize(1);
-      this->_lev_A[0] = precond._lev_A[0];
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = precond._lev_A[0];
+      }
       
       this->_global_precond_option = precond._global_precond_option;
       
@@ -1277,8 +1283,12 @@ namespace pargemslr
       std::vector<IntVectorClass<int> >().swap(precond._dom_ptr_v2); 
       std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._levs_v); 
       
-      this->_lev_A[0] = std::move(precond._lev_A[0]);
-      std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._lev_A); 
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = std::move(precond._lev_A[0]);
+         std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._lev_A); 
+      }
       
       this->_global_precond_option = precond._global_precond_option;precond._global_precond_option = kGemslrGlobalPrecondGeMSLR;
       
@@ -1733,8 +1743,6 @@ namespace pargemslr
          return PARGEMSLR_ERROR_INVALED_PARAM;
       }
       
-      this->_lev_A.resize(1);
-      
       int np, myid;
       MPI_Comm comm;
       this->_matrix->GetMpiInfo(np, myid, comm);
@@ -1759,6 +1767,8 @@ namespace pargemslr
       int n = this->_matrix->GetNumRowsLocal();
       
       this->_n = n;
+      
+      this->_lev_A.resize(1);
       
       /* switch global solve options */
       if(this->_gemslr_setups._global_partition_setup)
