@@ -1094,6 +1094,12 @@ namespace pargemslr
          this->_dom_ptr_v2[i] = precond._dom_ptr_v2[i];
       }
       
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = precond._lev_A[0];
+      }
+      
       this->_global_precond_option = precond._global_precond_option;
       
       this->_inner_iters_matrix = precond._inner_iters_matrix;
@@ -1129,6 +1135,13 @@ namespace pargemslr
       std::vector<IntVectorClass<int> >().swap(precond._dom_ptr_v2); 
       std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._levs_v); 
       
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = std::move(precond._lev_A[0]);
+         std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._lev_A); 
+      }
+      
       this->_global_precond_option = precond._global_precond_option;precond._global_precond_option = kGemslrGlobalPrecondGeMSLR;
       
       this->_inner_iters_matrix = std::move(precond._inner_iters_matrix);
@@ -1162,6 +1175,12 @@ namespace pargemslr
       {
          this->_levs_v[i] = precond._levs_v[i];
          this->_dom_ptr_v2[i] = precond._dom_ptr_v2[i];
+      }
+      
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = precond._lev_A[0];
       }
       
       this->_global_precond_option = precond._global_precond_option;
@@ -1202,6 +1221,13 @@ namespace pargemslr
       std::vector<IntVectorClass<int> >().swap(precond._dom_ptr_v2); 
       std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._levs_v); 
       
+      if(precond._lev_A.size() > 0)
+      {
+         this->_lev_A.resize(1);
+         this->_lev_A[0] = std::move(precond._lev_A[0]);
+         std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(precond._lev_A); 
+      }
+      
       this->_global_precond_option = precond._global_precond_option;precond._global_precond_option = kGemslrGlobalPrecondGeMSLR;
       
       this->_inner_iters_matrix = std::move(precond._inner_iters_matrix);
@@ -1238,11 +1264,15 @@ namespace pargemslr
          this->_dom_ptr_v2[i].Clear();
       }
       
-      this->_lev_A.Clear();
+      if(this->_lev_A.size() > 0)
+      {
+         this->_lev_A[0].Clear();
+      }
       
       this->_lev_ptr_v.Clear();
       std::vector<IntVectorClass<int> >().swap(_dom_ptr_v2); 
       std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(this->_levs_v); 
+      std::vector<ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >().swap(this->_lev_A); 
       
       this->_n                                  = 0;
       this->_nlev_max                           = 0;
@@ -1367,16 +1397,16 @@ namespace pargemslr
          PARGEMSLR_PRINT("Level   Ncomp   Size           Nnz            rk      nnzLU            nnzLR\n");
       }
       
-      if(this->_lev_A._lrc > 0)
+      if(this->_lev_A[0]._lrc > 0)
       {
          long int nnz_bsolver, nnz_lr;
       
-         this->_lev_A.GetNumNonzeros(nnz_bsolver, nnz_lr);
+         this->_lev_A[0].GetNumNonzeros(nnz_bsolver, nnz_lr);
       
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("OUTER     N/A            N/A            N/A   %5d   %10e   %10e\n", this->_lev_A._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("OUTER     N/A            N/A            N/A   %5d   %10e   %10e\n", this->_lev_A[0]._lrc, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       
@@ -1613,6 +1643,9 @@ namespace pargemslr
       int n = this->_matrix->GetNumRowsLocal();
       
       this->_n = n;
+      
+      /* create data str for global low-rank correction */
+      this->_lev_A.resize(1);
       
       /* switch global solve options */
       if(this->_gemslr_setups._global_partition_setup)
@@ -4185,8 +4218,8 @@ perm_gemslr_global:
             case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondPSLR: case kGemslrGlobalPrecondGeMSLR:
             {
                option = kGemslrGlobalPrecondGeMSLR;
-               this->_lev_A._EBFC.Setup(-1, kGemslrGlobalPrecondA, *this);
-               this->_lev_A._work_vector.Setup(this->_matrix->GetNumRowsLocal(), this->_location, true);
+               this->_lev_A[0]._EBFC.Setup(-1, kGemslrGlobalPrecondA, *this);
+               this->_lev_A[0]._work_vector.Setup(this->_matrix->GetNumRowsLocal(), this->_location, true);
                break;
             }
             default:
@@ -4206,17 +4239,17 @@ perm_gemslr_global:
             {
                case kGemslrLowrankNoRestart:
                {
-                  this->_lev_A._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, -1, option);
+                  this->_lev_A[0]._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, -1, option);
                   break;
                }
                case kGemslrLowrankThickRestart:
                {
-                  this->_lev_A._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, -1, option);
+                  this->_lev_A[0]._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, -1, option);
                   break;
                }
                case kGemslrLowrankSubspaceIteration:
                {
-                  this->_lev_A._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, -1, option);
+                  this->_lev_A[0]._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, -1, option);
                   break;
                }
                default:
@@ -4226,30 +4259,30 @@ perm_gemslr_global:
                }
             }
             
-            if(this->_lev_A._lrc > 0)
+            if(this->_lev_A[0]._lrc > 0)
             {
-               this->_lev_A._xlr_temp.Setup( this->_matrix->GetNumRowsLocal(), 
+               this->_lev_A[0]._xlr_temp.Setup( this->_matrix->GetNumRowsLocal(), 
                                              this->_matrix->GetRowStartGlobal(), 
                                              this->_matrix->GetNumRowsGlobal(), 
                                              this->_location,
                                              true, 
                                              *this->_matrix);
-               this->_lev_A._xlr1_temp.Setup(this->_lev_A._lrc, this->_location, true, *this->_matrix);
-               this->_lev_A._xlr2_temp.Setup( this->_lev_A._xlr1_temp.GetLengthLocal(), 
-                                             this->_lev_A._xlr1_temp.GetStartGlobal(), 
-                                             this->_lev_A._xlr1_temp.GetLengthGlobal(),
+               this->_lev_A[0]._xlr1_temp.Setup(this->_lev_A[0]._lrc, this->_location, true, *this->_matrix);
+               this->_lev_A[0]._xlr2_temp.Setup( this->_lev_A[0]._xlr1_temp.GetLengthLocal(), 
+                                             this->_lev_A[0]._xlr1_temp.GetStartGlobal(), 
+                                             this->_lev_A[0]._xlr1_temp.GetLengthGlobal(),
                                              this->_location,
                                              true, 
                                              *this->_matrix);
-               this->_lev_A._xlr1_temp_h.Setup( this->_lev_A._xlr1_temp.GetLengthLocal(), 
-                                             this->_lev_A._xlr1_temp.GetStartGlobal(), 
-                                             this->_lev_A._xlr1_temp.GetLengthGlobal(),
+               this->_lev_A[0]._xlr1_temp_h.Setup( this->_lev_A[0]._xlr1_temp.GetLengthLocal(), 
+                                             this->_lev_A[0]._xlr1_temp.GetStartGlobal(), 
+                                             this->_lev_A[0]._xlr1_temp.GetLengthGlobal(),
                                              kMemoryHost,
                                              true, 
                                              *this->_matrix);
-               this->_lev_A._xlr2_temp_h.Setup( this->_lev_A._xlr1_temp.GetLengthLocal(), 
-                                             this->_lev_A._xlr1_temp.GetStartGlobal(), 
-                                             this->_lev_A._xlr1_temp.GetLengthGlobal(),
+               this->_lev_A[0]._xlr2_temp_h.Setup( this->_lev_A[0]._xlr1_temp.GetLengthLocal(), 
+                                             this->_lev_A[0]._xlr1_temp.GetStartGlobal(), 
+                                             this->_lev_A[0]._xlr1_temp.GetLengthGlobal(),
                                              kMemoryHost,
                                              true, 
                                              *this->_matrix);
@@ -4294,7 +4327,7 @@ perm_gemslr_global:
        * the size of the low rank correction on this level is of size of C
        *------------------------------------------------------------------------*/
       
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A : this->_levs_v[level];
+      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A[0] : this->_levs_v[level];
       
       if(level >= 0)
       {
@@ -4393,7 +4426,7 @@ perm_gemslr_global:
        * 
        *------------------------------------------------------------------------*/
       
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A : this->_levs_v[level];
+      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A[0] : this->_levs_v[level];
       
       if(level >= 0)
       {
@@ -4541,7 +4574,7 @@ perm_gemslr_global:
        * Declare all variables and setup parameters
        *------------------------*/
       
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A : this->_levs_v[level];
+      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A[0] : this->_levs_v[level];
       
       if(level >= 0)
       {
@@ -4848,7 +4881,7 @@ perm_gemslr_global:
       one = T(1.0);
       zero = T();
       
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A : this->_levs_v[level];
+      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level < 0) ? this->_lev_A[0] : this->_levs_v[level];
       
       DenseMatrixClass<T>              &W = level_str._Wk;
       DenseMatrixClass<T>              &WH = level_str._WHk;
@@ -5118,7 +5151,7 @@ perm_gemslr_global:
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::Solve( VectorType &x, VectorType &rhs)
    {
       /* Wrapper */
-      if(this->_lev_A._lrc > 0)
+      if(this->_lev_A[0]._lrc > 0)
       {
          DataType one = 1.0;
 #ifdef PARGEMSLR_TIMING
@@ -5129,14 +5162,14 @@ perm_gemslr_global:
          /* In this case, apply the low-rank correction first, M^{-1}(I+LR)x */
          /* apply low-rank */
 #ifdef PARGEMSLR_TIMING
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->SolveApplyLowRankLevel( this->_lev_A._xlr_temp, rhs, -1)));
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->SolveApplyLowRankLevel( this->_lev_A[0]._xlr_temp, rhs, -1)));
 #else
-         this->SolveApplyLowRankLevel( this->_lev_A._xlr_temp, rhs, -1);
+         this->SolveApplyLowRankLevel( this->_lev_A[0]._xlr_temp, rhs, -1);
 #endif
-         this->_lev_A._xlr_temp.Axpy( one, rhs);
+         this->_lev_A[0]._xlr_temp.Axpy( one, rhs);
       }
       
-      VectorType &temp_rhs = (this->_lev_A._lrc > 0) ? this->_lev_A._xlr_temp : rhs ;
+      VectorType &temp_rhs = (this->_lev_A[0]._lrc > 0) ? this->_lev_A[0]._xlr_temp : rhs ;
       
       switch(this->_global_precond_option)
       {
@@ -6263,7 +6296,7 @@ perm_gemslr_global:
       zero  = 0.0;
       one   = 1.0;
       
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level >= 0) ? this->_levs_v[level] : this->_lev_A;
+      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = (level >= 0) ? this->_levs_v[level] : this->_lev_A[0];
       n_H   = level_str._Hk.GetNumColsLocal();
       
       if(n_H == 0)
@@ -6627,14 +6660,14 @@ perm_gemslr_global:
       zero = 0.0;
       mone = -1.0;
       
-      if(this->_lev_A._work_vector.GetLengthLocal() < y.GetLengthLocal())
+      if(this->_lev_A[0]._work_vector.GetLengthLocal() < y.GetLengthLocal())
       {
-         this->_lev_A._work_vector.Setup(y.GetLengthLocal(), this->_location, true);
+         this->_lev_A[0]._work_vector.Setup(y.GetLengthLocal(), this->_location, true);
       }
       
       VectorType y_temp;
       y_temp.SetupPtrStr(y);
-      y_temp.UpdatePtr( this->_lev_A._work_vector.GetData(), this->_location);
+      y_temp.UpdatePtr( this->_lev_A[0]._work_vector.GetData(), this->_location);
       
       /* Compute M^{-1}x, put into y_temp */
       switch(this->_global_precond_option)
@@ -7244,7 +7277,7 @@ perm_gemslr_global:
             nnz_lr += nnz_lri;
          }
          
-         this->_lev_A.GetNumNonzeros(nnz_bsolveri, nnz_lri);
+         this->_lev_A[0].GetNumNonzeros(nnz_bsolveri, nnz_lri);
          
          nnz_bsolver += nnz_bsolveri;
          nnz_lr += nnz_lri;
@@ -7353,33 +7386,33 @@ perm_gemslr_global:
             
          }
          
-         this->_lev_A._E_mat.MoveData(this->_location);
-         this->_lev_A._F_mat.MoveData(this->_location);
-         this->_lev_A._Wk.MoveData(this->_location);
-         this->_lev_A._Hk.MoveData(this->_location);
-         this->_lev_A._WHk.MoveData(this->_location);
-         this->_lev_A._cWk.MoveData(this->_location);
-         this->_lev_A._cHk.MoveData(this->_location);
-         this->_lev_A._cWHk.MoveData(this->_location);
-         this->_lev_A._C_mat.MoveData(this->_location);
-         this->_lev_A._S_mat.MoveData(this->_location);
-         this->_lev_A._A_mat.MoveData(this->_location);
+         this->_lev_A[0]._E_mat.MoveData(this->_location);
+         this->_lev_A[0]._F_mat.MoveData(this->_location);
+         this->_lev_A[0]._Wk.MoveData(this->_location);
+         this->_lev_A[0]._Hk.MoveData(this->_location);
+         this->_lev_A[0]._WHk.MoveData(this->_location);
+         this->_lev_A[0]._cWk.MoveData(this->_location);
+         this->_lev_A[0]._cHk.MoveData(this->_location);
+         this->_lev_A[0]._cWHk.MoveData(this->_location);
+         this->_lev_A[0]._C_mat.MoveData(this->_location);
+         this->_lev_A[0]._S_mat.MoveData(this->_location);
+         this->_lev_A[0]._A_mat.MoveData(this->_location);
          
-         this->_lev_A._xlr_temp.MoveData(this->_location);
-         this->_lev_A._xlr1_temp.MoveData(this->_location);
-         this->_lev_A._xlr2_temp.MoveData(this->_location);
+         this->_lev_A[0]._xlr_temp.MoveData(this->_location);
+         this->_lev_A[0]._xlr1_temp.MoveData(this->_location);
+         this->_lev_A[0]._xlr2_temp.MoveData(this->_location);
          
-         this->_lev_A._work_vector.MoveData(this->_location);
-         this->_lev_A._x_temp.MoveData(this->_location);
+         this->_lev_A[0]._work_vector.MoveData(this->_location);
+         this->_lev_A[0]._x_temp.MoveData(this->_location);
          
-         this->_lev_A._rhs_temp.MoveData(this->_location);
-         this->_lev_A._rhs2_temp.MoveData(this->_location);
-         this->_lev_A._rhs3_temp.MoveData(this->_location);
-         this->_lev_A._sol_temp.MoveData(this->_location);
-         this->_lev_A._sol2_temp.MoveData(this->_location);
-         this->_lev_A._sol3_temp.MoveData(this->_location);
+         this->_lev_A[0]._rhs_temp.MoveData(this->_location);
+         this->_lev_A[0]._rhs2_temp.MoveData(this->_location);
+         this->_lev_A[0]._rhs3_temp.MoveData(this->_location);
+         this->_lev_A[0]._sol_temp.MoveData(this->_location);
+         this->_lev_A[0]._sol2_temp.MoveData(this->_location);
+         this->_lev_A[0]._sol3_temp.MoveData(this->_location);
          
-         this->_lev_A._comm_helper.MoveData(this->_location);
+         this->_lev_A[0]._comm_helper.MoveData(this->_location);
          
       }
       

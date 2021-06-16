@@ -971,7 +971,7 @@ namespace pargemslr
        * @brief   The structure for the A level low-rank correction.
        * @details The structure for the A level low-rank correction.
        */
-      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> _lev_A;
+      std::vector< ParallelGemslrLevelClass< MatrixType, VectorType, DataType> >  _lev_A;
       
       /**
        * @brief   The constructor of precondioner class.
