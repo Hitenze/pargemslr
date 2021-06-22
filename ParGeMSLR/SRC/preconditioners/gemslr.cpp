@@ -3723,10 +3723,11 @@ namespace pargemslr
       
       GemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
       
-      T one, zero;
+      T one, zero, mone;
       
       one = 1.0;
       zero = 0.0;
+      mone = -1.0;
       
       n_start = this->_lev_ptr_v[level];
       n_end = this->_lev_ptr_v[level+1];
@@ -3739,9 +3740,16 @@ namespace pargemslr
       zu.SetupPtr(level_str._z_temp, n_local, 0, false);
       zl.SetupPtr(level_str._z_temp, n_remain, n_local, false);
       
+      /* Now compute I - SC^{-1} */
+ 
       /* Solve with C */
       this->SolveLevel( zl, x, level+1);
       
+      /* y = (I-CC^{-1})x */
+      this->CMatVec( level, 'N', mone, zl, zero, y);
+      y.Axpy(one, x);
+
+      /* next we compute EB^{-1}F */
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
       
       /* Solve with B */
@@ -3755,7 +3763,7 @@ namespace pargemslr
          PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_PRECTIME_ILUT, this->SolveB(worku, zu, level));
       }
       
-      PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', one, worku, zero, y)));
+      PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', one, worku, one, y)));
       
       return PARGEMSLR_SUCCESS;
    
@@ -3940,10 +3948,6 @@ namespace pargemslr
       int i, n_start, n_local, n_end, n_remain, n1, n2;
       int j, ncompi, n_starti, n_locali, n_endi, n_remaini;
       
-      /* y = alpha*S*x + beta*y 
-       * S = C - EB^{-1}F, we first compute -EB^{-1}F*x.
-       */
-      
       GemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
       
       T one, zero, malpha;
@@ -3965,24 +3969,9 @@ namespace pargemslr
       zu.SetupPtr(level_str._w_temp, n_local, 0, false);
       zl.SetupPtr(level_str._w_temp, n_remain, n_local, false);
       
-      /* we first compute y = -alpha*EB^{-1}F*x + beta y */
+      /* scale y = beta * y */
       
-      /* Matvec zu = Fx */
-      PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_PRECTIME_FMV, (level_str._F_mat.MatVec( 'N', one, x, zero, zu)));
-      
-      /* Solve worku = B\zu */
-      
-      if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
-      {
-         PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_SOLVELU, this->SolveB(worku, zu, level));
-      }
-      else
-      {
-         PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_PRECTIME_ILUT, this->SolveB(worku, zu, level));
-      }
-      
-      /* Matvec y = -alpha*E*worku + beta*y */
-      PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_PRECTIME_EMV, (level_str._E_mat.MatVec( 'N', malpha, worku, beta, y)));
+      y.Scale(beta);
       
       /* now compute y = alpha*C*x + y 
        * note that C = | Bi  Fi | 
