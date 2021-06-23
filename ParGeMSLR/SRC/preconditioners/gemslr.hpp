@@ -1177,6 +1177,12 @@ namespace pargemslr
       DenseMatrixClass<DataType>                         _Wk;
       
       /** 
+       * @brief   The W*H matrix for the low-rank correction W*H*W' on this level.
+       * @details The W*H matrix for the low-rank correction W*H*W' on this level.
+       */
+      DenseMatrixClass<DataType>                         _WHk;
+      
+      /** 
        * @brief   Temp vector.
        * @details Temp vector.
        */

@@ -827,6 +827,7 @@ namespace pargemslr
       this->_EBFC = str._EBFC;
       this->_Hk = str._Hk;
       this->_Wk = str._Wk;
+      this->_WHk = str._WHk;
       
    }
    template precond_gemslrlevel_csr_seq_float::GemslrLevelClass(const precond_gemslrlevel_csr_seq_float &str);
@@ -913,6 +914,7 @@ namespace pargemslr
       this->_EBFC = std::move(str._EBFC);
       this->_Hk = std::move(str._Hk);
       this->_Wk = std::move(str._Wk);
+      this->_WHk = std::move(str._WHk);
    }
    template precond_gemslrlevel_csr_seq_float::GemslrLevelClass(precond_gemslrlevel_csr_seq_float &&str);
    template precond_gemslrlevel_csr_seq_double::GemslrLevelClass(precond_gemslrlevel_csr_seq_double &&str);
@@ -997,6 +999,7 @@ namespace pargemslr
       this->_EBFC = str._EBFC;
       this->_Hk = str._Hk;
       this->_Wk = str._Wk;
+      this->_WHk = str._WHk;
       
       return *this;
    }
@@ -1086,6 +1089,7 @@ namespace pargemslr
       this->_EBFC = std::move(str._EBFC);
       this->_Hk = std::move(str._Hk);
       this->_Wk = std::move(str._Wk);
+      this->_WHk = std::move(str._WHk);
       
       return *this;
    }
@@ -1140,6 +1144,7 @@ namespace pargemslr
       this->_EBFC.Clear();
       this->_Hk.Clear();
       this->_Wk.Clear();
+      this->_WHk.Clear();
       
       return PARGEMSLR_SUCCESS;
       
@@ -3058,6 +3063,7 @@ namespace pargemslr
       typedef DataType T;
       
       int                              n, i, j;
+      T                                one, zero;
       bool                             isutri;
       DenseMatrixClass<T>              W_temp, W_temp1, Q, Q_temp, R_temp;
       
@@ -3069,9 +3075,13 @@ namespace pargemslr
          return 0;
       }
       
+      one = T(1.0);
+      zero = T();
+      
       GemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
       
       DenseMatrixClass<T>              &W = level_str._Wk;
+      DenseMatrixClass<T>              &WH = level_str._WHk;
       DenseMatrixClass<T>              &R = level_str._Hk;
       
       n = V.GetNumRowsLocal();
@@ -3134,6 +3144,8 @@ namespace pargemslr
          
          /* now move R to device when necessary */
          R.MoveData(this->_location);
+         
+         DenseMatrixMatMat( one, W, 'N', R, 'N', zero, WH);
          
          V.Clear();
          H.Clear();
@@ -3231,6 +3243,8 @@ namespace pargemslr
       /* now move R to device when necessary */
       R.MoveData(this->_location);
       
+      DenseMatrixMatMat( one, W, 'N', R, 'N', zero, WH);
+      
       V.Clear();
       H.Clear();
       W_temp.Clear();
@@ -3277,6 +3291,7 @@ namespace pargemslr
       GemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
       
       DenseMatrixClass<T>              &W = level_str._Wk;
+      DenseMatrixClass<T>              &WH = level_str._WHk;
       DenseMatrixClass<T>              &R = level_str._Hk;
       
       n = V.GetNumRowsLocal();
@@ -3323,6 +3338,8 @@ namespace pargemslr
          
          /* now move R to device when necessary */
          R.MoveData(this->_location);
+         
+         DenseMatrixMatMat( one, W, 'N', R, 'N', zero, WH);
          
          V.Clear();
          H.Clear();
@@ -3386,6 +3403,8 @@ namespace pargemslr
       
       /* now move R to device when necessary */
       R.MoveData(this->_location);
+      
+      DenseMatrixMatMat( one, W, 'N', R, 'N', zero, WH);
       
       V.Clear();
       H.Clear();
@@ -3686,11 +3705,14 @@ namespace pargemslr
       /* Step1: W'*x */
       level_str._Wk.MatVec('C', one, rhs, zero, level_str._xlr1_temp);
       
+      /* Step2: W*H*W'*x */
+      level_str._WHk.MatVec('N', one, level_str._xlr1_temp, zero, x);
+      
       /* Step2: H*W'*x */
-      level_str._Hk.MatVec('N', one, level_str._xlr1_temp, zero, level_str._xlr2_temp);
+      //level_str._Hk.MatVec('N', one, level_str._xlr1_temp, zero, level_str._xlr2_temp);
       
       /* Step3: W*H*W'*x */
-      level_str._Wk.MatVec('N', one, level_str._xlr2_temp, zero, x);
+      //level_str._Wk.MatVec('N', one, level_str._xlr2_temp, zero, x);
       
       return PARGEMSLR_SUCCESS;
       
@@ -4206,6 +4228,10 @@ namespace pargemslr
             level_str._C_mat.MoveData(this->_location);
             level_str._D_mat.MoveData(this->_location);
             
+            level_str._Hk.MoveData(this->_location);
+            level_str._Wk.MoveData(this->_location);
+            level_str._WHk.MoveData(this->_location);
+            
             level_str._xlr_temp.MoveData(this->_location);
             level_str._xlr1_temp.MoveData(this->_location);
             level_str._xlr2_temp.MoveData(this->_location);
@@ -4214,7 +4240,6 @@ namespace pargemslr
             level_str._z_temp.MoveData(this->_location);
             level_str._v_temp.MoveData(this->_location);
             level_str._w_temp.MoveData(this->_location);
-            
          }
       }
       
