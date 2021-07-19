@@ -904,7 +904,7 @@ namespace pargemslr
    }
    
    template <typename T>
-   int VectorPBsearchHost( const T *v, const T &val, int s, int e, int &idx, bool ascending)
+   int VectorPBsearchHost( const T *v, const T &val, int s, int e, int &idx, bool ascending, int option)
    {
       /* No OpenMP implementation */
       /* mid */
@@ -927,6 +927,28 @@ namespace pargemslr
             else
             {
                /* get it */
+               if(option == 0)
+               {
+                  idx = m;
+                  return m;
+               }
+               
+               if(option == 1)
+               {
+                  /* report the first */
+                  while(m > s && v[m] == v[m-1])
+                  {
+                     m--;
+                  }
+               }
+               else
+               {
+                  while(m < e && v[m] == v[m+1])
+                  {
+                     m++;
+                  }
+               }
+               
                idx = m;
                return m;
             }
@@ -955,6 +977,28 @@ namespace pargemslr
             else
             {
                /* get it */
+               if(option == 0)
+               {
+                  idx = m;
+                  return m;
+               }
+               
+               if(option == 1)
+               {
+                  /* report the first */
+                  while(m > s && v[m] == v[m-1])
+                  {
+                     m--;
+                  }
+               }
+               else
+               {
+                  while(m < e && v[m] == v[m+1])
+                  {
+                     m++;
+                  }
+               }
+               
                idx = m;
                return m;
             }
@@ -969,10 +1013,10 @@ namespace pargemslr
       }
       return -1;
    }
-   template int VectorPBsearchHost(const int *v, const int &val, int s, int e, int &idx, bool ascending);
-   template int VectorPBsearchHost(const long int *v, const long int &val, int s, int e, int &idx, bool ascending);
-   template int VectorPBsearchHost(const float *v, const float &val, int s, int e, int &idx, bool ascending);
-   template int VectorPBsearchHost(const double *v, const double &val, int s, int e, int &idx, bool ascending);
+   template int VectorPBsearchHost(const int *v, const int &val, int s, int e, int &idx, bool ascending, int option);
+   template int VectorPBsearchHost(const long int *v, const long int &val, int s, int e, int &idx, bool ascending, int option);
+   template int VectorPBsearchHost(const float *v, const float &val, int s, int e, int &idx, bool ascending, int option);
+   template int VectorPBsearchHost(const double *v, const double &val, int s, int e, int &idx, bool ascending, int option);
    
    template <typename T>
    int VectorPlotHost( const VectorVirtualClass<T> &x, int conditiona, int conditionb, int width)

@@ -401,8 +401,13 @@ namespace pargemslr
       int            MinIndex() const;
       
       /**
-       * @brief         Binary search between [s, e] inside an array.
-       * @details       Binary search between [s, e] inside an array.
+       * @brief         Binary search between [s, e] inside an array. Report the last if there are duplicates.
+       * @details       Binary search between [s, e] inside an array. Report the last if there are duplicates. \n
+       *                The default option is to get the LAST occurance of a certain value
+       *                need to handle duplicates always search to the right ->
+       *                example: \n
+       *                [0 0 1 1 1 3 3 5 5 6 7 8] if we get an 1, search to the right until we get (1, 3)
+       *                we won't get 8 so this would be fine.
        * @param [in]    val The target value.
        * @param [out]   idx If found the value, set to the index of the value. Otherwise set to the position to insert, or -1 if s > e.
        * @param [in]    descend The array is descend or ascend.

@@ -1687,6 +1687,7 @@ namespace pargemslr
     * @param [in]       vtxdist  The distribution of rows for parMETIS.                                         
     * @param [in]       xadj     The column ptr for parMETIS.    
     * @param [in]       adjncy   The column numbers for parMETIS.   
+    * @param [in]       vertexsep Do we find the vertex separator?
     * @param [in]       clvl     Current level number. 
     * @param [in,out]   tlvl     The max number of levels. If the algorithm stops at a level lower than desired level, reset tlvl to current number of levels.
     * @param [in]       ncomp    The k for the kway partition on the current level.
@@ -1700,14 +1701,15 @@ namespace pargemslr
     * @return           return PARGEMSLR_SUCCESS or error information.
     * @note             We assume that A_mat has symmetric pattern.
     */
-   int SetupPermutationParallelRKwayRecursive(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
+   int SetupPermutationParallelRKwayRecursive(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
    
    /**                                                                                                                                                                                                                                                                   
-    * @brief   This function finds the edge separator based on the map information.
-    * @details This function finds the edge separator based on the map information.
+    * @brief   This function finds the separator based on the map information.
+    * @details This function finds the separator based on the map information.
     * @param [in]       vtxdist  The distribution of rows for parMETIS.                                         
     * @param [in]       xadj     The column ptr for parMETIS.    
-    * @param [in]       adjncy   The column numbers for parMETIS.   
+    * @param [in]       adjncy   The column numbers for parMETIS.    
+    * @param [in]       vertexsep Do we find the vertex separator? 
     * @param [in]       vtxdist_s   The distribution of rows for the edge separator.                                         
     * @param [in]       xadj_s      The column ptr for the edge separator.    
     * @param [in]       adjncy_s    The column numbers for the edge separator.
@@ -1718,7 +1720,7 @@ namespace pargemslr
     * @return           return PARGEMSLR_SUCCESS or error information.
     * @note             We assume that A_mat has symmetric pattern.
     */
-   int ParallelRKwayGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog);
+   int ParallelRKwayGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog);
    
    /**                                                                                                                                                                                                                                                                   
     * @brief   This is the recursive function to build the mapping information, using an approximate vetrex separator (not the minimal).
