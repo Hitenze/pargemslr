@@ -895,7 +895,7 @@ namespace pargemslr
          std::cout<<"Current version only support BinarySearch on the host, moving data to the host."<<std::endl;
          this->MoveData( kMemoryHost);
       }
-      return VectorPBsearchHost( this->_data, val, 0, this->_length-1, idx, ascending);
+      return VectorPBsearchHost( this->_data, val, 0, this->_length-1, idx, ascending, 2);
    }
    template int SequentialVectorClass<float>::BinarySearch(const float &val, int &idx, bool ascending);
    template int SequentialVectorClass<double>::BinarySearch(const double &val, int &idx, bool ascending);

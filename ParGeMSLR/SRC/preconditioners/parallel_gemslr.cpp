@@ -1,5 +1,7 @@
 
 #include <iostream>
+#include <unordered_map>
+#include <unordered_set>
 #include "../utils/memory.hpp"
 #include "../utils/parallel.hpp"
 #include "../utils/utils.hpp"
@@ -2422,7 +2424,6 @@ perm_gemslr_global:
       }
       
       /* apply RKway, obtain map vector */
-      
       err = ParallelCsrMatrixSetupPermutationParallelRKway( A, this->_gemslr_setups._vertexsep_setup, tlvl, num_dom, minsep, kmin, kfactor, map_v, mapptr_v, bj_last); PARGEMSLR_CHKERR(err);
       
       /* we can't have C in parallel in this option */
@@ -2528,7 +2529,6 @@ perm_gemslr_global:
    template <class MatrixType, class VectorType, typename DataType>
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupPermutationBuildLevelStructure(MatrixType &A, int level_start, vector_int &map_v, vector_int &mapptr_v)
    {
-      
       /* define the data type */
       typedef DataType T;
       
@@ -2539,7 +2539,6 @@ perm_gemslr_global:
       vector_int                             n_locals;
       vector_long                            n_disps, e_starts, c_starts, e_starts2, f_starts, f_starts2;
       vector_int                             marker, dom_marker, node_proc;
-      vector_int                             E_marker, F_marker, C_marker;
       vector_long                            mpi_sendsizes, mpi_recvsizes;
       std::vector<vector_int>                dom_ptr;
       CsrMatrixClass<T>                      A_diag_new;
@@ -2551,8 +2550,29 @@ perm_gemslr_global:
       std::vector<vector_long>               i_v, j_v, perm_v, dom_v;
       std::vector<SequentialVectorClass<T> > a_v;
       
-      std::vector<vector_long>               i2_v, j2_v, perm2_v, dom2_v;
+      std::vector<vector_long>               i2_v, j2_v, j3_v, perm2_v, dom2_v;
       std::vector<SequentialVectorClass<T> > a2_v;
+      
+      int                                    new_offd_idx;
+      long int                               A_nstart;
+      vector_long                            new_offds;
+      vector_int                             offd_original_proc;
+      vector_int                             offd_new_proc;
+      vector_int                             offd_new_idx;
+      vector_int                             offd_new_idx2;
+      vector_int                             offd_new_dom;
+      vector_long                            A_vtxdist;
+      vector_int                             col_sendsize, col_recvsize;
+      std::vector<vector_long>               col_send_v, col_recv_v;
+      std::vector<vector_int>                col_send_v2, col_recv_v2;
+      
+      std::unordered_map<long int, int>      col_map_hash; /* col_map_hash[i] is the MPI process node i belongs to */
+      
+      std::vector<vector_long>               col_new_insert_col;
+      
+      std::vector<std::unordered_map<long int, int> > F_markers_hash;
+      std::vector<std::unordered_map<long int, int> > E_markers_hash;
+      std::unordered_map<long int, int>      C_markers_hash;
       
       CooMatrixClass<T>                      C_offd;
       std::vector<CooMatrixClass<T> >        B_diags, E_diags, E_offds, F_diags, F_offds;
@@ -2662,12 +2682,6 @@ perm_gemslr_global:
                   continue;
                }
                
-               /* also note that we might have multiple same value, always use the first one */
-               while(pid > 0 && dom_ptr[levi][pid] == dom_ptr[levi][pid-1])
-               {
-                  pid--;
-               }
-               
                if(pid >=0 && pid < np)
                {
                   /* this row belongs to pid */
@@ -2677,7 +2691,6 @@ perm_gemslr_global:
             }
          }
       }
-      
       
       /* Step 1.2: Set up the communication
        * Prepare to send all the data out
@@ -2765,6 +2778,7 @@ perm_gemslr_global:
       
       i2_v.resize(np);
       j2_v.resize(np);
+      j3_v.resize(np);
       a2_v.resize(np);
       perm2_v.resize(np);
       dom2_v.resize(np);
@@ -2777,6 +2791,7 @@ perm_gemslr_global:
             i2_v[i].Setup(mpi_recvsizes[2*i]+1);
             PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( i2_v[i].GetData(), mpi_recvsizes[2*i]+1, i, 0, comm, &(requests[reqid++])) );
             j2_v[i].Setup(mpi_recvsizes[2*i+1]);
+            j3_v[i].Setup(mpi_recvsizes[2*i+1]);
             PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( j2_v[i].GetData(), mpi_recvsizes[2*i+1], i, 1, comm, &(requests[reqid++])) );
             a2_v[i].Setup(mpi_recvsizes[2*i+1]);
             PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( a2_v[i].GetData(), mpi_recvsizes[2*i+1], i, 2, comm, &(requests[reqid++])) );
@@ -2789,7 +2804,150 @@ perm_gemslr_global:
       
       PARGEMSLR_MPI_CALL( MPI_Waitall( reqid, requests.data(), MPI_STATUSES_IGNORE) );
       
-      /* Step 1.4: Build structs
+      /* Step 1.4: Build the new column map
+       * col_map_hash[i] is the MPI process node i belongs to, so that we avoid duplicate search
+       */
+      
+      /* for sure have a full diagonal block, assume the offd is of the same size 
+       * This is definitly not the optimal guess in many situation.
+       */
+      col_map_hash.reserve(2*n_local);
+      new_offds.Setup( 0, 2*n_local, kMemoryHost, false);
+      offd_original_proc.Setup( 0, 2*n_local, kMemoryHost, false);
+      
+      col_sendsize.Setup(np, true);
+      col_recvsize.Setup(np, true);
+      
+      col_send_v.resize(np);
+      col_recv_v.resize(np);
+      col_send_v2.resize(np);
+      col_recv_v2.resize(np);
+      
+      A_vtxdist.Setup(np+1);
+      A_vtxdist[np] = A.GetNumColsGlobal();
+      A_nstart = A.GetColStartGlobal();
+      
+      PARGEMSLR_MPI_CALL( PargemslrMpiAllgather( &A_nstart, 1, A_vtxdist.GetData(), comm) );
+      
+      /* loop through all of the received columns */
+      new_offd_idx = 0;
+      for( i = 0 ; i < np ; i ++)
+      {
+         k1 = j2_v[i].GetLengthLocal();
+         
+         for(k = 0 ; k < k1 ; k ++)
+         {
+            col = j2_v[i][k];
+            
+            auto find_col = col_map_hash.find(col);
+            if(find_col == col_map_hash.end())
+            {
+               /* haven't been found, add to it */
+               col_map_hash[col] = new_offd_idx++;
+               new_offds.PushBack(col);
+               
+               if( A_vtxdist.BinarySearch( col, pid, true) < 0 )
+               {
+                  /* if not found, belongs to the previous subdomain */
+                  pid--;
+               }
+               offd_original_proc.PushBack(pid);
+               
+               col_sendsize[pid]++;
+               col_send_v[pid].PushBack(col);
+            }
+         }
+      }
+      
+      /* now we need to go to the holder of each col to get the column map */
+      
+      /* communicate send and recv size */
+      PARGEMSLR_MPI_CALL( MPI_Alltoall( col_sendsize.GetData(), 1, MPI_INT, col_recvsize.GetData(), 1, MPI_INT, comm) );
+      
+      /* then apply communication */
+      
+      /* or MPI_Alltoallv? */
+      reqid = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(col_sendsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( col_send_v[i].GetData(), col_sendsize[i], i, 0, comm, &(requests[reqid++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(col_recvsize[i] > 0)
+         {
+            col_recv_v[i].Setup(col_recvsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( col_recv_v[i].GetData(), col_recvsize[i], i, 0, comm, &(requests[reqid++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( reqid, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* compute the new id */
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(col_recvsize[i] > 0)
+         {
+            col_recv_v2[i].Setup(col_recvsize[i]);
+            for(k = 0 ; k < col_recvsize[i]; k ++)
+            {
+               col_recv_v2[i][k] = node_proc[col_recv_v[i][k]-A_nstart];
+            }
+         }
+      }
+      
+      /* then apply communication again */
+      
+      /* or MPI_Alltoallv? */
+      reqid = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(col_recvsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( col_recv_v2[i].GetData(), col_recvsize[i], i, 0, comm, &(requests[reqid++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(col_sendsize[i] > 0)
+         {
+            col_send_v2[i].Setup(col_sendsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( col_send_v2[i].GetData(), col_sendsize[i], i, 0, comm, &(requests[reqid++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( reqid, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* new proc */
+      offd_new_proc.Setup(new_offd_idx);
+      offd_new_idx.Setup(new_offd_idx);
+      offd_new_idx2.Setup(new_offd_idx);
+      offd_new_dom.Setup(new_offd_idx);
+      offd_new_idx.Fill(-1);
+      offd_new_idx2.Fill(-1);
+      offd_new_dom.Fill(-1);
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(col_sendsize[i] > 0)
+         {
+            for(k = 0 ; k < col_sendsize[i]; k ++)
+            {
+               col = col_send_v[i][k];
+               pid = col_send_v2[i][k];
+               auto find_col = col_map_hash.find(col);
+               offd_new_proc[find_col->second] = pid;
+            }
+         }
+      }
+      
+      /* Step 1.5: Build structs
        * _lev_ptr_v => ptr of local levels
        * _dom_ptr_v2
        */
@@ -2858,8 +3016,19 @@ perm_gemslr_global:
       /* also need to modify perm_vec_sorted */
       perm_vec_sorted.Perm( order);
       
-      /* Step 1.5: Extract diagonal blocks for RCM
+      /* Step 1.6: Extract diagonal blocks for RCM
        */
+      
+      /* first update offd_new_idx */
+      for(i = 0 ; i < new_offd_idx ; i ++)
+      {
+         col = new_offds[i];
+         if( offd_new_proc[i] == myid && perm_vec_sorted.BinarySearch( col, idx, true) >= 0)
+         {
+            offd_new_idx[i] = idx;
+         }
+      }
+      
       if(this->_gemslr_setups._perm_option_setup == kIluReorderingNo)
       {
          rcm_order.Setup(n_local);
@@ -2891,9 +3060,11 @@ perm_gemslr_global:
             for(k = k1 ; k < k2 ; k ++)
             {
                col = j2_v[pid][k];
-               if( perm_vec_sorted.BinarySearch( col, idx, true) >= 0)
+               auto find_col = col_map_hash.find(col);
+               if( offd_new_proc[find_col->second] == myid)
                {
                   /* this is a local row, need to find the dom of it */
+                  idx = offd_new_idx[find_col->second];
                   idx = order[idx];
                   if(dom == dom2_v[perm_vec_idx[idx][0]][perm_vec_idx[idx][1]])
                   {
@@ -2906,7 +3077,7 @@ perm_gemslr_global:
          }
          A_diag_new.SetNumNonzeros();
          
-         /* Step 1.6: Apply the RCM
+         /* Step 1.7: Apply the RCM
           * Note that each connected component would be kept
           * in their original order.
           */
@@ -2942,7 +3113,7 @@ perm_gemslr_global:
          A_diag_new.Clear();
       }
       
-      /* Step 1.7: Update schur perm in precond struct
+      /* Step 1.8: Update schur perm in precond struct
        */
       this->_pperm.Setup(n_local);
       for(i = 0 ; i < n_local ; i ++)
@@ -3193,6 +3364,16 @@ perm_gemslr_global:
       /* Step 2.3: Insert values into matrices
        */
       
+      /* create hash markers and reserve space (not yet reserved) */
+      F_markers_hash.resize(nlev_used);
+      E_markers_hash.resize(nlev_used);
+      
+      col_new_insert_col.resize(new_offd_idx);
+      for(i = 0 ; i < new_offd_idx ; i ++)
+      {
+         col_new_insert_col[i].Setup(nlev_used);
+      }
+      
       /* local first, sort local information */
       perm_vec_sorted.Setup( n_local);
       PARGEMSLR_MEMCPY( perm_vec_sorted.GetData(), this->_pperm.GetData(), n_local, kMemoryHost, kMemoryHost, long int);
@@ -3203,6 +3384,110 @@ perm_gemslr_global:
       
       lev_ptr_vec.Setup( nlev_used+1);
       PARGEMSLR_MEMCPY( lev_ptr_vec.GetData(), this->_lev_ptr_v.GetData()+level_start, nlev_used+1, kMemoryHost, kMemoryHost, int);
+      
+      for(i = 0 ; i < new_offd_idx ; i ++)
+      {
+         if( offd_new_proc[i] == myid)
+         {
+            idx = offd_new_idx[i];
+            idx = order[idx];
+            offd_new_idx2[i] = idx;
+            
+            if(lev_ptr_vec.BinarySearch( idx, dom, true) < 0)
+            {
+               dom--;
+            }
+            
+            offd_new_dom[i] = dom;
+            
+         }
+      }
+      
+      
+      /* now working with other procs. */
+      for( idshift = 1 ; idshift < np ; idshift ++)
+      {
+         upid = (myid + idshift) % np;
+         downid = (myid - idshift + np) % np;
+         
+         perm_vec_sorted2.Setup(n_locals[downid]);
+         order2.Setup(n_locals[downid]);
+         
+         MPI_Sendrecv( perm_vec_sorted.GetData(), n_locals[myid], MPI_LONG, upid, myid*upid,
+                        perm_vec_sorted2.GetData(), n_locals[downid], MPI_LONG, downid, downid*myid,
+                        comm, MPI_STATUS_IGNORE);
+         
+         MPI_Sendrecv( order.GetData(), n_locals[myid], MPI_INT, upid, myid*upid,
+                        order2.GetData(), n_locals[downid], MPI_INT, downid, downid*myid,
+                        comm, MPI_STATUS_IGNORE);
+         
+         MPI_Sendrecv( this->_lev_ptr_v.GetData()+level_start, nlev_used + 1, MPI_INT, upid, myid*upid,
+                        lev_ptr_vec.GetData(), nlev_used + 1, MPI_INT, downid, downid*myid,
+                        comm, MPI_STATUS_IGNORE);
+                        
+         MPI_Sendrecv( e_starts.GetData(), nlev_used - 1, MPI_LONG, upid, myid*upid,
+                        e_starts2.GetData(), nlev_used - 1, MPI_LONG, downid, downid*myid,
+                        comm, MPI_STATUS_IGNORE);
+         
+         MPI_Sendrecv( f_starts.GetData(), nlev_used - 1, MPI_LONG, upid, myid*upid,
+                        f_starts2.GetData(), nlev_used - 1, MPI_LONG, downid, downid*myid,
+                        comm, MPI_STATUS_IGNORE);
+         
+            
+         /* first update offd_new_idx */
+         for(i = 0 ; i < new_offd_idx ; i ++)
+         {
+            col = new_offds[i];
+            if( offd_new_proc[i] == downid && perm_vec_sorted2.BinarySearch( col, idx, true) >= 0)
+            {
+               offd_new_idx[i] = idx;
+               idx = order2[idx];
+               offd_new_idx2[i] = idx;
+               
+               /* now, search on the proc downid's levptr */
+               if(lev_ptr_vec.BinarySearch( idx, dom, true) < 0)
+               {
+                  dom--;
+               }
+               
+               offd_new_dom[i] = dom;
+               
+               for(levi = 0 ; levi < nlev_used; levi ++)
+               {
+                  /* update each column */
+                  if(dom > levi)
+                  {
+                     /* on lower levels, belongs to F offd 
+                      * need to find the global col index in f
+                      * first, find the level, then, remove the level shift
+                      * finally, add the global column start
+                      */
+                     col_new_insert_col[i][levi] = idx - lev_ptr_vec[levi+1] + f_starts2[levi];
+                  }
+                  else if(dom < levi)
+                  {
+                     
+                     /* on upper levels, belongs to E offd 
+                      * also need to fine the global col index in e
+                      */
+                     col_new_insert_col[i][levi] = idx - lev_ptr_vec[dom] + e_starts2[dom];
+                  }
+                  else
+                  {
+                     /* this for sure belongs to the offdiagonal of C, and for sure the last level */
+                     if(levi != nlev_used - 1)
+                     {
+                        col = -1;
+                     }
+                     else
+                     {
+                        col_new_insert_col[i][levi] = idx - lev_ptr_vec[levi] + c_starts[downid];
+                     }
+                  }
+               }
+            }
+         }
+      }
       
       for(levi = 0 ; levi < nlev_used; levi ++)
       {
@@ -3225,22 +3510,12 @@ perm_gemslr_global:
             for(k = k1 ; k < k2 ; k ++)
             {
                col = j2_v[pid][k]; /* get the global index */
-               
-               if(perm_vec_sorted.BinarySearch( col, idx, true) >= 0)
+               auto find_col = col_map_hash.find(col);
+               if( offd_new_proc[find_col->second] == myid )
                {
                   /* this is a local row, need to find the lev of it */
-                  idx = order[idx];
-                  
-                  if(lev_ptr_vec.BinarySearch( idx, dom, true) < 0)
-                  {
-                     dom--;
-                  }
-               
-                  /* also note that we might have multiple same value, always use the first one */
-                  while(dom > 0 && lev_ptr_vec[dom] == lev_ptr_vec[dom-1])
-                  {
-                     dom--;
-                  }
+                  idx = offd_new_idx2[find_col->second];
+                  dom = offd_new_dom[find_col->second];
                   
                   if(dom == levi)
                   {
@@ -3260,142 +3535,79 @@ perm_gemslr_global:
                      E_diags[dom].PushBack( ii-this->_lev_ptr_v[dom+1+level_start], idx-this->_lev_ptr_v[dom+level_start], a2_v[pid][k]);
                   }
                }
-            }
-         }
-      }
-      
-      /* now working with other procs. */
-      for( idshift = 1 ; idshift < np ; idshift ++)
-      {
-         upid = (myid + idshift) % np;
-         downid = (myid - idshift + np) % np;
-         
-         perm_vec_sorted2.Setup(n_locals[downid]);
-         order2.Setup(n_locals[downid]);
-         
-         E_marker.Resize(n_locals[downid], false, false);
-         E_marker.Fill(-1);
-         
-         C_marker.Resize(n_locals[downid], false, false);
-         C_marker.Fill(-1);
-         
-         MPI_Sendrecv( perm_vec_sorted.GetData(), n_locals[myid], MPI_LONG, upid, myid*upid,
-                        perm_vec_sorted2.GetData(), n_locals[downid], MPI_LONG, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
-         
-         MPI_Sendrecv( order.GetData(), n_locals[myid], MPI_INT, upid, myid*upid,
-                        order2.GetData(), n_locals[downid], MPI_INT, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
-         
-         MPI_Sendrecv( this->_lev_ptr_v.GetData()+level_start, nlev_used + 1, MPI_INT, upid, myid*upid,
-                        lev_ptr_vec.GetData(), nlev_used + 1, MPI_INT, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
-                        
-         MPI_Sendrecv( e_starts.GetData(), nlev_used - 1, MPI_LONG, upid, myid*upid,
-                        e_starts2.GetData(), nlev_used - 1, MPI_LONG, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
-         
-         MPI_Sendrecv( f_starts.GetData(), nlev_used - 1, MPI_LONG, upid, myid*upid,
-                        f_starts2.GetData(), nlev_used - 1, MPI_LONG, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
-         
-         for(levi = 0 ; levi < nlev_used; levi ++)
-         {
-            /* reset marker array for F */
-            F_marker.Resize(n_locals[downid], false, false);
-            F_marker.Fill(-1);
-            
-            i1 = this->_lev_ptr_v[levi+level_start];
-            i2 = this->_lev_ptr_v[levi+1+level_start];
-            
-            /* insert value */
-            for(ii = i1 ; ii < i2 ; ii ++)
-            {
-               
-               /* get the pid and j */
-               i = rcm_order[ii];
-               
-               pid = perm_vec_idx[i][0];
-               j = perm_vec_idx[i][1];
-               
-               k1 = i2_v[pid][j];
-               k2 = i2_v[pid][j+1];
-               
-               /* loop through this row */
-               for(k = k1 ; k < k2 ; k ++)
+               else
                {
-                  col = j2_v[pid][k]; /* get the global index */
+                  /* this is a local row of proc downid, need to find the lev of it 
+                   * idx is the local idx on proc downid
+                   */
+                  idx = offd_new_idx2[find_col->second];
+                  dom = offd_new_dom[find_col->second];
                   
-                  if(perm_vec_sorted2.BinarySearch( col, idx, true) >= 0)
+                  if(dom > levi)
                   {
-                     /* this is a local row of proc downid, need to find the lev of it 
-                      * idx is the local idx on proc downid
+                     /* on lower levels, belongs to F offd 
+                      * need to find the global col index in f
+                      * first, find the level, then, remove the level shift
+                      * finally, add the global column start
                       */
+                     col = col_new_insert_col[find_col->second][levi];
                      
-                     idx = order2[idx];
-                     
-                     /* now, search on the proc downid's levptr */
-                     if(lev_ptr_vec.BinarySearch( idx, dom, true) < 0)
+                     auto find_F_marker = F_markers_hash[levi].find(col);
+                     if(find_F_marker == F_markers_hash[levi].end())
                      {
-                        dom--;
-                     }
-                     
-                     /* also note that we might have multiple same value, always use the first one */
-                     while(dom > 0 && lev_ptr_vec[dom] == lev_ptr_vec[dom-1])
-                     {
-                        dom--;
-                     }
-                     
-                     if(dom > levi)
-                     {
-                        /* on lower levels, belongs to F offd 
-                         * need to find the global col index in f
-                         * first, find the level, then, remove the level shift
-                         * finally, add the global column start
-                         */
-                        col = idx - lev_ptr_vec[levi+1] + f_starts2[levi];
-                        
-                        if(F_marker[idx] < 0)
-                        {
-                           /* a new node */
-                           this->_levs_v[levi+level_start]._F_mat.GetOffdMap().PushBack(col);
-                           F_marker[idx] = this->_levs_v[levi+level_start]._F_mat.GetOffdMap().GetLengthLocal()-1;
-                        }
-                        
-                        F_offds[levi].PushBack( ii-i1, F_marker[idx], a2_v[pid][k]);
-                        
-                     }
-                     else if(dom < levi)
-                     {
-                        
-                        /* on upper levels, belongs to E offd 
-                         * also need to fine the global col index in e
-                         */
-                        col = idx - lev_ptr_vec[dom] + e_starts2[dom];
-                        if(E_marker[idx] < 0)
-                        {
-                           /* a new node */
-                           this->_levs_v[dom+level_start]._E_mat.GetOffdMap().PushBack(col);
-                           E_marker[idx] = this->_levs_v[dom+level_start]._E_mat.GetOffdMap().GetLengthLocal()-1;
-                        }
-                        
-                        E_offds[dom].PushBack( ii-this->_lev_ptr_v[dom+1+level_start], E_marker[idx], a2_v[pid][k]);
+                        /* a new node */
+                        this->_levs_v[levi+level_start]._F_mat.GetOffdMap().PushBack(col);
+                        F_markers_hash[levi][col] = this->_levs_v[levi+level_start]._F_mat.GetOffdMap().GetLengthLocal()-1;
+                        F_offds[levi].PushBack( ii-i1, F_markers_hash[levi][col], a2_v[pid][k]);
                      }
                      else
                      {
-                        /* this for sure belongs to the offdiagonal of C, and for sure the last level */
-                        PARGEMSLR_CHKERR(levi != nlev_used - 1);
-                        
-                        col = idx - lev_ptr_vec[levi] + c_starts[downid];
-                        
-                        if(C_marker[idx] < 0)
-                        {
-                           /* a new node */
-                           this->_levs_v[levi+level_start]._C_mat.GetOffdMap().PushBack(col);
-                           C_marker[idx] = this->_levs_v[levi+level_start]._C_mat.GetOffdMap().GetLengthLocal()-1;
-                        }
-                        
-                        C_offd.PushBack( ii-this->_lev_ptr_v[levi+level_start], C_marker[idx], a2_v[pid][k]);
+                        /* already have */
+                        F_offds[levi].PushBack( ii-i1, find_F_marker->second, a2_v[pid][k]);
+                     }
+                  }
+                  else if(dom < levi)
+                  {
+                     
+                     /* on upper levels, belongs to E offd 
+                      * also need to fine the global col index in e
+                      */
+                     col = col_new_insert_col[find_col->second][levi];
+                     
+                     auto find_E_marker = E_markers_hash[dom].find(col);
+                     if(find_E_marker == E_markers_hash[dom].end())
+                     {
+                        /* a new node */
+                        this->_levs_v[dom+level_start]._E_mat.GetOffdMap().PushBack(col);
+                        E_markers_hash[dom][col] = this->_levs_v[dom+level_start]._E_mat.GetOffdMap().GetLengthLocal()-1;
+                        E_offds[dom].PushBack( ii-this->_lev_ptr_v[dom+1+level_start], E_markers_hash[dom][col], a2_v[pid][k]);
+                     }
+                     else
+                     {
+                        /* already have */
+                        E_offds[dom].PushBack( ii-this->_lev_ptr_v[dom+1+level_start], find_E_marker->second, a2_v[pid][k]);
+                     }
+                  }
+                  else
+                  {
+                     /* this for sure belongs to the offdiagonal of C, and for sure the last level 
+                      * If this assert fails, some of the B blocks are not block diagonal. Check the partitioning code.
+                      */
+                     PARGEMSLR_CHKERR(levi != nlev_used - 1);
+                     
+                     col = col_new_insert_col[find_col->second][levi];
+                     
+                     auto find_C_marker = C_markers_hash.find(col);
+                     if(find_C_marker == C_markers_hash.end())
+                     {
+                        /* a new node */
+                        this->_levs_v[levi+level_start]._C_mat.GetOffdMap().PushBack(col);
+                        C_markers_hash[col] = this->_levs_v[levi+level_start]._C_mat.GetOffdMap().GetLengthLocal()-1;
+                        C_offd.PushBack( ii-this->_lev_ptr_v[levi+level_start], C_markers_hash[col], a2_v[pid][k]);
+                     }
+                     else
+                     {
+                        C_offd.PushBack( ii-this->_lev_ptr_v[levi+level_start], find_C_marker->second, a2_v[pid][k]);
                      }
                   }
                }
@@ -3437,6 +3649,7 @@ perm_gemslr_global:
             E_offds[levi].ToCsr(kMemoryHost, level_str._E_mat.GetOffdMat());
             level_str._E_mat.SortOffdMap();
             
+            
             F_offds[levi].SetNumCols(level_str._F_mat.GetOffdMap().GetLengthLocal());
             F_offds[levi].ToCsr(kMemoryHost, level_str._F_mat.GetOffdMat());
             level_str._F_mat.SortOffdMap();
@@ -3470,6 +3683,7 @@ perm_gemslr_global:
             
             /* sort offdiagonal rows */
             level_str._C_mat.SortOffdMap();
+            
          }
          
       }
@@ -3506,9 +3720,6 @@ perm_gemslr_global:
       marker.Clear();
       dom_marker.Clear();
       node_proc.Clear();
-      E_marker.Clear();
-      F_marker.Clear();
-      C_marker.Clear();
       rcm_order.Clear();
       n_disps.Clear();
       e_starts.Clear();
@@ -3524,6 +3735,16 @@ perm_gemslr_global:
       lev_ptr_vec.Clear();
       perm_vec_sorted.Clear();
       perm_vec_sorted2.Clear();
+      col_sendsize.Clear();
+      col_recvsize.Clear();
+      new_offds.Clear();
+      offd_original_proc.Clear();
+      offd_new_proc.Clear();
+      offd_new_idx.Clear();
+      offd_new_idx2.Clear();
+      offd_new_dom.Clear();
+      A_vtxdist.Clear();
+      col_map_hash.clear();
       
       for(i = 0 ; i < n_local ; i ++)
       {
@@ -3541,9 +3762,27 @@ perm_gemslr_global:
          
          i2_v[pid].Clear();
          j2_v[pid].Clear();
+         j3_v[pid].Clear();
          perm2_v[pid].Clear();
          dom2_v[pid].Clear();
          a2_v[pid].Clear();
+         
+         col_send_v[pid].Clear();
+         col_send_v2[pid].Clear();
+         col_recv_v[pid].Clear();
+         col_recv_v2[pid].Clear();
+      }
+      
+      for(i = 0 ; i < nlev_used ; i ++)
+      {
+         F_markers_hash[i].clear();
+         E_markers_hash[i].clear();
+      }
+      C_markers_hash.clear();
+      
+      for(i = 0 ; i < new_offd_idx ; i ++)
+      {
+         col_new_insert_col[i].Clear();
       }
       
       std::vector<vector_long>().swap(i_v);
@@ -3554,9 +3793,19 @@ perm_gemslr_global:
       
       std::vector<vector_long>().swap(i2_v);
       std::vector<vector_long>().swap(j2_v);
+      std::vector<vector_long>().swap(j3_v);
       std::vector<vector_long>().swap(perm2_v);
       std::vector<vector_long>().swap(dom2_v);
       std::vector<SequentialVectorClass<T> >().swap(a2_v);
+      
+      std::vector<vector_long>().swap(col_send_v);
+      std::vector<vector_long>().swap(col_recv_v);
+      std::vector<vector_int>().swap(col_send_v2);
+      std::vector<vector_int>().swap(col_recv_v2);
+      
+      std::vector<vector_long>().swap(col_new_insert_col);
+      std::vector<std::unordered_map<long int, int> >().swap(F_markers_hash);
+      std::vector<std::unordered_map<long int, int> >().swap(E_markers_hash);
       
       std::vector<MPI_Request>().swap(requests);
       std::vector<MPI_Status>().swap(status);

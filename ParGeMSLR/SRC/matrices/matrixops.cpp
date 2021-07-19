@@ -1,4 +1,6 @@
 
+#include <unordered_map>
+#include <unordered_set>
 #include "../utils/parallel.hpp"
 #include "../utils/utils.hpp"
 #include "../utils/memory.hpp"
@@ -11925,22 +11927,22 @@ namespace pargemslr
       int                              clvl;
       vector_long                      vtxdist, xadj, adjncy;
       
+      /* The ND version currently removed, limitid weak scalability
       if(vertexsep && ( (ncomp)&(ncomp-1) )==0 )
       {
          clvl = 1;
          mapptr_v.Setup(1, true);
          err = SetupPermutationParallelRKwayRecursive2( A, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
       }
-      else
-      {
-         A.GetGraphArrays(vtxdist, xadj, adjncy);
-         
-         /* call rKway function */
-         clvl = 1;
-         mapptr_v.Setup(1, true);
-         
-         err = SetupPermutationParallelRKwayRecursive( vtxdist, xadj, adjncy, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
-      }
+      */
+
+      A.GetGraphArrays(vtxdist, xadj, adjncy);
+      
+      /* call rKway function */
+      clvl = 1;
+      mapptr_v.Setup(1, true);
+      
+      err = SetupPermutationParallelRKwayRecursive( vtxdist, xadj, adjncy, vertexsep, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
       
       return err;
    }
@@ -11949,7 +11951,7 @@ namespace pargemslr
    template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<complexs> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
    template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<complexd> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
    
-   int SetupPermutationParallelRKwayRecursive(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog)
+   int SetupPermutationParallelRKwayRecursive(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog)
    {
       long int          i, j, n_local, nA, col, ncomp2;
       int               err = 0;
@@ -12041,7 +12043,7 @@ namespace pargemslr
          else
          {
             /* get the separator. In array vtxsep, mark as 1 to be in the seprator */
-            err = ParallelRKwayGetSeparator( vtxdist, xadj, adjncy, vtxdist_s, xadj_s, adjncy_s, map, ncomp, vtxsep, parlog);
+            err = ParallelRKwayGetSeparator( vtxdist, xadj, adjncy, vertexsep, vtxdist_s, xadj_s, adjncy_s, map, ncomp, vtxsep, parlog);
             
             if(err == -1)
             {
@@ -12122,7 +12124,7 @@ namespace pargemslr
             }
             
             // (Increase clvl by 1)
-            SetupPermutationParallelRKwayRecursive( vtxdist_s, xadj_s, adjncy_s, clvl+1, tlvl, ncomp, minsep, kmin, kfactor, map2_v, mapptr_v, bj_last, parlog);
+            SetupPermutationParallelRKwayRecursive( vtxdist_s, xadj_s, adjncy_s, vertexsep, clvl+1, tlvl, ncomp, minsep, kmin, kfactor, map2_v, mapptr_v, bj_last, parlog);
                   
             /* udpate map information */
             map_v.Setup(n_local);
@@ -12219,21 +12221,28 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
    }
    
-   int ParallelRKwayGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
+   int ParallelRKwayGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
    {
-      long int                i, ii, j, j1, j2;
-      long int                n_local, n_start, n_end, dom, col, nnz, nu, nd, n_local_s, local_diff, global_diff;
-      int                     id, procu, procd, k, request_size, response_size, requres_ids, idx;
-      //int                     idx_0;
-      int                     idx_1, idx_2, idx_3;
-      vector_int              ids, marker, marker2, request_buff, request_buff2, response_buff, response_buff2;
-      vector_long             n_local_ss, vtxsep_idx;
-      vector_long             vtxdist_vec, vtxsep_idx_global;
+      long int                   i, ii, j, j1, j2;
+      long int                   n_local, n_start, n_end, dom, col, nnz, n_local_s, local_diff, global_diff;
+      int                        id, idx;
+      vector_int                 ids, marker2;
+      vector_long                n_local_ss;
+      
+      std::unordered_map<long int, int> col_map_hash;
+      int                        ncols;
+      vector_long                cols;
+      vector_int                 col_ids;
+      
+      std::unordered_map<long int, int> col_map_uncertain_hash;
+      int                        n_uncertain_cols;
+      vector_int                 sendsize, recvsize;
+      std::vector<vector_long>   send_v2, recv_v2;
+      std::vector<vector_int>    send2_v2, recv2_v2;
       
       MPI_Comm                comm;
       int                     myid, np, numwaits;
       vector<MPI_Request>     requests;
-      MPI_Status              status;
       
       parlog.GetMpiInfo(np, myid, comm);
       
@@ -12254,7 +12263,11 @@ namespace pargemslr
          ids.Setup(nnz, true);
       }
       
-      /* set the id of each col */
+      /* -------------------------
+       * Step 1: put all local columns into the hash table
+       * -------------------------
+       */
+      ncols = 0;
       for(i = 0 ; i < n_local ; i ++)
       {
          j1 = xadj[i];
@@ -12265,49 +12278,68 @@ namespace pargemslr
             /* get the processor holds this index 
              * note that there might be duplicate entries 
              */
-            if(vtxdist.BinarySearch( col, ids[j], true) < 0)
+            auto find_col =  col_map_hash.find(col);
+            if(find_col == col_map_hash.end())
             {
-               /* in this case, col fall in between */
-               ids[j]--;
-            }
-            else
-            {
-               /* in this caase, col is inside vtxdist 
-                * need to handle duplicates 
-                * always search to the right ->
-                * example
-                * 0 0 1 1 1 3 3 5 5 6 7 8
-                * if we get an 1, search to the right until we get (1, 3)
-                * we won't get 8 so this would be fine
-                */
-               while(ids[j] < np-1 && vtxdist[ids[j]] == vtxdist[ids[j]+1])
+               /* a new one */
+               if(vtxdist.BinarySearch( col, id, true) < 0)
                {
-                  ids[j]++;
+                  /* in this case, col fall in between */
+                  id--;
                }
+               
+               cols.PushBack(col);
+               col_ids.PushBack(id);
+               col_map_hash[col] = ncols;
+               ncols++;
             }
          }
       }
       
-      /* main steps
-       * work on the local nodes first 
-       */
-      
-      /* This loop find local vtxsep
-       * If a row has multiple local map value, set 1 (vtxsep)
-       * If a row has no external nodes, and all same map value, set 0 (interior)
-       * If a row has external nodes, but local col all same map value, set -1 (to be decided)
-       */
+      /* ids[j] is the MPI process adjncy[j] belongs to */
       for(i = 0 ; i < n_local ; i ++)
       {
-         dom = map[i];
          j1 = xadj[i];
          j2 = xadj[i+1];
          for(j = j1 ; j < j2 ; j ++)
          {
             col = adjncy[j];
-            id = ids[j];
+            /* get the processor holds this index 
+             * note that there might be duplicate entries 
+             */
+            auto find_col =  col_map_hash.find(col);
+            ids[j] = col_ids[find_col->second];
+         }
+      }
+      
+      /* -------------------------
+       * Step 2: check local first
+       * some rows/cols requires 
+       * accessing offdiagonal entries
+       * -------------------------
+       */
+      
+      /* This loop find local vtxsep
+       * 1. local cols already has multiple maps:
+       *    => set vtxsep to 1, separator.
+       * 2. all cols are local, and all same map values:
+       *    => set vtxsep to 0, interior.
+       * 3. all local cols same map, however, have exterior cols
+       *    => set vtxsep to -1, TBD
+       */
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         /* dom is the domain of the row */
+         dom = map[i];
+         j1 = xadj[i];
+         j2 = xadj[i+1];
+         
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            col = adjncy[j];
+            id = ids[j]; /* this is the id this col belongs to */
             
-            /* if so we can check for local part */
+            /* we can only check the map value of local parts */
             if(id == myid)
             {
                col -= n_start;
@@ -12320,176 +12352,425 @@ namespace pargemslr
             }
             else
             {
-               /* if after loop, vtxsep == 0, this row has no offdiagonal 
-                * which means this is for sure an interio node
-                * if vtxsep == -1, we have at least one offd
-                */
+               /* if has offd, mark to -1 instead */
                vtxsep[i] = -1;
             }
          }
       }
       
-      /* now work on those marked as -1
-       * At each setp, myid wants to know map value from procu
-       * At each step, myid sends map value to procd
+      /* -------------------------
+       * Step 3: check remaining
+       * -------------------------
        */
-      requests.resize(4);
-      for(k = 1 ; k < np ; k ++)
+      
+      n_uncertain_cols = 0;
+      
+      sendsize.Setup(np, true);
+      recvsize.Setup(np, true);
+      send_v2.resize(np);
+      recv_v2.resize(np);
+      send2_v2.resize(np);
+      recv2_v2.resize(np);
+      
+      for(i = 0 ; i < n_local ; i ++)
       {
-         /* reset case number */
-         //idx_0 = -1;
-         idx_1 = -2;
-         idx_2 = -3;
-         idx_3 = -4;
-         response_size = 0;
-         
-         /* check procu, send map to procd */
-         procu = (myid + k) % np;
-         procd = (myid - k + np) % np;
-         
-         /* numer of nodes in procu */
-         nu = vtxdist[procu+1] - vtxdist[procu];
-         /* numer of nodes in procd */
-         nd = vtxdist[procd+1] - vtxdist[procd];
-         
-         /* if both nu and nd are zero, do nothing */
-         if(n_local > 0)
+         if(vtxsep[i] == -1 || (vtxsep[i] == 1 && vertexsep))
          {
-            numwaits = 0;
-            if(nu > 0)
+            /* this is a target column */
+            j1 = xadj[i];
+            j2 = xadj[i+1];
+            
+            for(j = j1 ; j < j2 ; j ++)
             {
-               /* nu nonzero, this nonzero
-                * apply communication
-                */
-            
-               marker.Setup(nu);
-               marker.Fill(-1);
-               request_buff.Resize(0, false, false);
-               request_size = 0;
+               col = adjncy[j];
+               id = ids[j]; /* this is the id this col belongs to */
                
-               /* loop to see what I want to request from procu */
-               for(i = 0 ; i < n_local ; i ++)
+               if(id != myid)
                {
-                  /* only need to work on unmarked nodes */
-                  if(vtxsep[i] < 0)
+                  /* only check off-diagonal entries */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(find_col == col_map_uncertain_hash.end())
                   {
-                     j1 = xadj[i];
-                     j2 = xadj[i+1];
-                     for(j = j1 ; j < j2 ; j ++)
-                     {
-                        id = ids[j];
-                        
-                        /* if so we can check for local part */
-                        if(id == procu)
-                        {
-                           col = adjncy[j] - vtxdist[procu];
-                           if(marker[col] < 0)
-                           {
-                              /* this is an exterior node */
-                              marker[col] = request_size++;
-                              request_buff.PushBack(col);
-                           }
-                        }
-                     }
-                  }
-               }
-               
-               /* requesting information from procu */
-               PARGEMSLR_MPI_CALL( PargemslrMpiIsend( request_buff.GetData(), request_size, procu, 0, comm, &(requests[numwaits])) );
-               //idx_0 = numwaits;
-               numwaits++;
-               
-               if(request_size > 0)
-               {
-                  /* recv response from procu, put map in the same buffer */
-                  request_buff2.Resize(request_size, false, false);
-                  
-                  PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( request_buff2.GetData(), request_size, procu, 1, comm, &(requests[numwaits])) );
-                  idx_2 = numwaits;
-                  numwaits++;
-               }
-               
-            }
-            
-            if(nd > 0)
-            {
-               /* this and proc down are not empty
-                * recv request from procd, myid can recv at most n_local requrests 
-                */
-               response_buff.Resize(n_local, false, false);
-               
-               PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( response_buff.GetData(), n_local, procd, 0, comm, &(requests[numwaits])) );
-               idx_1 = numwaits;
-               numwaits++;
-            }
-            
-            /* now, start handle all the data */
-            
-            for(ii = 0 ; ii < numwaits ; ii ++)
-            {
-               PARGEMSLR_MPI_CALL( MPI_Waitany( numwaits, requests.data(), &requres_ids, &status));
-               
-               if(requres_ids == idx_1)
-               {
-                  /* we recevied the request, response */
-                  PARGEMSLR_MPI_CALL( MPI_Get_count( &status, MPI_INT, &response_size) );
-                  if(response_size > 0)
-                  {
-                     
-                     /* only response when we need to do so */
-                     response_buff2.Resize(response_size, false, false);
-                  
-                     for(i = 0 ; i < response_size ; i ++)
-                     {
-                        response_buff2[i] = map[response_buff[i]];
-                     }
-                     
-                     PARGEMSLR_MPI_CALL( PargemslrMpiIsend( response_buff2.GetData(), response_size, procd, 1, comm, &(requests[numwaits])) );
-                     idx_3 = numwaits;
-                  }
-               }
-               else if(requres_ids == idx_2)
-               {
-                  /* we received the response 
-                   * loop again and mark tnose rows
-                   */
-                  for(i = 0 ; i < n_local ; i ++)
-                  {
-                     /* onlh need to work on unmarked nodes */
-                     if(vtxsep[i] < 0)
-                     {
-                        dom = map[i];
-                        j1 = xadj[i];
-                        j2 = xadj[i+1];
-                        for(j = j1 ; j < j2 ; j ++)
-                        {
-                           id = ids[j];
-                           
-                           /* if so we can check for local part */
-                           if(id == procu)
-                           {
-                              col = adjncy[j] - vtxdist[procu];
-                              if(marker[col] >= 0 && request_buff2[marker[col]] != dom)
-                              {
-                                 /* this is an exterior node */
-                                 vtxsep[i] = 1;
-                                 break;
-                              }
-                           }
-                        }
-                     }
+                     /* breaking news! a NEW column! */
+                     send_v2[id].PushBack(col);
+                     col_map_uncertain_hash[col] = sendsize[id];
+                     sendsize[id]++;
                   }
                }
             }
-            
-            if(response_size > 0)
-            {
-               /* wait for procd to receive my response, myid can then overwrite the data */
-               PARGEMSLR_MPI_CALL( MPI_Wait( &(requests[idx_3]), MPI_STATUS_IGNORE) );
-            }
-            
          }
       }
+      
+      /* communicate send and recv size */
+      PARGEMSLR_MPI_CALL( MPI_Alltoall( sendsize.GetData(), 1, MPI_INT, recvsize.GetData(), 1, MPI_INT, comm) );
+      
+      /* then apply communication */
+      
+      requests.resize(2*np);
+      
+      /* first send cols */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( send_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv_v2[i].Setup(recvsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( recv_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* get the map value */
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv2_v2[i].Setup(recvsize[i]);
+            for(j = 0 ; j < recvsize[i]; j ++)
+            {
+               recv2_v2[i][j] = map[recv_v2[i][j] - n_start];
+            }
+         }
+      }
+      
+      /* then apply communication again */
+      
+      /* or MPI_Alltoallv? */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( recv2_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            send2_v2[i].Setup(sendsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( send2_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* finally check the received columns */
+      
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] == -1)
+         {
+            /* this is a target column */
+            dom = map[i];
+            j1 = xadj[i];
+            j2 = xadj[i+1];
+            
+            for(j = j1 ; j < j2 ; j ++)
+            {
+               col = adjncy[j];
+               id = ids[j]; /* this is the id this col belongs to */
+               
+               if(id != myid)
+               {
+                  /* only check off-diagonal entries */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(send2_v2[id][find_col->second] != dom)
+                  {
+                     vtxsep[i] = 1;
+                     break;
+                  }
+               }
+            }
+            
+            /* if still -1, this is interior */
+            if(vtxsep[i] == -1)
+            {
+               vtxsep[i] = 0;
+            }
+         }
+      }
+      
+      /* -------------------------
+       * Step 3.5: update the edge
+       * separator into a rough
+       * vertex separator
+       * -------------------------
+       */
+       
+      /* We use a simply recursive algorithm
+       * Each time split node set V into V1 and V2
+       * Find all edges across V1 and V2, mark one of
+       * the end as vertex separator.
+       * Recursively apply this strategy to V1 and V2
+       */
+      
+      if(vertexsep)
+      {
+         /* search vector on each level:
+          * 0          m          ndom  2+1
+          * 0    n1    m    n2    ndom  4+1
+          * 0 o1 n1 o2 m o3 n2 o4 ndom  8+1
+          * 2^{n + 1) + n - 2
+          */
+         vector_long tree;
+         
+         int k, ts, te, tlen, idxi, leveli, tree_size, tree_level;
+         long int n1, n2, n1_g, n2_g, domi;
+         
+         bool marker, even;
+         
+         tree_size = 2;
+         tree_level = 1;
+         
+         while( tree_size < num_dom )
+         {
+            tree_size = tree_size << 1;
+            tree_level++;
+         }
+         
+         tree_size = 2*pow(2,tree_level)+tree_level-2;
+         
+         tree.Setup(tree_size, true);
+         
+         tree[0] = 0;
+         tree[1] = num_dom/2;
+         tree[2] = num_dom;
+         
+         ts = 3;
+         
+         for(i = 1 ; i < tree_level ; i ++)
+         {
+            /* [0-2] [3-7] [8-17] [7-14] */
+            te = ts + pow(2,i+1) + 1;
+            
+            for(j = ts, k = ts-pow(2,i)-1 ; j < te ; j +=2, k+=1)
+            {
+               tree[j] = tree[k];
+            }
+            for(j = ts + 1, k = ts-pow(2,i)-1 ; j < te - 1 ; j +=2, k+=1)
+            {
+               tree[j] = (tree[k+1]+tree[k])/2;
+            }
+            ts = te;
+         }
+         
+         ts = 0;
+         for(leveli = 0 ; leveli < tree_level ; leveli ++)
+         {
+            /* search within each level */
+            tlen = pow(2,leveli+1) + 1;
+            te = ts + tlen;
+            
+            n1 = 0;
+            n2 = 0;
+            
+            vector_long treei;
+            std::unordered_map<long int, int> tree_idx_hash;
+            
+            treei.SetupPtr( tree, tlen, ts);
+            
+            /* before we start, we first update the index of each off-diagonal columns to avoid duplicate search */
+            for(i = 0 ; i < n_local ; i ++)
+            {
+               if(vtxsep[i] == 1)
+               {
+                  dom = map[i];
+                  
+                  /* check if we know the index of the local domain */
+                  auto find_dom =  tree_idx_hash.find(dom);
+                  if(find_dom == tree_idx_hash.end())
+                  {
+                     /* a new one */
+                     if( treei.BinarySearch( dom, idx, true) < 0)
+                     {
+                        /* In this case, we haven't found it, belongs to the previous inteval */
+                        idx--;
+                     }
+                     
+                     tree_idx_hash[dom] = idx;
+                  }
+                  
+                  /* new check nbhds */
+                  j1 = xadj[i];
+                  j2 = xadj[i+1];
+                  for(j = j1 ; j < j2 ; j ++)
+                  {
+                     
+                     col = adjncy[j];
+                     id = ids[j]; /* this is the id this col belongs to */
+                     
+                     if(id != myid)
+                     {
+                        auto find_col = col_map_uncertain_hash.find(col);
+                        domi = send2_v2[id][find_col->second];
+                     }
+                     else
+                     {
+                        domi = map[col-n_start];
+                     }
+                     
+                     auto find_dom =  tree_idx_hash.find(domi);
+                     if(find_dom == tree_idx_hash.end())
+                     {
+                        /* a new one */
+                        if( treei.BinarySearch( domi, idx, true) < 0)
+                        {
+                           /* In this case, we haven't found it, belongs to the previous inteval */
+                           idx--;
+                        }
+                        
+                        tree_idx_hash[domi] = idx;
+                     }
+                  }
+               }
+            }
+            
+            
+            /* search all nodes */
+            for(i = 0 ; i < n_local ; i ++)
+            {
+               if(vtxsep[i] == 1)
+               {
+                  /* this is in the edge separator, and haven't been marked */
+                  dom = map[i];
+                  
+                  auto find_idx = tree_idx_hash.find(dom);
+                  idx = find_idx->second;
+                  
+                  marker = false;
+                  
+                  if( idx % 2 == 0)
+                  {
+                     even = true;
+                  }
+                  else
+                  {
+                     even = false;
+                  }
+                  
+                  /* even value, this is the LOWER half of a pair */
+                  j1 = xadj[i];
+                  j2 = xadj[i+1];
+                  
+                  for(j = j1 ; j < j2 ; j ++)
+                  {
+                     col = adjncy[j];
+                     id = ids[j]; /* this is the id this col belongs to */
+                     
+                     if(id != myid)
+                     {
+                        /* only check off-diagonal entries */
+                        auto find_col = col_map_uncertain_hash.find(col);
+                        domi = send2_v2[id][find_col->second];
+                     }
+                     else
+                     {
+                        domi = map[col-n_start];
+                     }
+                     
+                     auto find_idx = tree_idx_hash.find(domi);
+                     idxi = find_idx->second;
+                     
+                     if( (even && idx +1 == idxi) || (!even && idx -1 == idxi) )
+                     {
+                        /* target col, this node is in the separator */
+                        marker = true;
+                        break;
+                     }
+                  }
+                  
+                  if(marker)
+                  {
+                     if(even)
+                     {
+                        vtxsep[i] = 3;
+                        n1++;
+                     }
+                     else
+                     {
+                        vtxsep[i] = 4;
+                        n2++;
+                     }
+                  }
+               }
+            }
+            
+            /* now check which to add to separator */
+            PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( &n1, &n1_g, 1, MPI_SUM,comm));
+            PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( &n2, &n2_g, 1, MPI_SUM,comm));
+            
+            /* main loop done */
+            if(n1_g <= n2_g)
+            {
+               /* in this case putting those marked 3 into 2 */
+               for(i = 0 ; i < n_local ; i ++)
+               {
+                  if(vtxsep[i] == 3)
+                  {
+                     vtxsep[i] = 2;
+                  }
+                  else if(vtxsep[i] == 4)
+                  {
+                     vtxsep[i] = 1;
+                  }
+               }
+            }
+            else
+            {
+               /* in this case putting those marked 3 into 2 */
+               for(i = 0 ; i < n_local ; i ++)
+               {
+                  if(vtxsep[i] == 4)
+                  {
+                     vtxsep[i] = 2;
+                  }
+                  else if(vtxsep[i] == 3)
+                  {
+                     vtxsep[i] = 1;
+                  }
+               }
+            } 
+            
+            tree_idx_hash.clear();
+            treei.Clear();
+            
+            ts = te;
+         }
+         
+         /* adjust marker value */
+         for(i = 0 ; i < n_local ; i ++)
+         {
+            if(vtxsep[i] == 1)
+            {
+               vtxsep[i] = 0;
+            }
+            else if(vtxsep[i] == 2)
+            {
+               vtxsep[i] = 1;
+            }
+         }
+      }
+      
+      /* -------------------------
+       * Step 4: check the separator
+       * If some subdomain has no
+       * interior nodes, we would
+       * have to reject this
+       * -------------------------
+       */
       
       /* check if some color has no interior nodes */
       
@@ -12499,7 +12780,8 @@ namespace pargemslr
       /* mark local domains */
       for (i = 0; i < n_local; i++)
       {
-         if(vtxsep[i] < 0)
+         /* if found interior, mark to 1 */
+         if(vtxsep[i] == 0)
          {
             marker2[map[i]] = 1;
          }
@@ -12516,15 +12798,24 @@ namespace pargemslr
          }
       }
       
-      /* now form the reduced system */
+      /* -------------------------
+       * Step 5: now form the 
+       * reduced system
+       * first get the local vertices
+       * -------------------------
+       */
+      
       n_local_s = 0;
-      vtxsep_idx.Resize(0, false, false);
       for(i = 0 ; i < n_local ; i ++)
       {
          if(vtxsep[i] > 0)
          {
+            vtxsep[i] = n_local_s;
             n_local_s++;
-            vtxsep_idx.PushBack(i);
+         }
+         else
+         {
+            vtxsep[i] = -1;
          }
       }
       
@@ -12537,6 +12828,7 @@ namespace pargemslr
          return -1;
       }
       
+      /* global displacement */
       n_local_ss.Setup(np);
       
       PARGEMSLR_MPI_CALL( MPI_Allgather( &n_local_s, 1, MPI_LONG, n_local_ss.GetData(), 1, MPI_LONG, comm) );
@@ -12545,38 +12837,121 @@ namespace pargemslr
       vtxdist_s[0] = 0;
       for(i = 0 ; i < np ; i ++)
       {
-         /*
-         if(n_local_ss[i] == 0)
-         {
-            return -1;
-         }
-         */
          vtxdist_s[i+1] = vtxdist_s[i] + n_local_ss[i];
       }
       
-      for(i = 0 ; i < n_local_s ; i ++)
-      {
-         vtxsep_idx[i] += vtxdist[myid];
-      }
+      /* --------------------------------
+       * Step 6: get vtxsep info of offds
+       * --------------------------------
+       */
       
-      /*
-      if(vtxdist_s[np] == vtxdist[np])
-      {
-         return -1;
-      }
-      */
+      col_map_uncertain_hash.clear();
+      n_uncertain_cols = 0;
       
-      vtxsep_idx_global.Setup(vtxdist_s[np]);
-      
-      /* might all gather v with long int, use bcast to avoid this */
+      sendsize.Fill(0);
+      recvsize.Fill(0);
       for(i = 0 ; i < np ; i ++)
       {
-         if(myid == i)
-         {
-            PARGEMSLR_MEMCPY( vtxsep_idx_global.GetData() + vtxdist_s[i], vtxsep_idx.GetData(), n_local_s, kMemoryHost, kMemoryHost, long int);
-         }
-         PARGEMSLR_MPI_CALL( PargemslrMpiBcast( vtxsep_idx_global.GetData() + vtxdist_s[i], n_local_ss[i], i, comm ) );
+         send_v2[i].Clear();
+         send_v2[i].Clear();
+         send2_v2[i].Clear();
+         recv2_v2[i].Clear();
       }
+      
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] >= 0)
+         {
+            /* this is a vtxsep */
+            j1 = xadj[i];
+            j2 = xadj[i+1];
+            
+            for(j = j1 ; j < j2 ; j ++)
+            {
+               col = adjncy[j];
+               id = ids[j]; /* this is the id this col belongs to */
+               
+               if(id != myid)
+               {
+                  /* only check off-diagonal entries */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(find_col == col_map_uncertain_hash.end())
+                  {
+                     /* breaking news! a NEW column! */
+                     send_v2[id].PushBack(col);
+                     col_map_uncertain_hash[col] = sendsize[id];
+                     sendsize[id]++;
+                  }
+               }
+            }
+         }
+      }
+      
+      /* communicate send and recv size */
+      PARGEMSLR_MPI_CALL( MPI_Alltoall( sendsize.GetData(), 1, MPI_INT, recvsize.GetData(), 1, MPI_INT, comm) );
+      
+      /* then apply communication */
+      
+      /* first send cols */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( send_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv_v2[i].Setup(recvsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( recv_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* get the map value */
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv2_v2[i].Setup(recvsize[i]);
+            for(j = 0 ; j < recvsize[i]; j ++)
+            {
+               recv2_v2[i][j] = vtxsep[recv_v2[i][j] - n_start];
+            }
+         }
+      }
+      
+      /* then apply communication again */
+      
+      /* or MPI_Alltoallv? */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( recv2_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            send2_v2[i].Setup(sendsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( send2_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* now adding elements */
       
       xadj_s.Setup(n_local_s+1);
       adjncy_s.Resize(0, false, false);
@@ -12586,7 +12961,7 @@ namespace pargemslr
       ii = 0;
       for(i = 0 ; i < n_local ; i ++)
       {
-         if(vtxsep[i] > 0)
+         if(vtxsep[i] >= 0)
          {
             xadj_s[ii+1] = xadj_s[ii];
             j1 = xadj[i];
@@ -12594,27 +12969,72 @@ namespace pargemslr
             for(j = j1 ; j < j2 ; j ++)
             {
                col = adjncy[j];
-               if( vtxsep_idx_global.BinarySearch( col, idx, true) >= 0)
+               id = ids[j];
+               
+               if(id != myid)
                {
-                  /* this is the separator */
-                  adjncy_s.PushBack(idx);
-                  xadj_s[ii+1]++;
+                  /* off-diagonal blocks */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(find_col != col_map_uncertain_hash.end())
+                  {
+                     idx = send2_v2[id][find_col->second];
+                     if(idx >= 0)
+                     {
+                        adjncy_s.PushBack(idx+vtxdist_s[id]);
+                        xadj_s[ii+1]++;
+                     }
+                  }
+               }
+               else
+               {
+                  /* diagonal block */
+                  idx = vtxsep[col-n_start];
+                  if(idx >= 0)
+                  {
+                     adjncy_s.PushBack(idx+vtxdist_s[myid]);
+                     xadj_s[ii+1]++;
+                  }
                }
             }
             ii++;
          }
       }
       
+      /* reset vtxsep */
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] >= 0)
+         {
+            vtxsep[i] = 1;
+         }
+         else
+         {
+            vtxsep[i] = -1;
+         }
+      }
+      
       /* deallocate */
       ids.Clear();
-      marker.Clear();
-      response_buff.Clear();
-      response_buff2.Clear();
-      request_buff.Clear();
-      request_buff2.Clear();
+      marker2.Clear();
       n_local_ss.Clear();
+      sendsize.Clear();
+      recvsize.Clear();
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         send_v2[i].Clear();
+         recv_v2[i].Clear();
+         send2_v2[i].Clear();
+         recv2_v2[i].Clear();
+      }
+      
+      std::vector<vector_long>().swap(send_v2);
+      std::vector<vector_long>().swap(recv_v2);
+      std::vector<vector_int>().swap(send2_v2);
+      std::vector<vector_int>().swap(recv2_v2);
+      
+      col_map_uncertain_hash.clear();
       vector<MPI_Request>().swap(requests);
-      vtxsep_idx_global.Clear();
       
       return PARGEMSLR_SUCCESS;
    }
@@ -13182,17 +13602,25 @@ namespace pargemslr
    
    int ParallelNDGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_long &map, long int &ndom1, long int &ndom2, long int &edge_cut, parallel_log &parlog)
    {
-      long int                i, ii, j, j1, j2;
-      long int                n_local, n_start, n_end, dom, col, nnz, nu, nd;
-      int                     id, procu, procd, k, request_size, response_size, requres_ids;
-      //int                     idx_0;
-      int                     idx_1, idx_2, idx_3;
-      vector_int              ids, marker, request_buff, request_buff2, response_buff, response_buff2, vtxsep;
+      long int                   i, j, j1, j2;
+      long int                   n_local, n_start, n_end, dom, col, nnz;
+      int                        id;
+      vector_int                 ids, vtxsep;
       
-      MPI_Comm                comm;
-      int                     myid, np, numwaits;
-      vector<MPI_Request>     requests;
-      MPI_Status              status;
+      std::unordered_map<long int, int> col_map_hash;
+      int                        ncols;
+      vector_long                cols;
+      vector_int                 col_ids;
+      
+      std::unordered_map<long int, int> col_map_uncertain_hash;
+      int                        n_uncertain_cols;
+      vector_int                 sendsize, recvsize;
+      std::vector<vector_long>   send_v2, recv_v2;
+      std::vector<vector_int>    send2_v2, recv2_v2;
+      
+      MPI_Comm                   comm;
+      int                        myid, np, numwaits;
+      vector<MPI_Request>        requests;
       
       parlog.GetMpiInfo(np, myid, comm);
       
@@ -13213,7 +13641,11 @@ namespace pargemslr
          ids.Setup(nnz, true);
       }
       
-      /* set the id of each col */
+      /* -------------------------
+       * Step 1: put all local columns into the hash table
+       * -------------------------
+       */
+      ncols = 0;
       for(i = 0 ; i < n_local ; i ++)
       {
          j1 = xadj[i];
@@ -13224,49 +13656,68 @@ namespace pargemslr
             /* get the processor holds this index 
              * note that there might be duplicate entries 
              */
-            if(vtxdist.BinarySearch( col, ids[j], true) < 0)
+            auto find_col =  col_map_hash.find(col);
+            if(find_col == col_map_hash.end())
             {
-               /* in this case, col fall in between */
-               ids[j]--;
-            }
-            else
-            {
-               /* in this caase, col is inside vtxdist 
-                * need to handle duplicates 
-                * always search to the right ->
-                * example
-                * 0 0 1 1 1 3 3 5 5 6 7 8
-                * if we get an 1, search to the right until we get (1, 3)
-                * we won't get 8 so this would be fine
-                */
-               while(ids[j] < np-1 && vtxdist[ids[j]] == vtxdist[ids[j]+1])
+               /* a new one */
+               if(vtxdist.BinarySearch( col, id, true) < 0)
                {
-                  ids[j]++;
+                  /* in this case, col fall in between */
+                  id--;
                }
+               
+               cols.PushBack(col);
+               col_ids.PushBack(id);
+               col_map_hash[col] = ncols;
+               ncols++;
             }
          }
       }
       
-      /* main steps
-       * work on the local nodes first 
-       */
-      
-      /* This loop find local vtxsep
-       * If a row has multiple local map value, set 1 (vtxsep)
-       * If a row has no external nodes, and all same map value, set 0 (interior)
-       * If a row has external nodes, but local col all same map value, set -1 (to be decided)
-       */
+      /* ids[j] is the MPI process adjncy[j] belongs to */
       for(i = 0 ; i < n_local ; i ++)
       {
-         dom = map[i];
          j1 = xadj[i];
          j2 = xadj[i+1];
          for(j = j1 ; j < j2 ; j ++)
          {
             col = adjncy[j];
-            id = ids[j];
+            /* get the processor holds this index 
+             * note that there might be duplicate entries 
+             */
+            auto find_col =  col_map_hash.find(col);
+            ids[j] = col_ids[find_col->second];
+         }
+      }
+      
+      /* -------------------------
+       * Step 2: check local first
+       * some rows/cols requires 
+       * accessing offdiagonal entries
+       * -------------------------
+       */
+      
+      /* This loop find local vtxsep
+       * 1. local cols already has multiple maps:
+       *    => set vtxsep to 1, separator.
+       * 2. all cols are local, and all same map values:
+       *    => set vtxsep to 0, interior.
+       * 3. all local cols same map, however, have exterior cols
+       *    => set vtxsep to -1, TBD
+       */
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         /* dom is the domain of the row */
+         dom = map[i];
+         j1 = xadj[i];
+         j2 = xadj[i+1];
+         
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            col = adjncy[j];
+            id = ids[j]; /* this is the id this col belongs to */
             
-            /* if so we can check for local part */
+            /* we can only check the map value of local parts */
             if(id == myid)
             {
                col -= n_start;
@@ -13279,174 +13730,154 @@ namespace pargemslr
             }
             else
             {
-               /* if after loop, vtxsep == 0, this row has no offdiagonal 
-                * which means this is for sure an interio node
-                * if vtxsep == -1, we have at least one offd
-                */
+               /* if has offd, mark to -1 instead */
                vtxsep[i] = -1;
             }
          }
       }
       
-      /* now work on those marked as -1
-       * At each setp, myid wants to know map value from procu
-       * At each step, myid sends map value to procd
+      /* -------------------------
+       * Step 3: check remaining
+       * -------------------------
        */
-      requests.resize(4);
-      for(k = 1 ; k < np ; k ++)
+      
+      n_uncertain_cols = 0;
+      
+      sendsize.Setup(np, true);
+      recvsize.Setup(np, true);
+      send_v2.resize(np);
+      recv_v2.resize(np);
+      send2_v2.resize(np);
+      recv2_v2.resize(np);
+      
+      for(i = 0 ; i < n_local ; i ++)
       {
-         /* reset case number */
-         //idx_0 = -1;
-         idx_1 = -2;
-         idx_2 = -3;
-         idx_3 = -4;
-         response_size = 0;
-         
-         /* check procu, send map to procd */
-         procu = (myid + k) % np;
-         procd = (myid - k + np) % np;
-         
-         /* numer of nodes in procu */
-         nu = vtxdist[procu+1] - vtxdist[procu];
-         /* numer of nodes in procd */
-         nd = vtxdist[procd+1] - vtxdist[procd];
-         
-         /* if both nu and nd are zero, do nothing */
-         if(n_local > 0)
+         if(vtxsep[i] == -1)
          {
-            numwaits = 0;
-            if(nu > 0)
-            {
-               /* nu nonzero, this nonzero
-                * apply communication
-                */
+            /* this is a target column */
+            j1 = xadj[i];
+            j2 = xadj[i+1];
             
-               marker.Setup(nu);
-               marker.Fill(-1);
-               request_buff.Resize(0, false, false);
-               request_size = 0;
+            for(j = j1 ; j < j2 ; j ++)
+            {
+               col = adjncy[j];
+               id = ids[j]; /* this is the id this col belongs to */
                
-               /* loop to see what I want to request from procu */
-               for(i = 0 ; i < n_local ; i ++)
+               if(id != myid)
                {
-                  /* only need to work on unmarked nodes */
-                  if(vtxsep[i] < 0)
+                  /* only check off-diagonal entries */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(find_col == col_map_uncertain_hash.end())
                   {
-                     j1 = xadj[i];
-                     j2 = xadj[i+1];
-                     for(j = j1 ; j < j2 ; j ++)
-                     {
-                        id = ids[j];
-                        
-                        /* if so we can check for local part */
-                        if(id == procu)
-                        {
-                           col = adjncy[j] - vtxdist[procu];
-                           if(marker[col] < 0)
-                           {
-                              /* this is an exterior node */
-                              marker[col] = request_size++;
-                              request_buff.PushBack(col);
-                           }
-                        }
-                     }
+                     /* breaking news! a NEW column! */
+                     send_v2[id].PushBack(col);
+                     col_map_uncertain_hash[col] = sendsize[id];
+                     sendsize[id]++;
                   }
                }
-               
-               /* requesting information from procu */
-               PARGEMSLR_MPI_CALL( PargemslrMpiIsend( request_buff.GetData(), request_size, procu, 0, comm, &(requests[numwaits])) );
-               //idx_0 = numwaits;
-               numwaits++;
-               
-               if(request_size > 0)
-               {
-                  /* recv response from procu, put map in the same buffer */
-                  request_buff2.Resize(request_size, false, false);
-                  
-                  PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( request_buff2.GetData(), request_size, procu, 1, comm, &(requests[numwaits])) );
-                  idx_2 = numwaits;
-                  numwaits++;
-               }
-               
             }
-            
-            if(nd > 0)
+         }
+      }
+      
+      /* communicate send and recv size */
+      PARGEMSLR_MPI_CALL( MPI_Alltoall( sendsize.GetData(), 1, MPI_INT, recvsize.GetData(), 1, MPI_INT, comm) );
+      
+      /* then apply communication */
+      
+      requests.resize(2*np);
+      
+      /* first send cols */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( send_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv_v2[i].Setup(recvsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( recv_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* get the map value */
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv2_v2[i].Setup(recvsize[i]);
+            for(j = 0 ; j < recvsize[i]; j ++)
             {
-               /* this and proc down are not empty
-                * recv request from procd, myid can recv at most n_local requrests 
-                */
-               response_buff.Resize(n_local, false, false);
-               
-               PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( response_buff.GetData(), n_local, procd, 0, comm, &(requests[numwaits])) );
-               idx_1 = numwaits;
-               numwaits++;
+               recv2_v2[i][j] = map[recv_v2[i][j] - n_start];
             }
+         }
+      }
+      
+      /* then apply communication again */
+      
+      /* or MPI_Alltoallv? */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( recv2_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            send2_v2[i].Setup(sendsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( send2_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* finally check the received columns */
+      
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] == -1)
+         {
+            /* this is a target column */
+            dom = map[i];
+            j1 = xadj[i];
+            j2 = xadj[i+1];
             
-            /* now, start handle all the data */
-            
-            for(ii = 0 ; ii < numwaits ; ii ++)
+            for(j = j1 ; j < j2 ; j ++)
             {
-               PARGEMSLR_MPI_CALL( MPI_Waitany( numwaits, requests.data(), &requres_ids, &status));
+               col = adjncy[j];
+               id = ids[j]; /* this is the id this col belongs to */
                
-               if(requres_ids == idx_1)
+               if(id != myid)
                {
-                  /* we recevied the request, response */
-                  PARGEMSLR_MPI_CALL( MPI_Get_count( &status, MPI_INT, &response_size) );
-                  if(response_size > 0)
+                  /* only check off-diagonal entries */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(send2_v2[id][find_col->second] != dom)
                   {
-                     
-                     /* only response when we need to do so */
-                     response_buff2.Resize(response_size, false, false);
-                  
-                     for(i = 0 ; i < response_size ; i ++)
-                     {
-                        response_buff2[i] = map[response_buff[i]];
-                     }
-                     
-                     PARGEMSLR_MPI_CALL( PargemslrMpiIsend( response_buff2.GetData(), response_size, procd, 1, comm, &(requests[numwaits])) );
-                     idx_3 = numwaits;
-                  }
-               }
-               else if(requres_ids == idx_2)
-               {
-                  /* we received the response 
-                   * loop again and mark tnose rows
-                   */
-                  for(i = 0 ; i < n_local ; i ++)
-                  {
-                     /* onlh need to work on unmarked nodes */
-                     if(vtxsep[i] < 0)
-                     {
-                        dom = map[i];
-                        j1 = xadj[i];
-                        j2 = xadj[i+1];
-                        for(j = j1 ; j < j2 ; j ++)
-                        {
-                           id = ids[j];
-                           
-                           /* if so we can check for local part */
-                           if(id == procu)
-                           {
-                              col = adjncy[j] - vtxdist[procu];
-                              if(marker[col] >= 0 && request_buff2[marker[col]] != dom)
-                              {
-                                 /* this is an exterior node */
-                                 vtxsep[i] = 1;
-                                 break;
-                              }
-                           }
-                        }
-                     }
+                     vtxsep[i] = 1;
+                     break;
                   }
                }
             }
             
-            if(response_size > 0)
+            /* if still -1, this is interior */
+            if(vtxsep[i] == -1)
             {
-               /* wait for procd to receive my response, myid can then overwrite the data */
-               PARGEMSLR_MPI_CALL( MPI_Wait( &(requests[idx_3]), MPI_STATUS_IGNORE) );
+               vtxsep[i] = 0;
             }
-            
          }
       }
       
@@ -13519,11 +13950,23 @@ namespace pargemslr
       
       /* deallocate */
       ids.Clear();
-      marker.Clear();
-      response_buff.Clear();
-      response_buff2.Clear();
-      request_buff.Clear();
-      request_buff2.Clear();
+      sendsize.Clear();
+      recvsize.Clear();
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         send_v2[i].Clear();
+         recv_v2[i].Clear();
+         send2_v2[i].Clear();
+         recv2_v2[i].Clear();
+      }
+      
+      std::vector<vector_long>().swap(send_v2);
+      std::vector<vector_long>().swap(recv_v2);
+      std::vector<vector_int>().swap(send2_v2);
+      std::vector<vector_int>().swap(recv2_v2);
+      
+      col_map_uncertain_hash.clear();
       vector<MPI_Request>().swap(requests);
       
       return PARGEMSLR_SUCCESS;

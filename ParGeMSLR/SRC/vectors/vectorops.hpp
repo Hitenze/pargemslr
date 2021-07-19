@@ -473,11 +473,12 @@ namespace pargemslr
     * @param [in]    s The start location in the array
     * @param [in]    e The end(include) location in the array
     * @param [out]    idx If found the value, set to the index of the value. Otherwise the position to insert, or -1 if s > e.
-    * @param [in]    descend The array is descend or ascend.
+    * @param [in]    ascending The array is descend or ascend.
+    * @param [in]    option Other search options. 0: no extra option. 1: report the first if there are duplicates. 2: report the last.
     * @return return -1 if the value isnot found. Otherwise the index of it.
     */
    template <typename T>
-   int VectorPBsearchHost(const T *v, const T &val, int s, int e, int &idx, bool ascending);
+   int VectorPBsearchHost(const T *v, const T &val, int s, int e, int &idx, bool ascending, int option);
    
    /**
     * @brief   Print the vector.
