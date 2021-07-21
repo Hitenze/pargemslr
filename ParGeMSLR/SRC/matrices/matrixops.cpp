@@ -12235,7 +12235,6 @@ namespace pargemslr
       vector_int                 col_ids;
       
       std::unordered_map<long int, int> col_map_uncertain_hash;
-      int                        n_uncertain_cols;
       vector_int                 sendsize, recvsize;
       std::vector<vector_long>   send_v2, recv_v2;
       std::vector<vector_int>    send2_v2, recv2_v2;
@@ -12362,8 +12361,6 @@ namespace pargemslr
        * Step 3: check remaining
        * -------------------------
        */
-      
-      n_uncertain_cols = 0;
       
       sendsize.Setup(np, true);
       recvsize.Setup(np, true);
@@ -12846,7 +12843,6 @@ namespace pargemslr
        */
       
       col_map_uncertain_hash.clear();
-      n_uncertain_cols = 0;
       
       sendsize.Fill(0);
       recvsize.Fill(0);
@@ -13613,7 +13609,6 @@ namespace pargemslr
       vector_int                 col_ids;
       
       std::unordered_map<long int, int> col_map_uncertain_hash;
-      int                        n_uncertain_cols;
       vector_int                 sendsize, recvsize;
       std::vector<vector_long>   send_v2, recv_v2;
       std::vector<vector_int>    send2_v2, recv2_v2;
@@ -13740,8 +13735,6 @@ namespace pargemslr
        * Step 3: check remaining
        * -------------------------
        */
-      
-      n_uncertain_cols = 0;
       
       sendsize.Setup(np, true);
       recvsize.Setup(np, true);
