@@ -3972,11 +3972,10 @@ namespace pargemslr
       
       GemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
       
-      T one, zero, malpha;
+      T one, zero;
       
       one = 1.0;
       zero = 0.0;
-      malpha = -alpha;
       
       n_start = this->_lev_ptr_v[level];
       n_end = this->_lev_ptr_v[level+1];
