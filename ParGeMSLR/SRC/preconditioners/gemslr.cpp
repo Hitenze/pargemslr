@@ -733,6 +733,7 @@ namespace pargemslr
    GemslrLevelClass<MatrixType, VectorType, DataType>::GemslrLevelClass()
    {
       this->_lrc                             = 0;
+      this->_nmvs                            = 0;
       this->_ncomps                          = 0;
       this->_B_precond                       = NULL;
       this->_B_solver                        = NULL;
@@ -758,6 +759,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;
+      this->_nmvs                            = str._nmvs;
       this->_ncomps                          = str._ncomps;
       
       if(str._B_solver)
@@ -857,6 +859,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;str._lrc = 0;
+      this->_nmvs                            = str._nmvs;str._nmvs = 0;
       this->_ncomps                          = str._ncomps;str._ncomps = 0;
       
       if(str._B_solver)
@@ -960,6 +963,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;
+      this->_nmvs                            = str._nmvs;
       this->_ncomps                          = str._ncomps;
       
       if(str._B_solver)
@@ -1062,6 +1066,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;str._lrc = 0;
+      this->_nmvs                            = str._nmvs;str._nmvs = 0;
       this->_ncomps                          = str._ncomps;str._ncomps = 0;
       
       if(str._B_solver)
@@ -1165,6 +1170,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = 0;
+      this->_nmvs                            = 0;
       if(this->_B_solver)
       {
          for(i = 0 ; i < this->_ncomps ; i ++)
@@ -1741,7 +1747,7 @@ namespace pargemslr
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
          PARGEMSLR_PRINT("Setup GeMSLR\n");
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
-         PARGEMSLR_PRINT("|Level|  Ncomp|  Size      |  Nnz         |  rk   |  nnzLU       |  nnzLR       |\n");
+         PARGEMSLR_PRINT("|Level|  Ncomp|  Size      |  Nnz         |  rk   |  nmvs |  nnzLU       |  nnzLR       |\n");
          
          for(i = 0 ; i < this->_nlev_used ; i ++)
          {
@@ -1760,7 +1766,7 @@ namespace pargemslr
             }
             
             /* Level Size Nnz rk nnzLU nnzLR */
-            PARGEMSLR_PRINT("|%5d|  %5d|  %10d|  %12ld|  %5d|  %10e|  %10e|\n", i, ncomp, n_level, nnz_level, level_str._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("|%5d|  %5d|  %10d|  %12ld|  %5d|  %5d|  %10e|  %10e|\n", i, ncomp, n_level, nnz_level, level_str._lrc, level_str._nmvs, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       
@@ -2659,17 +2665,17 @@ namespace pargemslr
                {
                   case kGemslrLowrankNoRestart:
                   {
-                     level_str._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, level);
+                     level_str._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, level_str._nmvs, level);
                      break;
                   }
                   case kGemslrLowrankThickRestart:
                   {
-                     level_str._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, level);
+                     level_str._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, level_str._nmvs, level);
                      break;
                   }
                   case kGemslrLowrankSubspaceIteration:
                   {
-                     level_str._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, level);
+                     level_str._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, level_str._nmvs, level);
                      break;
                   }
                   default:
@@ -2703,7 +2709,7 @@ namespace pargemslr
    template int precond_gemslr_csr_seq_complexd::SetupLowRank( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int level)
+   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int &nmvs, int level)
    {
       
       /* define the data type */
@@ -2757,20 +2763,20 @@ namespace pargemslr
        * 2: Arnoldi and get result
        *------------------------*/
       
-      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType()));
+      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
       
       /* free of V and H are handled inside */
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, neig_c, neig_k, level));
       
       return err;
    }
-   template int precond_gemslr_csr_seq_float::SetupLowRankSubspaceIteration( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int level);
-   template int precond_gemslr_csr_seq_double::SetupLowRankSubspaceIteration( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexs::SetupLowRankSubspaceIteration( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexd::SetupLowRankSubspaceIteration( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int level);
+   template int precond_gemslr_csr_seq_float::SetupLowRankSubspaceIteration( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_double::SetupLowRankSubspaceIteration( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexs::SetupLowRankSubspaceIteration( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexd::SetupLowRankSubspaceIteration( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int &nmvs, int level);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int level)
+   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int &nmvs, int level)
    {
       
       /* define the data type */
@@ -2859,25 +2865,25 @@ namespace pargemslr
        * 2: Arnoldi and get result
        *------------------------*/
       
-      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth));
+      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs));
       
       /* free of V and H are handled inside */
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, neig_k, level));
       
       return err;
    }
-   template int precond_gemslr_csr_seq_float::SetupLowRankNoRestart( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int level);
-   template int precond_gemslr_csr_seq_double::SetupLowRankNoRestart( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexs::SetupLowRankNoRestart( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexd::SetupLowRankNoRestart( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int level);
+   template int precond_gemslr_csr_seq_float::SetupLowRankNoRestart( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_double::SetupLowRankNoRestart( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexs::SetupLowRankNoRestart( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexd::SetupLowRankNoRestart( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int &nmvs, int level);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int level)
+   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int &nmvs, int level)
    {
       //if(this->_gemslr_setups._level_setups._lr_tol_eig_setup > GemslrClass<MatrixType, VectorType, DataType>::_convergence_tolorance)
       //{
          /* the eigenvalues are not accurate enough, do not lock them */
-         return this->SetupLowRankThickRestartNoLock(x, rhs, level);
+         return this->SetupLowRankThickRestartNoLock(x, rhs, nmvs, level);
       //}
       //else
       //{
@@ -2887,13 +2893,13 @@ namespace pargemslr
       
       return PARGEMSLR_SUCCESS;
    }
-   template int precond_gemslr_csr_seq_float::SetupLowRankThickRestart( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int level);
-   template int precond_gemslr_csr_seq_double::SetupLowRankThickRestart( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexs::SetupLowRankThickRestart( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexd::SetupLowRankThickRestart( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int level);
+   template int precond_gemslr_csr_seq_float::SetupLowRankThickRestart( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_double::SetupLowRankThickRestart( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexs::SetupLowRankThickRestart( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexd::SetupLowRankThickRestart( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int &nmvs, int level);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestartNoLock( SequentialVectorClass<DataType> &x, SequentialVectorClass<DataType> &rhs, int level)
+   int GemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestartNoLock( SequentialVectorClass<DataType> &x, SequentialVectorClass<DataType> &rhs, int &nmvs, int level)
    {
       
       /* define the data type */
@@ -2988,16 +2994,16 @@ namespace pargemslr
       v.Scale(one/normv);
       
       /* apply Arnoldi thick-restart */
-      m = PargemslrArnoldiThickRestartNoLock<VectorType>( level_str._EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(GemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth);
+      m = PargemslrArnoldiThickRestartNoLock<VectorType>( level_str._EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(GemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
       
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, m, level));
       
       return err;
    }
-   template int precond_gemslr_csr_seq_float::SetupLowRankThickRestartNoLock( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int level);
-   template int precond_gemslr_csr_seq_double::SetupLowRankThickRestartNoLock( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexs::SetupLowRankThickRestartNoLock( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int level);
-   template int precond_gemslr_csr_seq_complexd::SetupLowRankThickRestartNoLock( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int level);
+   template int precond_gemslr_csr_seq_float::SetupLowRankThickRestartNoLock( SequentialVectorClass<float> &x, SequentialVectorClass<float> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_double::SetupLowRankThickRestartNoLock( SequentialVectorClass<double> &x, SequentialVectorClass<double> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexs::SetupLowRankThickRestartNoLock( SequentialVectorClass<complexs> &x, SequentialVectorClass<complexs> &rhs, int &nmvs, int level);
+   template int precond_gemslr_csr_seq_complexd::SetupLowRankThickRestartNoLock( SequentialVectorClass<complexd> &x, SequentialVectorClass<complexd> &rhs, int &nmvs, int level);
    
    template <class MatrixType, class VectorType, typename DataType>
    template <typename RealDataType>

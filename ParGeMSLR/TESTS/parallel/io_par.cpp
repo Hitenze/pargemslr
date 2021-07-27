@@ -374,6 +374,10 @@ int read_inputs_from_file(const char *filename, double *params)
             {
                params[PARGEMSLR_IO_PRECOND_GLOBAL_PRECOND] = kGemslrGlobalPrecondESMSLR;
             }
+            else if(!strcmp(word, "SCHURILU"))
+            {
+               params[PARGEMSLR_IO_PRECOND_GLOBAL_PRECOND] = kGemslrGlobalPrecondSchurILU;
+            }
             else if(!strcmp(word, "GEMSLR"))
             {
                params[PARGEMSLR_IO_PRECOND_GLOBAL_PRECOND] = kGemslrGlobalPrecondGeMSLR;

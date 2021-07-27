@@ -426,17 +426,6 @@ namespace pargemslr
                PargemslrMgs( w, V, H, t, i-1, RealDataType(1e-12), RealDataType(-1.0));
 #endif
                
-               if (PargemslrAbs(t) < EPSILON) 
-               {
-                  if(this->_print_option>0 && parallel_log::_grank == 0)
-                  {
-                     PARGEMSLR_PRINT("Break down in the current cycle\n");
-                  }
-                  goto label;
-               }
-               /* Scale w (t=||w|| is already computed in the mgs function) */
-               //scale(w, 1.0 / t);
-
                /* Least squares problem of H */
                for (j = 1; j < i; j++) 
                {

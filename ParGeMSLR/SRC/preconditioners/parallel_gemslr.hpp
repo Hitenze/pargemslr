@@ -28,7 +28,7 @@ namespace pargemslr
 	/**
     * @brief   Class of matvec for low-rank correction, not necessarily EB^{-1}FC^{-1}.
     * @details Class of matvec for low-rank correction, not necessarily EB^{-1}FC^{-1}.
-    *          kGemslrGlobalPrecondESMSLR, kGemslrGlobalPrecondGeMSLR, kGemslrGlobalPrecondPSLR
+    *          kGemslrGlobalPrecondBJ, kGemslrGlobalPrecondESMSLR, kGemslrGlobalPrecondGeMSLR, kGemslrGlobalPrecondPSLR, kGemslrGlobalPrecondSchurILU
     */
    template <class MatrixType, class VectorType, typename DataType>
    class ParallelGemslrEBFCMatrixClass
@@ -531,6 +531,12 @@ namespace pargemslr
       int                                                _lrc;
       
       /** 
+       * @brief   The total number of EBFC matvec happens on this level.
+       * @details The total number of EBFC matvec happens on this level.
+       */
+      int                                                _nmvs;
+      
+      /** 
        * @brief   Number of subdomains on this level.
        * @details Number of subdomains on this level.
        */
@@ -911,10 +917,11 @@ namespace pargemslr
        * @details Setup the low-rank part of the GeMSLR with arnodi thick-restart.
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
+       * @param   [out]  nmvs The number of Matvecs.
        * @param   [in]   level The target level.
        * @return     Return error message.
        */
-      int SetupLowRankThickRestartNoLock( ParallelVectorClass<DataType> &x, ParallelVectorClass<DataType> &rhs, int level, int option);
+      int SetupLowRankThickRestartNoLock( ParallelVectorClass<DataType> &x, ParallelVectorClass<DataType> &rhs, int level, int &nmvs, int option);
       
       /**
        * @brief   Compute the distance for the selection of eigenvalues.
@@ -1126,10 +1133,11 @@ namespace pargemslr
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
        * @param   [in]   level The target level.
+       * @param   [out]  nmvs The number of Matvecs.
        * @param [in]    option The setup option. GeMSLR, ESMSLR, or PSLR.
        * @return     Return error message.
        */
-      int SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int level, int option);
+      int SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int level, int &nmvs, int option);
       
       /**
        * @brief   Setup the low-rank part of the GeMSLR with arnodi no-restart.
@@ -1137,10 +1145,11 @@ namespace pargemslr
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
        * @param   [in]   level The target level.
+       * @param   [out]  nmvs The number of Matvecs.
        * @param [in]    option The setup option. GeMSLR, ESMSLR, or PSLR.
        * @return     Return error message.
        */
-      int SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int level, int option);
+      int SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int level, int &nmvs, int option);
       
       /**
        * @brief   Setup the low-rank part of the GeMSLR with arnodi thick-restart.
@@ -1148,10 +1157,11 @@ namespace pargemslr
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
        * @param   [in]   level The target level.
+       * @param   [out]  nmvs The number of Matvecs.
        * @param [in]    option The setup option. GeMSLR, ESMSLR, or PSLR.
        * @return     Return error message.
        */
-      int SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int level, int option);
+      int SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int level, int &nmvs, int option);
       
       /**
        * @brief   Given the V and H from Arnoldi, compute the final low-rank correction of S^{-1} - C^{-1}.
@@ -1244,6 +1254,17 @@ namespace pargemslr
        * @return     Return error message.
        */
       int         SolveLevelEsmslrMul( VectorType &x_out, VectorType &rhs_in, int level, bool doperm);
+      
+      /**
+       * @brief   Solve starting from a certain level.
+       * @details Solve starting from a certain level.
+       * @param   [in,out] x_in The initial guess.
+       * @param   [in]     rhs_out The right-hand-side.
+       * @param   [in]     level The start level.
+       * @param   [in]     doperm Do we apply permutation on this level? (Some time the system is already permuted).
+       * @return     Return error message.
+       */
+      int         SolveLevelSchurILU( VectorType &x_out, VectorType &rhs_in, int level, bool doperm);
       
       /**
        * @brief   Solve starting from a certain level.

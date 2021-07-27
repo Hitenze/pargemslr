@@ -137,6 +137,7 @@ namespace pargemslr
       kGemslrGlobalPrecondBJ,
       kGemslrGlobalPrecondESMSLR,
       kGemslrGlobalPrecondGeMSLR,
+      kGemslrGlobalPrecondSchurILU, // Two-level Schur ILU via partial ILU
       kGemslrGlobalPrecondPSLR,
       kGemslrGlobalPrecondPCLR,
       kGemslrGlobalPrecondA // This is a special option, (I-X)^{-1}M^{-1}A = I => X = I - M^{-1}A
@@ -1112,6 +1113,12 @@ namespace pargemslr
       int                                                _lrc;
       
       /** 
+       * @brief   The total number of EBFC matvec happens on this level.
+       * @details The total number of EBFC matvec happens on this level.
+       */
+      int                                                _nmvs;
+      
+      /** 
        * @brief   Number of subdomains on this level.
        * @details Number of subdomains on this level.
        */
@@ -1729,40 +1736,44 @@ namespace pargemslr
        * @details Setup the low-rank part of the GeMSLR with subspace iteration
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
+       * @param   [out]  nmvs The number of matrix-vector products.
        * @param   [in]   level The target level.
        * @return     Return error message.
        */
-      int SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int level);
+      int SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int &nmvs, int level);
       
       /**
        * @brief   Setup the low-rank part of the GeMSLR with arnodi no-restart.
        * @details Setup the low-rank part of the GeMSLR with arnodi no-restart.
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
+       * @param   [out]  nmvs The number of matrix-vector products.
        * @param   [in]   level The target level.
        * @return     Return error message.
        */
-      int SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int level);
+      int SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int &nmvs, int level);
       
       /**
        * @brief   Setup the low-rank part of the GeMSLR with arnodi no-restart.
        * @details Setup the low-rank part of the GeMSLR with arnodi no-restart.
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
+       * @param   [out]  nmvs The number of matrix-vector products.
        * @param   [in]   level The target level.
        * @return     Return error message.
        */
-      int SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int level);
+      int SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int &nmvs, int level);
       
       /**
        * @brief   Setup the low-rank part of the GeMSLR with arnodi thick-restart.
        * @details Setup the low-rank part of the GeMSLR with arnodi thick-restart.
        * @param   [in]   x The initial guess.
        * @param   [in]   rhs The right-hand-side.
+       * @param   [out]  nmvs The number of matrix-vector products.
        * @param   [in]   level The target level.
        * @return     Return error message.
        */
-      int SetupLowRankThickRestartNoLock( SequentialVectorClass<DataType> &x, SequentialVectorClass<DataType> &rhs, int level);
+      int SetupLowRankThickRestartNoLock( SequentialVectorClass<DataType> &x, SequentialVectorClass<DataType> &rhs, int &nmvs, int level);
       
       /**
        * @brief   Setup the low-rank part of the GeMSLR with arnodi thick-restart.

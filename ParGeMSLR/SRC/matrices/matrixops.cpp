@@ -8996,7 +8996,7 @@ namespace pargemslr
    }
    
    template <class VectorType, class MatrixType, typename DataType, typename RealDataType>
-   int PargemslrSubSpaceIteration( MatrixType &A, int k, int its, DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, RealDataType tol)
+   int PargemslrSubSpaceIteration( MatrixType &A, int k, int its, DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, RealDataType tol, int &nmvs)
    {
       
       int                  i, j, ii, n;
@@ -9043,6 +9043,8 @@ namespace pargemslr
       
       B.Rand();
       
+      nmvs = 0;
+      
       for(i = 0 ; i < its ; i ++)
       {
          //DenseMatrixQRDecompositionHost(B, Q);
@@ -9086,6 +9088,10 @@ namespace pargemslr
                w.UpdatePtr( &B(0, j), location );
             }
             PARGEMSLR_TIME_CALL(comm, PARGEMSLR_BUILDTIME_EBFC, A.MatVec('N', one, v, zero, w));
+            
+            /* one matvec */
+            nmvs++;
+            
          }
       }
       
@@ -9208,26 +9214,26 @@ namespace pargemslr
       
       return PARGEMSLR_SUCCESS;
    }
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<float> >( precond_gemslrebfc_csr_seq_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<double> >( precond_gemslrebfc_csr_seq_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexs> >( precond_gemslrebfc_csr_seq_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexd> >( precond_gemslrebfc_csr_seq_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<float> >( precond_gemslrebfc_csr_par_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<double> >( precond_gemslrebfc_csr_par_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexs> >( precond_gemslrebfc_csr_par_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexd> >( precond_gemslrebfc_csr_par_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<float> >( matrix_csr_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<double> >( matrix_csr_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexs> >( matrix_csr_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol);
-   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexd> >( matrix_csr_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<float> >( matrix_csr_par_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<double> >( matrix_csr_par_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexs> >( matrix_csr_par_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol);
-   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexd> >( matrix_csr_par_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<float> >( precond_gemslrebfc_csr_seq_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<double> >( precond_gemslrebfc_csr_seq_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexs> >( precond_gemslrebfc_csr_seq_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexd> >( precond_gemslrebfc_csr_seq_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<float> >( precond_gemslrebfc_csr_par_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<double> >( precond_gemslrebfc_csr_par_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexs> >( precond_gemslrebfc_csr_par_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexd> >( precond_gemslrebfc_csr_par_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<float> >( matrix_csr_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<double> >( matrix_csr_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexs> >( matrix_csr_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<SequentialVectorClass<complexd> >( matrix_csr_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<float> >( matrix_csr_par_float &A, int k, int its, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<double> >( matrix_csr_par_double &A, int k, int its, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexs> >( matrix_csr_par_complexs &A, int k, int its, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol, int &nmvs);
+   template int PargemslrSubSpaceIteration<ParallelVectorClass<complexd> >( matrix_csr_par_complexd &A, int k, int its, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol, int &nmvs);
    
    template <class VectorType, class MatrixType, typename DataType, typename RealDataType>
    int PargemslrArnoldiNoRestart( MatrixType &A, int mstart, int msteps, DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, 
-                                 RealDataType tol_orth, RealDataType tol_reorth)
+                                 RealDataType tol_orth, RealDataType tol_reorth, int &nmvs)
    {
       
       int                  k, n;
@@ -9260,6 +9266,8 @@ namespace pargemslr
        * Compute matvec u = A*v
        * Apply Modified Gram - Schmidt
        *------------------------*/
+      
+      nmvs = 0;
       
       for (k = mstart; k < msteps; k++) 
       {
@@ -9294,6 +9302,8 @@ namespace pargemslr
          }
 #endif
          
+         nmvs++;
+         
          /* check "0.0" norm -- breakdown */
          if (PargemslrAbs(t) < tol_orth)
          {
@@ -9308,22 +9318,22 @@ namespace pargemslr
       
       return k;
    }
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<float> >( precond_gemslrebfc_csr_seq_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<double> >( precond_gemslrebfc_csr_seq_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexs> >( precond_gemslrebfc_csr_seq_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexd> >( precond_gemslrebfc_csr_seq_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<float> >( precond_gemslrebfc_csr_par_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<double> >( precond_gemslrebfc_csr_par_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexs> >( precond_gemslrebfc_csr_par_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexd> >( precond_gemslrebfc_csr_par_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<float> >( matrix_csr_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<double> >( matrix_csr_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexs> >( matrix_csr_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexd> >( matrix_csr_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<float> >( matrix_csr_par_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<double> >( matrix_csr_par_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexs> >( matrix_csr_par_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexd> >( matrix_csr_par_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<float> >( precond_gemslrebfc_csr_seq_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<double> >( precond_gemslrebfc_csr_seq_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexs> >( precond_gemslrebfc_csr_seq_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexd> >( precond_gemslrebfc_csr_seq_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<float> >( precond_gemslrebfc_csr_par_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<double> >( precond_gemslrebfc_csr_par_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexs> >( precond_gemslrebfc_csr_par_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexd> >( precond_gemslrebfc_csr_par_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<float> >( matrix_csr_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<double> >( matrix_csr_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexs> >( matrix_csr_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<SequentialVectorClass<complexd> >( matrix_csr_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<float> >( matrix_csr_par_float &A, int mstart, int msteps, DenseMatrixClass<float> &V, DenseMatrixClass<float> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<double> >( matrix_csr_par_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexs> >( matrix_csr_par_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiNoRestart<ParallelVectorClass<complexd> >( matrix_csr_par_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth, int &nmvs);
    
    template <class VectorType, typename DataType, typename RealDataType>
    int PargemslrArnoldiThickRestartBuildThickRestartNewVector( DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, int m, RealDataType tol_orth, RealDataType tol_reorth, VectorType &v)
@@ -10195,7 +10205,7 @@ namespace pargemslr
                                  RealDataType tr_fact, RealDataType tol_eig, RealDataType eig_target_mag, RealDataType eig_truncate, 
                                  RealDataType (*weight)(ComplexValueClass<RealDataType>),
                                  DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, 
-                                 RealDataType tol_orth, RealDataType tol_reorth)
+                                 RealDataType tol_orth, RealDataType tol_reorth, int &nmvs)
    {
       PARGEMSLR_CHKERR(rank < 0);
       PARGEMSLR_CHKERR(maxits < 0);
@@ -10251,7 +10261,7 @@ namespace pargemslr
       /* define the data type */
       typedef ComplexValueClass<RealDataType> ComplexDataType;
       
-      int                                                      n_local, i, j, m, mstepsi, maxsteps, trlen, npick, its;
+      int                                                      n_local, i, j, m, mstepsi, maxsteps, trlen, npick, its, nmvs_loc;
       int                                                      location;
       int                                                      ncov = 0, nicov, nsatis;
       bool                                                     cut;
@@ -10338,6 +10348,9 @@ namespace pargemslr
       /* The tolorance for the residual of the dropping tolorance is too large.
        * Lock of eigenvalues disabled, more restarts doesn't guarantee more eigenvalues.
        */
+      
+      nmvs = 0; 
+      
       while(its < maxits)
       {
          its ++;
@@ -10351,10 +10364,11 @@ namespace pargemslr
          
          /* compute arnoldi starting from the trlen */
 #ifdef PARGEMSLR_TIMING
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( A, trlen, mstepsi, V, H, tol_orth, tol_reorth));
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( A, trlen, mstepsi, V, H, tol_orth, tol_reorth, nmvs_loc));
 #else
-         m = PargemslrArnoldiNoRestart<VectorType>( A, trlen, mstepsi, V, H, tol_orth, tol_reorth);
+         m = PargemslrArnoldiNoRestart<VectorType>( A, trlen, mstepsi, V, H, tol_orth, tol_reorth, nmvs_loc);
 #endif
+         nmvs += nmvs_loc;
          /* record the last entry */
          h_last = H(m, m-1);
          h_last_c = h_last;
@@ -10575,14 +10589,14 @@ namespace pargemslr
       
       return ncov;
    }
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_float>( precond_gemslrebfc_csr_seq_float &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_double>( precond_gemslrebfc_csr_seq_double &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_float>( precond_gemslrebfc_csr_par_float &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_double>( precond_gemslrebfc_csr_par_double &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexs>( precond_gemslrebfc_csr_seq_complexs &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexd>( precond_gemslrebfc_csr_seq_complexd &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexs>( precond_gemslrebfc_csr_par_complexs &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexd>( precond_gemslrebfc_csr_par_complexd &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_float>( precond_gemslrebfc_csr_seq_float &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_double>( precond_gemslrebfc_csr_seq_double &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_float>( precond_gemslrebfc_csr_par_float &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_double>( precond_gemslrebfc_csr_par_double &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexs>( precond_gemslrebfc_csr_seq_complexs &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexd>( precond_gemslrebfc_csr_seq_complexd &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexs>( precond_gemslrebfc_csr_par_complexs &A, int msteps, int maxits, int rank, int rank2, float truncate, float tr_fact, float tol_eig, float eig_target_mag, float eig_truncate, float (*weight)(complexs), matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexd>( precond_gemslrebfc_csr_par_complexd &A, int msteps, int maxits, int rank, int rank2, double truncate, double tr_fact, double tol_eig, double eig_target_mag, double eig_truncate, double (*weight)(complexd), matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
    
    template <class VectorType, typename DataType, typename RealDataType>
    int PargemslrCgs2( VectorType &w, DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, 
@@ -12235,7 +12249,6 @@ namespace pargemslr
       vector_int                 col_ids;
       
       std::unordered_map<long int, int> col_map_uncertain_hash;
-      int                        n_uncertain_cols;
       vector_int                 sendsize, recvsize;
       std::vector<vector_long>   send_v2, recv_v2;
       std::vector<vector_int>    send2_v2, recv2_v2;
@@ -12362,8 +12375,6 @@ namespace pargemslr
        * Step 3: check remaining
        * -------------------------
        */
-      
-      n_uncertain_cols = 0;
       
       sendsize.Setup(np, true);
       recvsize.Setup(np, true);
@@ -12846,7 +12857,6 @@ namespace pargemslr
        */
       
       col_map_uncertain_hash.clear();
-      n_uncertain_cols = 0;
       
       sendsize.Fill(0);
       recvsize.Fill(0);
@@ -13613,7 +13623,6 @@ namespace pargemslr
       vector_int                 col_ids;
       
       std::unordered_map<long int, int> col_map_uncertain_hash;
-      int                        n_uncertain_cols;
       vector_int                 sendsize, recvsize;
       std::vector<vector_long>   send_v2, recv_v2;
       std::vector<vector_int>    send2_v2, recv2_v2;
@@ -13740,8 +13749,6 @@ namespace pargemslr
        * Step 3: check remaining
        * -------------------------
        */
-      
-      n_uncertain_cols = 0;
       
       sendsize.Setup(np, true);
       recvsize.Setup(np, true);

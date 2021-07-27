@@ -186,6 +186,10 @@ namespace pargemslr
          {
             return this->_gemslr->SCMatVec(this->_level, trans, alpha, x, beta, y);
          }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            return this->_gemslr->SCMatVec(this->_level, trans, alpha, x, beta, y);
+         }
          case kGemslrGlobalPrecondPCLR:
          {
             return this->_gemslr->PCLRMatVec(this->_level, trans, alpha, x, beta, y);
@@ -351,6 +355,10 @@ namespace pargemslr
             return this->_gemslr->SchurMatVec(this->_level, 0, trans, alpha, x, beta, y);
             //return this->_gemslr->_levs_v[_level]._S_mat.MatVec(trans, alpha, x, beta, y);
          }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            return this->_gemslr->_levs_v[_level]._S_mat.MatVec(trans, alpha, x, beta, y);
+         }
          case kGemslrGlobalPrecondPSLR:
          {
             
@@ -481,6 +489,71 @@ namespace pargemslr
             
             break;
          }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            
+            DataType one = DataType(1.0);
+            
+#ifdef PARGEMSLR_TIMING
+            int np, myid;
+            MPI_Comm comm;
+            this->_gemslr->GetMatrix()->GetMpiInfo(np, myid, comm);
+#endif
+            
+            ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_gemslr->_levs_v[this->_level];
+            
+            if(this->_level == 0)
+            {
+               /* S-solve */
+               this->_gemslr->SolveLevelSchurILU( x, rhs, this->_level+1, true);
+               if( level_str._lrc > 0)
+               {
+                  /* apply the low-rank update */
+#ifdef PARGEMSLR_TIMING
+                  if(this->_gemslr->GetSolvePhase() == kGemslrPhaseSetup)
+                  {
+                     PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELR, (this->_gemslr->SolveApplyLowRankLevel( level_str._xlr_temp, x, this->_level)));
+                  }
+                  else
+                  {
+                     PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->_gemslr->SolveApplyLowRankLevel( level_str._xlr_temp, x, this->_level)));
+                  }
+#else
+                  this->_gemslr->SolveApplyLowRankLevel( level_str._xlr_temp, x, this->_level);
+#endif
+                  x.Axpy( one, level_str._xlr_temp);
+               }
+            }
+            else
+            {
+               if( level_str._lrc > 0)
+               {
+                  /* apply low-rank */
+#ifdef PARGEMSLR_TIMING
+                  if(this->_gemslr->GetSolvePhase() == kGemslrPhaseSetup)
+                  {
+                     PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELR, (this->_gemslr->SolveApplyLowRankLevel( level_str._xlr_temp, rhs, this->_level)));
+                  }
+                  else
+                  {
+                     PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->_gemslr->SolveApplyLowRankLevel( level_str._xlr_temp, rhs, this->_level)));
+                  }
+#else
+                  this->_gemslr->SolveApplyLowRankLevel( level_str._xlr_temp, rhs, this->_level);
+#endif
+                  level_str._xlr_temp.Axpy( one, rhs);
+                  /* C solve */
+                  this->_gemslr->SolveLevelEsmslr( x, level_str._xlr_temp, this->_level+1, true);
+               }
+               else
+               {
+                  /* C solve */
+                  this->_gemslr->SolveLevelEsmslr( x, rhs, this->_level+1, true);
+               }
+            }
+            
+            break;
+         }
          case kGemslrGlobalPrecondPSLR:
          {
             
@@ -503,6 +576,7 @@ namespace pargemslr
    ParallelGemslrLevelClass<MatrixType, VectorType, DataType>::ParallelGemslrLevelClass()
    {
       this->_lrc                             = 0;
+      this->_nmvs                            = 0;
       this->_ncomps                          = 0;
       this->_B_precond                       = NULL;
       this->_B_solver                        = NULL;
@@ -530,6 +604,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;
+      this->_nmvs                            = str._nmvs;
       this->_ncomps                          = str._ncomps;
       
       if(str._B_solver)
@@ -649,6 +724,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;str._lrc = 0;
+      this->_nmvs                            = str._nmvs;str._nmvs = 0;
       this->_ncomps                          = str._ncomps;str._ncomps = 0;
       
       if(str._B_solver)
@@ -773,6 +849,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;
+      this->_nmvs                            = str._nmvs;
       this->_ncomps                          = str._ncomps;
       
       if(str._B_solver)
@@ -895,6 +972,7 @@ namespace pargemslr
       int i;
       
       this->_lrc                             = str._lrc;str._lrc = 0;
+      this->_nmvs                            = str._nmvs;str._nmvs = 0;
       this->_ncomps                          = str._ncomps;str._ncomps = 0;
       
       if(str._B_solver)
@@ -1016,6 +1094,8 @@ namespace pargemslr
       int i, v_size;
       
       this->_lrc                             = 0;
+      this->_nmvs                            = 0;
+      
       if(this->_B_solver)
       {
          for(i = 0 ; i < 1 ; i ++)
@@ -1460,6 +1540,47 @@ namespace pargemslr
                }
                break;
             }
+            case kGemslrGlobalPrecondSchurILU:
+            {
+               PARGEMSLR_PRINT("Setup Two-level Parallel ILU\n");
+               if(this->_gemslr_setups._enable_inner_iters_setup)
+               {
+                  PARGEMSLR_PRINT("\tInner Iteration ON. tol: %g; maxits: %d\n",this->_gemslr_setups._inner_iters_tol_setup,this->_gemslr_setups._inner_iters_maxits_setup);
+               }
+               else
+               {
+                  PARGEMSLR_PRINT("\tInner Iteration OFF.\n");
+               }
+               switch(this->_gemslr_setups._solve_option_setup)
+               {
+                  case kGemslrLUSolve:
+                  {
+                     PARGEMSLR_PRINT("\tAdditive LU solve\n");
+                     break;
+                  }
+                  case kGemslrUSolve:
+                  {
+                     PARGEMSLR_PRINT("\tAdditive U solve\n");
+                     break;
+                  }
+                  case kGemslrMulSolve:
+                  {
+                     PARGEMSLR_PRINT("\tMultiplicative solve\n");
+                     break;
+                  }
+                  case kGemslrMmulSolve:
+                  {
+                     PARGEMSLR_PRINT("\tMultiplicative solve with modified ILU\n");
+                     break;
+                  }
+                  default:
+                  {
+                     PARGEMSLR_PRINT("\tUnknown solve\n");
+                     break;
+                  }
+               }
+               break;
+            }
             default:
             {
                /* in general won't reach here */
@@ -1468,7 +1589,7 @@ namespace pargemslr
             }
          }
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
-         PARGEMSLR_PRINT("Level   Ncomp   Size           Nnz            rk      nnzLU            nnzLR\n");
+         PARGEMSLR_PRINT("Level   Ncomp   Size           Nnz            rk      nmvs    nnzLU            nnzLR\n");
       }
       
       if(this->_lev_A[0]._lrc > 0)
@@ -1480,7 +1601,7 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("OUTER     N/A            N/A            N/A   %5d   %10e   %10e\n", this->_lev_A[0]._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("OUTER     N/A            N/A            N/A   %5d   %5d   %10e   %10e\n", this->_lev_A[0]._nmvs, this->_lev_A[0]._lrc, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       
@@ -1521,7 +1642,7 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("%5d   %5d   %12ld   %12ld   %5d   %10e   %10e\n", i, ncomp_global, n_level_global, nnz_level_global, level_str._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("%5d   %5d   %12ld   %12ld   %5d   %5d   %10e   %10e\n", i, ncomp_global, n_level_global, nnz_level_global, level_str._lrc, level_str._nmvs, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       long int nnzA, nnz, nnzLU, nnzLR;
@@ -1608,10 +1729,8 @@ namespace pargemslr
        *    1. When the number of levels is 1, switch to BJ.
        *    2. When np is 1 and number of levels greater than 1, switch to GeMSLR with global reordering.
        * 
-       * kGemslrGlobalPrecondGeMSLR:
-       *    Currently we don't support global reordering.
-       *    1. When the number of levels is 1, switch to BJ.
-       *    2. When np is 1 and number of levels greater than 1, switch to GeMSLR with global reordering.
+       * kGemslrGlobalPrecondSchurILU:
+       *    Similar to kGemslrGlobalPrecondESMSLR, only for two level
        * 
        */
       switch(this->_global_precond_option)
@@ -1670,6 +1789,64 @@ namespace pargemslr
                   PARGEMSLR_WARNING("EsMSLR doens't support PSLR with only two levels, switch to GeMSLR.");
                }
                break;
+            }
+            
+            break;
+         }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            //if(this->_gemslr_setups._nlev_setup < 2 && this->_gemslr_setups._global_partition_setup)
+            if(this->_gemslr_setups._nlev_setup < 2)
+            {
+               /* nlev less than 2, go to bj */
+               this->_global_precond_option = kGemslrGlobalPrecondBJ;
+               //this->_gemslr_setups._global_partition_setup = true;
+               break;
+            }
+            
+            //if( np == 1 && !this->_gemslr_setups._global_partition_setup)
+            if( np == 1 )
+            {
+               /* single np, no input DD, goto GeMSLR with global reordering */
+               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_gemslr_setups._global_partition_setup = true;
+               if(myid == 0)
+               {
+                  PARGEMSLR_WARNING("Single np, switch to GeMSLR with global reordering.");
+               }
+               break;
+            }
+            
+            if(this->_gemslr_setups._solve_option_setup == kGemslrMulSolve || 
+               this->_gemslr_setups._solve_option_setup == kGemslrMmulSolve)
+            {
+               /* no multiplicative solve, goto GeMSLR with global reordering */
+               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_gemslr_setups._global_partition_setup = true;
+               if(myid == 0)
+               {
+                  PARGEMSLR_WARNING("Schur ILU doens't support multiplicative solve, switch to GeMSLR.");
+               }
+               break;
+            }
+            
+            if(this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveBJILUK && 
+                this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveBJILUT)
+            {
+               /* 2 levels with PSMR */
+               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_gemslr_setups._global_partition_setup = true;
+               if(myid == 0)
+               {
+                  PARGEMSLR_WARNING("Schur ILU only supports BJ-ILU for the global S, switch to GeMSLR.");
+               }
+               break;
+            }
+            
+            /* only for 2 level */
+            if(this->_gemslr_setups._nlev_setup > 2)
+            {
+               this->_gemslr_setups._nlev_setup = 2;
             }
             
             break;
@@ -1814,6 +1991,16 @@ namespace pargemslr
                
                break;
             }
+            case kGemslrGlobalPrecondSchurILU:
+            {
+               /* Currently not supported */
+               
+               this->_gemslr_setups._global_partition_setup = false;
+               
+               goto label_schurilu_local;
+               
+               break;
+            }
             case kGemslrGlobalPrecondPSLR:
             {
                /* Currently not supported */
@@ -1905,7 +2092,43 @@ label_esmslr_local:
                   
                }
                
-               /* setp 2: In the step, setup the B solver
+               /* step 2: In the step, setup the B solver
+                * including the partial ILU on the top level
+                */
+#ifdef PARGEMSLR_TIMING
+               PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ILUT, this->SetupBSolve( x, rhs));
+#else
+               this->SetupBSolve( x, rhs);
+#endif
+               
+#ifdef PARGEMSLR_TIMING
+               PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_LRC, this->SetupLowRank( x, rhs));
+#else
+               this->SetupLowRank( x, rhs);
+#endif
+
+               break;
+            }
+            case kGemslrGlobalPrecondSchurILU:
+            {
+label_schurilu_local:
+               /* Partial ILU and explicit Schur complement */
+               /* step 1: set permutation 
+                * after this step, the level structure is ready except for the top level
+                */
+               if(this->SetupPermutation() == PARGEMSLR_RETURN_PARILU_NO_INTERIOR)
+               {
+                  /* input DD is not good, switch to GeMSLR */
+                  this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+                  this->_gemslr_setups._global_partition_setup = true;
+                  
+                  PARGEMSLR_WARNING("The input DD is not good enough, switch to GeMSLR with global reordering.");
+                  
+                  goto label_mlev_global;
+                  
+               }
+               
+               /* step 2: In the step, setup the B solver
                 * including the partial ILU on the top level
                 */
 #ifdef PARGEMSLR_TIMING
@@ -2010,6 +2233,29 @@ label_esmslr_local:
             }
             break;
          }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            /* inner solve with option kGemslrGlobalPrecondSchurILU */
+            if(this->_gemslr_setups._enable_inner_iters_setup)
+            {
+               /* solve on the top level with GMRES */
+               this->_inner_iters_matrix.Setup( 0, kGemslrGlobalPrecondSchurILU, *this);
+               this->_inner_iters_precond.SetMatrix(this->_inner_iters_matrix);
+               this->_inner_iters_solver.SetMatrix(this->_inner_iters_matrix);
+               this->_inner_iters_solver.SetPreconditioner(this->_inner_iters_precond);
+               
+               this->_inner_iters_solver.SetKrylovSubspaceDimension(this->_gemslr_setups._inner_iters_maxits_setup);
+               this->_inner_iters_solver.SetMaxNumberIterations(this->_gemslr_setups._inner_iters_maxits_setup);
+               this->_inner_iters_solver.SetTolerance(this->_gemslr_setups._inner_iters_tol_setup);
+               this->_inner_iters_solver.SetSolveLocation(this->_location);
+               
+               /* mute the print of fgmres */
+               this->_inner_iters_solver.SetPrintOption(-1);
+               
+               this->_inner_iters_solver.Setup(x, rhs);
+            }
+            break;
+         }
          case kGemslrGlobalPrecondGeMSLR:
          {
             
@@ -2053,6 +2299,11 @@ label_esmslr_local:
       if(this->_print_option > 0)
       {
          this->PrintInfo();
+      }
+      
+      if(this->_print_option > 1)
+      {
+         this->PlotPatternGnuPlot("Parallel_GeMSLR_partition.data");
       }
       
       this->_ready = true;
@@ -2243,6 +2494,106 @@ label_esmslr_local:
                   this->_nlev_used++;
                   
                }
+            }
+            else
+            {
+               PARGEMSLR_ERROR("TO BE IMPLEMENTED.");
+            }
+            break;
+         }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            /* uses edge separator, only two levels */
+         
+            int n_local;
+            vector_int map2_v, mapptr2_v;
+            MatrixType A, AT, AAT;
+            
+            /* reserve space */
+            this->_levs_v.resize(this->_gemslr_setups._nlev_setup);
+            
+            if(!this->_gemslr_setups._global_partition_setup)
+            {
+               /* no global partition */
+               /* partition the first level based on the IO order, save the remaining part in C_mat */
+               this->_levs_v[0]._B_mat_v.resize(1);
+               
+               CsrMatrixClass<DataType> E, F;
+               ParallelCsrMatrixSetupIOOrder( *this->_matrix, this->_levs_v[0]._pperm, this->_levs_v[0]._nI, 
+                                                this->_levs_v[0]._B_mat_v[0], E, F, 
+                                                this->_levs_v[0]._C_mat, this->_gemslr_setups._perm_option_setup, false);
+               
+               //this->_matrix->PlotPatternGnuPlot("A", 1);
+               //this->_levs_v[0]._C_mat.PlotPatternGnuPlot("C", 1);
+               
+               this->_levs_v[0]._ncomps = 1;
+               
+               n_local  = this->_matrix->GetNumRowsLocal();
+                
+               /* check for global size */ 
+               int nE = n_local - this->_levs_v[0]._nI, min_nE, min_nI;
+               
+               PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( &nE, &min_nE, 1, MPI_MIN, comm));
+               PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( &this->_levs_v[0]._nI, &min_nI, 1, MPI_MIN, comm));
+               
+               /* switch to global reordering when bad partition encountered */
+               if(min_nI == 0)
+               {
+                  //if(this->_levs_v[0]._nI == 0)
+                  if(myid == 0)
+                  {
+                     PARGEMSLR_WARNING("Some subdomain has no interior nodes, switch to global reordering GeMSLR.");
+                  }
+                  
+                  this->_levs_v[0].Clear();
+                  this->_levs_v[0]._pperm.Clear();
+                  
+                  E.Clear();
+                  F.Clear();
+                  
+                  //this->_gemslr_setups._global_partition_setup = true;
+                  
+                  return PARGEMSLR_RETURN_PARILU_NO_INTERIOR;
+               }
+               else
+               {
+                  
+                  /* setup E and F on the top level */
+                     
+                  this->_levs_v[0]._E_mat.Setup(nE, this->_levs_v[0]._nI, *this->_matrix);
+                  
+                  this->_levs_v[0]._F_mat.Setup( this->_levs_v[0]._E_mat.GetNumColsLocal(),
+                                          this->_levs_v[0]._E_mat.GetColStartGlobal(),
+                                          this->_levs_v[0]._E_mat.GetNumColsGlobal(),
+                                          this->_levs_v[0]._E_mat.GetNumRowsLocal(),
+                                          this->_levs_v[0]._E_mat.GetRowStartGlobal(),
+                                          this->_levs_v[0]._E_mat.GetNumRowsGlobal(),
+                                          *this->_matrix);
+                  
+                  this->_levs_v[0]._E_mat.GetDiagMat() = std::move(E);
+                  this->_levs_v[0]._E_mat.GetOffdMat().Setup(nE, 0, 0);
+                  this->_levs_v[0]._E_mat.GetOffdMat().GetIVector().Fill(0);
+                  this->_levs_v[0]._F_mat.GetDiagMat() = std::move(F);
+                  this->_levs_v[0]._F_mat.GetOffdMat().Setup(this->_levs_v[0]._nI, 0, 0);
+                  this->_levs_v[0]._F_mat.GetOffdMat().GetIVector().Fill(0);
+                  
+                  this->_levs_v[0]._E_mat.SetupMatvecStart();
+                  this->_levs_v[0]._F_mat.SetupMatvecStart();
+                  
+                  /* sinve we only have 2 levels, no need to recursively apply partition on C 
+                   * Each NP just keeps the local part
+                   */
+                  map_v.Setup(this->_levs_v[0]._C_mat.GetNumRowsLocal());
+                  map_v.Fill(myid);
+                  mapptr_v.Setup(2);
+                  mapptr_v[0] = 0;
+                  mapptr_v[1] = np;
+                  
+                  this->_nlev_max = 2;
+                  this->_nlev_used = 2;
+                  
+               }
+               
             }
             else
             {
@@ -2474,6 +2825,53 @@ perm_gemslr_global:
             }
             break;
          }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            /* need extra setup */
+            
+            /* Now building the level structure by extracting E, B, F, and C matrices */
+#ifdef PARGEMSLR_TIMING
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_STRUCTURE, this->SetupPermutationBuildLevelStructure( this->_levs_v[0]._C_mat, 1, map_v, mapptr_v));
+#else
+            this->SetupPermutationBuildLevelStructure( this->_levs_v[0]._C_mat, 1, map_v, mapptr_v);
+#endif
+      
+            /* now update the level pointer and domain pointer */
+            this->_lev_ptr_v[0] = 0;
+            for(int i = 1 ; i < this->_nlev_used+1 ; i ++)
+            {
+               this->_lev_ptr_v[i] += this->_levs_v[0]._nI;
+            }
+            
+            this->_dom_ptr_v2[0].Setup(2);
+            this->_dom_ptr_v2[0][0] = 0;
+            this->_dom_ptr_v2[0][1] = this->_levs_v[0]._nI;
+            
+            for(int i = 1 ; i < this->_nlev_used ; i ++)
+            {
+               for(int j = 0 ; j < this->_dom_ptr_v2[i].GetLengthLocal() ; j ++)
+               {
+                  this->_dom_ptr_v2[i][j] += this->_levs_v[0]._nI;
+               }
+            }
+            
+            /* create buffer for the top level */
+            
+            this->_levs_v[0]._work_vector.Setup( (this->_matrix->GetNumRowsLocal())*7, this->_location, true);
+            this->_levs_v[0]._work_vector_unit_length = this->_matrix->GetNumRowsLocal();
+#ifdef PARGEMSLR_DEBUG
+            this->_levs_v[0]._work_vector_occupied.Setup( 7, true);
+#endif
+            this->_levs_v[0]._x_temp.Setup( this->_matrix->GetNumRowsLocal(), this->_location, true, *this->_matrix);
+            
+            if(this->_gemslr_setups._global_partition_setup)
+            {
+               /* with global reordering option, a global A and the permutation vector is required 
+                * Not yet supported
+                */
+            }
+            break;
+         }
          case kGemslrGlobalPrecondPSLR:
          {
             /* need extra setup
@@ -2506,11 +2904,6 @@ perm_gemslr_global:
       
       this->_pperm.Clear();
       this->_qperm.Clear();
-      
-      if(this->_print_option > 1)
-      {
-         this->PlotPatternGnuPlot("Parallel_GeMSLR_partition.data");
-      }
       
       return PARGEMSLR_SUCCESS;
       
@@ -3153,7 +3546,7 @@ perm_gemslr_global:
          }
       }
       
-      if(this->_gemslr_setups._perm_option_setup == kIluReorderingNo)
+      if(this->_gemslr_setups._perm_option_setup == kIluReorderingNo || this->_global_precond_option == kGemslrGlobalPrecondSchurILU)
       {
          rcm_order.Setup(n_local);
          rcm_order.UnitPerm();
@@ -3955,6 +4348,72 @@ perm_gemslr_global:
       int         level, option;
       int         level_shift;
       
+      /* two level Schur LIU */
+      if(this->_global_precond_option == kGemslrGlobalPrecondSchurILU)
+      {
+         typedef DataType T;
+         
+         /* for the two-level Schur ILU we need to do something different */
+         
+         /* setup partial ILU on the top level */
+         this->SetupPartialILUT(x, rhs);
+         
+         /* and factorize S */
+         level = this->_nlev_used - 1;
+         
+         ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
+         
+         /* setup ILU */
+         SequentialVectorClass<T>  dummyx, dummyrhs;
+            
+         PARGEMSLR_MALLOC( level_str._B_solver, 1, kMemoryHost, SolverClass<CsrMatrixClass<T>, SequentialVectorClass<T>, DataType>*);
+         
+         PARGEMSLR_PLACEMENT_NEW( level_str._B_solver[0], kMemoryHost, IluClass<CsrMatrixClass<T>, SequentialVectorClass<T>, DataType>);
+         IluClass<CsrMatrixClass<T>, SequentialVectorClass<T>, DataType> *ilup 
+                     = (IluClass<CsrMatrixClass<T>, SequentialVectorClass<T>, DataType>*) level_str._B_solver[0];
+         
+         /* assign matrix */
+         ilup->SetMatrix( this->_levs_v[0]._S_mat.GetDiagMat());
+         //ilup->SetMatrix( this->_levs_v[1]._C_mat.GetDiagMat());
+         
+         /* setup options */
+         if( this->_gemslr_setups._level_setups._C_solve_option == kGemslrCSolveBJILUK )
+         {
+            ilup->SetLevelOfFill(this->_gemslr_setups._level_setups._C_ilu_fill_level_setup);
+            ilup->SetOption(kIluOptionILUK);
+         }
+         else
+         {
+            ilup->SetMaxNnzPerRow(this->_gemslr_setups._level_setups._C_ilu_max_row_nnz_setup);
+            ilup->SetDropTolerance(this->_gemslr_setups._level_setups._C_ilu_tol_setup);
+            ilup->SetOption(kIluOptionILUT);
+         }
+         
+         /* diagonal complex shift */
+         ilup->SetIluComplexShift(this->_gemslr_setups._level_setups._ilu_complex_shift);
+         
+         /* turn off level-scheduling solve */
+         ilup->SetOpenMPOption(kIluOpenMPNo);
+         
+         //ilup->SetPermutationOption(kIluReorderingNo);
+         ilup->SetPermutationOption(this->_gemslr_setups._perm_option_setup);
+         
+         /* setup the solver */
+         ilup->Setup(dummyx, dummyrhs);
+         
+         /* TODO: currently the setup phase is host only, we first setup and move the preconditioner later */
+         ilup->SetSolveLocation(this->_location);
+         
+         /* move the C on the last level to device */
+         level_str._B_mat_v[0].MoveData(this->_location);
+         level_str._C_mat.MoveData(this->_location);
+         this->_levs_v[0]._S_mat.MoveData(this->_location);
+         
+         /* Done */
+         return PARGEMSLR_SUCCESS;
+         
+      }
+      
       /* Last level options:
        * If we use the BJ, we consider it as B solve (apply the top level option).
        * For other options, we consider it as C solve (apply the last level option).
@@ -4051,6 +4510,10 @@ perm_gemslr_global:
             
             /* form the S mat with partial ILU */ 
             this->SetupPartialILUT(x, rhs);
+            
+            /* then move S to device when necessary */
+            this->_levs_v[0]._S_mat.MoveData(this->_location);
+            
             break;
          }
          case kGemslrGlobalPrecondPSLR:
@@ -4793,6 +5256,9 @@ perm_gemslr_global:
        *    What if top level is the last level?
        *       S = C_diag - (C_diag - S) => R = C_diag - S.
        * 
+       * SchurILU:
+       *    Only two levels, we have S availiable, S = (I-(I-SS_0^{-1})) => G = (I-SS_0^{-1}).
+       * 
        */
       int option;
       
@@ -4842,17 +5308,17 @@ perm_gemslr_global:
             {
                case kGemslrLowrankNoRestart:
                {
-                  level_str._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, level, option);
+                  level_str._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, level, level_str._nmvs, option);
                   break;
                }
                case kGemslrLowrankThickRestart:
                {
-                  level_str._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, level, option);
+                  level_str._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, level, level_str._nmvs, option);
                   break;
                }
                case kGemslrLowrankSubspaceIteration:
                {
-                  level_str._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, level, option);
+                  level_str._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, level, level_str._nmvs, option);
                   break;
                }
                default:
@@ -4937,6 +5403,13 @@ perm_gemslr_global:
                
                break;
             }
+            case kGemslrGlobalPrecondSchurILU:
+            {
+               option = kGemslrGlobalPrecondSchurILU;
+               level_str._EBFC.Setup(level, kGemslrGlobalPrecondSchurILU, *this);
+               
+               break;
+            }
             case kGemslrGlobalPrecondPSLR:
             {
                PARGEMSLR_ERROR("To be implemented.");
@@ -4974,17 +5447,17 @@ perm_gemslr_global:
             {
                case kGemslrLowrankNoRestart:
                {
-                  level_str._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, level, option);
+                  level_str._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, level, level_str._nmvs, option);
                   break;
                }
                case kGemslrLowrankThickRestart:
                {
-                  level_str._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, level, option);
+                  level_str._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, level, level_str._nmvs, option);
                   break;
                }
                case kGemslrLowrankSubspaceIteration:
                {
-                  level_str._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, level, option);
+                  level_str._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, level, level_str._nmvs, option);
                   break;
                }
                default:
@@ -5035,7 +5508,7 @@ perm_gemslr_global:
       
          switch(this->_global_precond_option)
          {
-            case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondPSLR: case kGemslrGlobalPrecondGeMSLR:
+            case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondSchurILU: case kGemslrGlobalPrecondPSLR: case kGemslrGlobalPrecondGeMSLR:
             {
                option = kGemslrGlobalPrecondGeMSLR;
                this->_lev_A[0]._EBFC.Setup(-1, kGemslrGlobalPrecondA, *this);
@@ -5059,17 +5532,17 @@ perm_gemslr_global:
             {
                case kGemslrLowrankNoRestart:
                {
-                  this->_lev_A[0]._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, -1, option);
+                  this->_lev_A[0]._lrc = this->SetupLowRankNoRestart(dummyx, dummyrhs, -1, this->_lev_A[0]._nmvs, option);
                   break;
                }
                case kGemslrLowrankThickRestart:
                {
-                  this->_lev_A[0]._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, -1, option);
+                  this->_lev_A[0]._lrc = this->SetupLowRankThickRestart(dummyx, dummyrhs, -1, this->_lev_A[0]._nmvs, option);
                   break;
                }
                case kGemslrLowrankSubspaceIteration:
                {
-                  this->_lev_A[0]._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, -1, option);
+                  this->_lev_A[0]._lrc = this->SetupLowRankSubspaceIteration(dummyx, dummyrhs, -1, this->_lev_A[0]._nmvs, option);
                   break;
                }
                default:
@@ -5119,7 +5592,7 @@ perm_gemslr_global:
    template int precond_gemslr_csr_par_complexd::SetupLowRank( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int level, int option)
+   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankSubspaceIteration( VectorType &x, VectorType &rhs, int level, int &nmvs, int option)
    {
       
       /* define the data type */
@@ -5197,7 +5670,7 @@ perm_gemslr_global:
        *------------------------*/
       
 #ifdef PARGEMSLR_TIMING
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType()));
+      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
 #else
       PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType());
 #endif
@@ -5207,13 +5680,13 @@ perm_gemslr_global:
       
       return err;
    }
-   template int precond_gemslr_csr_par_float::SetupLowRankSubspaceIteration( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_double::SetupLowRankSubspaceIteration( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexs::SetupLowRankSubspaceIteration( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexd::SetupLowRankSubspaceIteration( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int option);
+   template int precond_gemslr_csr_par_float::SetupLowRankSubspaceIteration( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_double::SetupLowRankSubspaceIteration( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexs::SetupLowRankSubspaceIteration( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexd::SetupLowRankSubspaceIteration( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int &nmvs, int option);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int level, int option)
+   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankNoRestart( VectorType &x, VectorType &rhs, int level, int &nmvs, int option)
    {
       
       /* define the data type */
@@ -5336,9 +5809,9 @@ perm_gemslr_global:
        *------------------------*/
       
 #ifdef PARGEMSLR_TIMING
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth));
+      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs));
 #else
-      m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth);
+      m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs);
 #endif
       
       /* free of V and H are handled inside */
@@ -5346,18 +5819,18 @@ perm_gemslr_global:
       
       return err;
    }
-   template int precond_gemslr_csr_par_float::SetupLowRankNoRestart( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_double::SetupLowRankNoRestart( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexs::SetupLowRankNoRestart( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexd::SetupLowRankNoRestart( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int option);
+   template int precond_gemslr_csr_par_float::SetupLowRankNoRestart( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_double::SetupLowRankNoRestart( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexs::SetupLowRankNoRestart( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexd::SetupLowRankNoRestart( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int &nmvs, int option);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int level, int option)
+   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestart( VectorType &x, VectorType &rhs, int level, int &nmvs, int option)
    {
       //if(this->_gemslr_setups._level_setups._lr_tol_eig_setup > 0.0)
       //{
          /* the eigenvalues are not accurate enough, do not lock them */
-         return this->SetupLowRankThickRestartNoLock(x, rhs, level, option);
+         return this->SetupLowRankThickRestartNoLock(x, rhs, level, nmvs, option);
       //}
       //else
       //{
@@ -5365,13 +5838,13 @@ perm_gemslr_global:
       //   return this->SetupLowRankThickRestartStandard(x, rhs, level);
       //}
    }
-   template int precond_gemslr_csr_par_float::SetupLowRankThickRestart( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_double::SetupLowRankThickRestart( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexs::SetupLowRankThickRestart( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexd::SetupLowRankThickRestart( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int option);
+   template int precond_gemslr_csr_par_float::SetupLowRankThickRestart( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_double::SetupLowRankThickRestart( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexs::SetupLowRankThickRestart( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexd::SetupLowRankThickRestart( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int &nmvs, int option);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestartNoLock( ParallelVectorClass<DataType> &x, ParallelVectorClass<DataType> &rhs, int level, int option)
+   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupLowRankThickRestartNoLock( ParallelVectorClass<DataType> &x, ParallelVectorClass<DataType> &rhs, int level, int &nmvs, int option)
    {
       
       /* define the data type */
@@ -5497,17 +5970,17 @@ perm_gemslr_global:
       v.Scale(one/normv);
       
       /* apply Arnoldi thick-restart */
-      m = PargemslrArnoldiThickRestartNoLock<VectorType>( level_str._EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(ParallelGemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth);
+      m = PargemslrArnoldiThickRestartNoLock<VectorType>( level_str._EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(ParallelGemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
       
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, m, level, option) );
       
       return err;
       
    }
-   template int precond_gemslr_csr_par_float::SetupLowRankThickRestartNoLock( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_double::SetupLowRankThickRestartNoLock( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexs::SetupLowRankThickRestartNoLock( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int option);
-   template int precond_gemslr_csr_par_complexd::SetupLowRankThickRestartNoLock( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int option);
+   template int precond_gemslr_csr_par_float::SetupLowRankThickRestartNoLock( ParallelVectorClass<float> &x, ParallelVectorClass<float> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_double::SetupLowRankThickRestartNoLock( ParallelVectorClass<double> &x, ParallelVectorClass<double> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexs::SetupLowRankThickRestartNoLock( ParallelVectorClass<complexs> &x, ParallelVectorClass<complexs> &rhs, int level, int &nmvs, int option);
+   template int precond_gemslr_csr_par_complexd::SetupLowRankThickRestartNoLock( ParallelVectorClass<complexd> &x, ParallelVectorClass<complexd> &rhs, int level, int &nmvs, int option);
    
    template <class MatrixType, class VectorType, typename DataType>
    template <typename RealDataType>
@@ -5743,7 +6216,7 @@ perm_gemslr_global:
                }
                break;
             }
-            case kGemslrGlobalPrecondESMSLR:
+            case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondSchurILU:
             {
                /* H = X - I when level == 0 
                 * -> X = H + I
@@ -5834,8 +6307,8 @@ perm_gemslr_global:
       this->OrdLowRank<RealDataType>(m, rank, &(ParallelGemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), R_temp, Q);
       
       Q.MoveData(this->_location);
-      Q_temp.SetupPtr(Q, 0, 0, rank, rank);
-      W_temp1.SetupPtr(W_temp, 0, 0, n, rank);
+      Q_temp.SetupPtr(Q, 0, 0, m, rank);
+      W_temp1.SetupPtr(W_temp, 0, 0, n, m);
       
       W.MatMat( one, W_temp1, 'N', Q_temp, 'N', T());
       
@@ -5870,7 +6343,7 @@ perm_gemslr_global:
             }
             break;
          }
-         case kGemslrGlobalPrecondESMSLR:
+         case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondSchurILU:
          {
             /* R = H when level == 0 */
             if(level == 0)
@@ -6012,6 +6485,12 @@ perm_gemslr_global:
          {
             /* explicite Schur complement */
             this->SolveLevelEsmslr( x, temp_rhs, 0, true);
+            break;
+         }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            /* explicite Schur complement */
+            this->SolveLevelSchurILU( x, temp_rhs, 0, true);
             break;
          }
          case kGemslrGlobalPrecondPSLR:
@@ -6740,6 +7219,221 @@ perm_gemslr_global:
    template int precond_gemslr_csr_par_complexd::SolveLevelGemslrMul( ParallelVectorClass<complexd> &x_out, ParallelVectorClass<complexd> &rhs_in, int level, bool doperm);
    
    template <class MatrixType, class VectorType, typename DataType>
+   int ParallelGemslrClass<MatrixType, VectorType, DataType>::SolveLevelSchurILU( VectorType &x_out, VectorType &rhs_in, int level, bool doperm)
+   {
+      
+      /* buffer used:
+       * 1, 2 used on the last level
+       * 1 used on other levels, 3 ane 4 might be used when inner iteration is activated
+       */
+      
+      /* define the data type */
+      typedef DataType T;
+      
+      int np, myid;
+      MPI_Comm comm;
+      this->_matrix->GetMpiInfo(np, myid, comm);
+      
+      /* the solve phase of GeMSLR */
+      
+      PARGEMSLR_CHKERR(level < 0);
+      PARGEMSLR_CHKERR(level >= this->_nlev_used);
+      
+      ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
+      
+      /* might need to apply permutation 
+       * This is always done on the top level
+       * and on lower levels if edge separator is used
+       */
+      bool apply_perm = level_str._comm_helper._is_ready && doperm;
+      if(apply_perm)
+      {
+         
+         /* note that we are solving the equation with Apq, we might need to apply the permutation 
+          * Ax = b => PAQQ'x = Pb, we are solving with Q'x
+          * 
+          * Note on the permutation:
+          * 
+          * swap row: left,  P(i, pperm[i]) = 1;
+          * swap col: right, Q(qperm[i], i) = 1;
+          * 
+          * Q(qperm[i], i) = 1 => left apply Q is equal to Q(i, rqperm[i])
+          *                    => Q' has Q'(i, qperm[i]) = 1;
+          * 
+          */
+         
+         level_str._comm_helper.DataTransfer(rhs_in, level_str._rhs_temp, this->_location, this->_location);
+         level_str._sol_temp.Fill(0.0);
+      }
+      
+      VectorType &x = apply_perm? level_str._sol_temp : x_out;
+      VectorType &rhs = apply_perm? level_str._rhs_temp : rhs_in;
+      
+      if(level == this->_nlev_used - 1)
+      {
+#ifdef PARGEMSLR_TIMING
+         if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
+         {
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU_L, this->SolveB(x, rhs, 0, level));
+         }
+         else
+         {
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT_L, this->SolveB(x, rhs, 0, level));
+         }
+#else
+         this->SolveB(x, rhs, 0, level);
+#endif
+         
+         /* might need to apply permutation 
+          * This is always done on the top level
+          * and on lower levels if edge separator is used
+          */
+         if(apply_perm)
+         {
+            level_str._comm_helper.DataTransferReverse(level_str._sol_temp, x_out, this->_location, this->_location);
+         }
+         
+         return PARGEMSLR_SUCCESS;
+         
+      }
+      
+      /* Otherwise the top level.
+       * In this situation, we compute 
+       * x_u = L \ rhs_u
+       * z_l = rhs_l - EU^{-1}*x_u
+       * x_l = S^{-1}z_l
+       * z_u = x_u - L^{-1}F * x_l
+       * x_u = U \ z_u
+       */
+      
+      int nLU;
+      
+      IluClass<CsrMatrixClass<T>, SequentialVectorClass<T>, DataType> *ilup 
+                  = (IluClass<CsrMatrixClass<T>, SequentialVectorClass<T>, DataType>*) level_str._B_solver[0];
+      
+      CsrMatrixClass<T> &EU = ilup->GetE();
+      CsrMatrixClass<T> &LF = ilup->GetF();
+      
+      //int nE = EU.GetNumRowsLocal();
+      nLU = LF.GetNumRowsLocal();
+      //int n = nE + nLU;
+      
+      VectorType        rhsu, rhsl, xu, xl, zu, zl;
+      
+      VectorType z;
+      z.SetupPtrStr(x);
+      z.UpdatePtr( level_str._work_vector.GetData() + level_str._work_vector_unit_length * 2, this->_location);
+
+#ifdef PARGEMSLR_DEBUG
+      PARGEMSLR_CHKERR(level_str._work_vector_occupied[2]);
+      level_str._work_vector_occupied[2] = 1;
+#endif
+
+      rhsu.SetupPtrStr(level_str._F_mat);
+      rhsu.UpdatePtr(rhs.GetData(), this->_location);
+      rhsl.SetupPtrStr(level_str._E_mat);
+      rhsl.UpdatePtr(rhs.GetData()+nLU, this->_location);
+      xu.SetupPtrStr(level_str._F_mat);
+      xu.UpdatePtr(x.GetData(), this->_location);
+      xl.SetupPtrStr(level_str._E_mat);
+      xl.UpdatePtr(x.GetData()+nLU, this->_location);
+      zu.SetupPtrStr(level_str._F_mat);
+      zu.UpdatePtr( z.GetData(), this->_location);
+      zl.SetupPtrStr(level_str._E_mat);
+      zl.UpdatePtr( z.GetData()+nLU, this->_location);
+      
+      T                 one, zero, mone;
+      
+      /* begin */
+      one = 1.0;
+      zero = 0.0;
+      mone = -1.0;
+      
+      z.Fill(zero);
+      
+      /* 1st, apply L solve
+       * x_u = L \ rhs_u
+       */
+      ilup->SolveL(xu.GetDataVector(), rhsu.GetDataVector());
+      
+      /* 2nd, compute the right-hand-side for the global schur system
+       * z_l = rhs_l - EU^{-1}*x_u
+       */
+      
+      zl.Fill(zero);
+      zl.Axpy(one, rhsl);
+      EU.MatVec( 'N', mone, xu, one, zl);
+      
+      /* 3rd need to solve global Schur Complement 
+       * x_l = S^{-1}z_l
+       */
+      if(level_str._C_mat.GetNumRowsGlobal() > 0)
+      {
+         /*initialize solution to zero for residual equation */
+         if( this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSolve && this->_gemslr_setups._enable_inner_iters_setup)
+         {
+            /* solve with 0 as initial guess 
+             * 4 and 5 might be used
+             */
+            xl.Fill(zero);
+            this->_inner_iters_solver.Solve( xl, zl);
+         }
+         else
+         {
+            /* solve, S^{-1} = (LR+I)*C^{-1} */
+            this->SolveLevelSchurILU( xl, zl, level+1, true);
+            if( level_str._lrc > 0)
+            {
+               /* apply the low-rank update */
+#ifdef PARGEMSLR_TIMING
+               if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
+               {
+                  PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELR, (this->SolveApplyLowRankLevel( level_str._xlr_temp, xl, level)));
+               }
+               else
+               {
+                  PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_LRC, (this->SolveApplyLowRankLevel( level_str._xlr_temp, xl, level)));
+               }
+#else
+               this->SolveApplyLowRankLevel( level_str._xlr_temp, xl, level);
+#endif
+               xl.Axpy( one, level_str._xlr_temp);
+            }
+         }
+      }
+      
+      /* 4th compute z_u = x_u - L^{-1}F * x_l
+       */
+      zu.Fill(zero);
+      zu.Axpy(one, xu);
+      LF.MatVec( 'N', mone, xl, one, zu);
+      
+      /* 5th need to solve x_u = U \ z_u */
+      ilup->SolveU(xu.GetDataVector(), zu.GetDataVector());
+         
+      /* might need to apply permutation 
+       * This is always done on the top level
+       * and on lower levels if edge separator is used
+       */
+      if(apply_perm)
+      {
+         level_str._comm_helper.DataTransferReverse(level_str._sol_temp, x_out, this->_location, this->_location);
+      }
+      
+      z.Clear();
+
+#ifdef PARGEMSLR_DEBUG
+      level_str._work_vector_occupied[2] = 0;
+#endif
+
+      return PARGEMSLR_SUCCESS;
+   }
+   template int precond_gemslr_csr_par_float::SolveLevelSchurILU( ParallelVectorClass<float> &x_out, ParallelVectorClass<float> &rhs_in, int level, bool doperm);
+   template int precond_gemslr_csr_par_double::SolveLevelSchurILU( ParallelVectorClass<double> &x_out, ParallelVectorClass<double> &rhs_in, int level, bool doperm);
+   template int precond_gemslr_csr_par_complexs::SolveLevelSchurILU( ParallelVectorClass<complexs> &x_out, ParallelVectorClass<complexs> &rhs_in, int level, bool doperm);
+   template int precond_gemslr_csr_par_complexd::SolveLevelSchurILU( ParallelVectorClass<complexd> &x_out, ParallelVectorClass<complexd> &rhs_in, int level, bool doperm);
+   
+   template <class MatrixType, class VectorType, typename DataType>
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::SolveLevelEsmslr( VectorType &x_out, VectorType &rhs_in, int level, bool doperm)
    {
       
@@ -7263,7 +7957,8 @@ perm_gemslr_global:
       
       if( this->_global_precond_option != kGemslrGlobalPrecondBJ && 
             this->_global_precond_option != kGemslrGlobalPrecondGeMSLR && 
-            this->_global_precond_option != kGemslrGlobalPrecondESMSLR)
+            this->_global_precond_option != kGemslrGlobalPrecondESMSLR && 
+            this->_global_precond_option != kGemslrGlobalPrecondSchurILU)
       {
          PARGEMSLR_ERROR("Invalid Global Precond Option.");
          return PARGEMSLR_ERROR_INVALED_OPTION;
@@ -7318,7 +8013,7 @@ perm_gemslr_global:
                ei.Fill(DataType());
                switch(this->_global_precond_option)
                {
-                  case kGemslrGlobalPrecondESMSLR:
+                  case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondSchurILU:
                   {
                      if(level == 0)
                      {
@@ -7367,7 +8062,7 @@ perm_gemslr_global:
          {
             switch(this->_global_precond_option)
             {
-               case kGemslrGlobalPrecondESMSLR:
+               case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondSchurILU:
                {
                   if(level == 0)
                   {
@@ -7767,7 +8462,14 @@ perm_gemslr_global:
       level_str._S_mat.MatVec( 'N', one, x, zero, zl);
 #endif
       /* solve with C */
-      this->SolveLevelEsmslr(y, zl, level+1, true);
+      if(this->_global_precond_option == kGemslrGlobalPrecondESMSLR)
+      { 
+         this->SolveLevelEsmslr(y, zl, level+1, true);
+      }
+      else
+      {
+          this->SolveLevelSchurILU(y, zl, level+1, true);
+      }
       
       y.Axpy( mone, x);
       
@@ -7829,6 +8531,12 @@ perm_gemslr_global:
          {
             /* explicite Schur complement */
             this->SolveLevelEsmslr( y_temp, x, 0, true);
+            break;
+         }
+         case kGemslrGlobalPrecondSchurILU:
+         {
+            /* explicite Schur complement */
+            this->SolveLevelSchurILU( y_temp, x, 0, true);
             break;
          }
          case kGemslrGlobalPrecondPSLR:
@@ -8424,6 +9132,11 @@ perm_gemslr_global:
          nnz_bsolver += nnz_bsolveri;
          nnz_lr += nnz_lri;
          
+         if(this->_global_precond_option == kGemslrGlobalPrecondSchurILU) 
+         {
+            nnz_bsolver += this->_levs_v[0]._S_mat.GetNumNonzeros();
+         }
+         
          return nnz_bsolver + nnz_lr;
       }
    }
@@ -8752,15 +9465,17 @@ perm_gemslr_global:
          
          ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[level];
          
-         diag_i      = level_str._C_mat.GetDiagMat().GetI();
-         diag_j      = level_str._C_mat.GetDiagMat().GetJ();
-         offd_i      = level_str._C_mat.GetOffdMat().GetI();
-         offd_j      = level_str._C_mat.GetOffdMat().GetJ();
-         offd_map    = level_str._C_mat.GetOffdMap().GetData();
+         ParallelCsrMatrixClass<DataType> &C_mat = (this->_global_precond_option == kGemslrGlobalPrecondSchurILU) ? this->_levs_v[0]._S_mat : level_str._C_mat;
          
-         n_local = level_str._C_mat.GetNumRowsLocal();
-         n_start = level_str._C_mat.GetRowStartGlobal();
-         nB_global = level_str._C_mat.GetNumRowsGlobal();
+         diag_i      = C_mat.GetDiagMat().GetI();
+         diag_j      = C_mat.GetDiagMat().GetJ();
+         offd_i      = C_mat.GetOffdMat().GetI();
+         offd_j      = C_mat.GetOffdMat().GetJ();
+         offd_map    = C_mat.GetOffdMap().GetData();
+         
+         n_local = C_mat.GetNumRowsLocal();
+         n_start = C_mat.GetRowStartGlobal();
+         nB_global = C_mat.GetNumRowsGlobal();
          
          for(i = 0 ; i < n_local ; i ++)
          {
@@ -9145,7 +9860,6 @@ perm_gemslr_global:
                                  level_str._S_mat);
       
       level_str._S_mat.SortOffdMap();
-      level_str._S_mat.MoveData(this->_location);
       
       ilup->SetSolveLocation(this->_location);
       
