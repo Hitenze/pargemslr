@@ -5263,8 +5263,8 @@ perm_gemslr_global:
       this->OrdLowRank<RealDataType>(m, rank, &(ParallelGemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), R_temp, Q);
       
       Q.MoveData(this->_location);
-      Q_temp.SetupPtr(Q, 0, 0, rank, rank);
-      W_temp1.SetupPtr(W_temp, 0, 0, n, rank);
+      Q_temp.SetupPtr(Q, 0, 0, m, rank);
+      W_temp1.SetupPtr(W_temp, 0, 0, n, m);
       
       W.MatMat( one, W_temp1, 'N', Q_temp, 'N', T());
       
