@@ -5672,7 +5672,7 @@ perm_gemslr_global:
 #ifdef PARGEMSLR_TIMING
       PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
 #else
-      PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType());
+      PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs);
 #endif
 
       /* free of V and H are handled inside */

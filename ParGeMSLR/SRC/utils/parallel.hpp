@@ -102,8 +102,8 @@ using namespace std;
       PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);\
       PARGEMSLR_PRINT("Time info:\n");\
       PARGEMSLR_PRINT("\tLoad matrix time:   %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_TOTAL_GEN_MAT_TIME]);\
-      PARGEMSLR_PRINT("\tPartition time:     %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_BUILDTIME_PARTITION]);\
-      PARGEMSLR_PRINT("\tSetup time:         %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_TOTAL_SETUP_TIME]-pargemslr::ParallelLogClass::_times[PARGEMSLR_BUILDTIME_PARTITION]);\
+      PARGEMSLR_PRINT("\tPartition time:     %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_BUILDTIME_PARTITION]+pargemslr::ParallelLogClass::_times[PARGEMSLR_BUILDTIME_STRUCTURE]);\
+      PARGEMSLR_PRINT("\tSetup time:         %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_TOTAL_SETUP_TIME]-pargemslr::ParallelLogClass::_times[PARGEMSLR_BUILDTIME_PARTITION]-pargemslr::ParallelLogClass::_times[PARGEMSLR_BUILDTIME_STRUCTURE]);\
       PARGEMSLR_PRINT("\tSolve time:         %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_TOTAL_SOLVE_TIME]);\
       PARGEMSLR_PRINT("\tTotal time:         %fs\n",pargemslr::ParallelLogClass::_times[PARGEMSLR_TOTAL_SETUP_TIME]+pargemslr::ParallelLogClass::_times[PARGEMSLR_TOTAL_SOLVE_TIME]);\
       PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);\
