@@ -76,7 +76,7 @@ int main (int argc, char *argv[])
    {
       if(myid == 0)
       {
-         printf("Writing solution to file %s\n",solfile);
+         PARGEMSLR_PRINT("Writing solution to file %s\n",solfile);
       }
       writesol = true;
    }
@@ -89,13 +89,13 @@ int main (int argc, char *argv[])
    {
       if(myid == 0)
       {
-         printf("Reading laplacian from file %s\n",lapfile);
+         PARGEMSLR_PRINT("Reading laplacian from file %s\n",lapfile);
       }
       if(read_double_laplacian_param(nmats, &nx, &ny, &nz, &shift, &alphax, &alphay, &alphaz, lapfile, true) != 0)
       {
          if(myid == 0)
          {
-            printf("Matrix file error\n");
+            PARGEMSLR_PRINT("Matrix file error\n");
          }
          PargemslrFinalize();
          return -1;
@@ -106,13 +106,13 @@ int main (int argc, char *argv[])
    {
       if(myid == 0)
       {
-         printf("Reading laplacian from file \"lapfile_real\"\n");
+         PARGEMSLR_PRINT("Reading laplacian from file \"lapfile_real\"\n");
       }
       if(read_double_laplacian_param(nmats, &nx, &ny, &nz, &shift, &alphax, &alphay, &alphaz, lapfile, false) != 0)
       {
          if(myid == 0)
          {
-            printf("Matrix file error\n");
+            PARGEMSLR_PRINT("Matrix file error\n");
          }
          PargemslrFinalize();
          return -1;
@@ -128,7 +128,7 @@ int main (int argc, char *argv[])
    {
       if(myid == 0)
       {
-         printf("Reading setup from file %s\n",infile);
+         PARGEMSLR_PRINT("Reading setup from file %s\n",infile);
       }
       read_inputs_from_file( infile, params);
    }
@@ -136,7 +136,7 @@ int main (int argc, char *argv[])
    {
       if(myid == 0)
       {
-         printf("Reading setup from file \"inputs\"\n");
+         PARGEMSLR_PRINT("Reading setup from file \"inputs\"\n");
       }
       read_inputs_from_file( "inputs", params);
    }
@@ -145,13 +145,13 @@ int main (int argc, char *argv[])
    {
       if(PargemslrSetOutputFile(outfile) != 0)
       {
-         printf("Reading output file error, write to stdout\n");
+         PARGEMSLR_PRINT("Reading output file error, write to stdout\n");
       }
       else
       {
          if(myid == 0)
          {
-            printf("Write to file %s\n",outfile);
+            PARGEMSLR_PRINT("Write to file %s\n",outfile);
          }
       }
    }
@@ -299,7 +299,7 @@ int main (int argc, char *argv[])
             parcsr_mat->MatVec( 'N', one, *x, zero, *b);
             if(myid == 0)
             {
-               printf("\tUsing random solution\n");
+               PARGEMSLR_PRINT("\tUsing random solution\n");
             }
             break;
          }
@@ -309,7 +309,7 @@ int main (int argc, char *argv[])
             b->Fill(one);
             if(myid == 0)
             {
-               printf("\tUsing one vector as right-hand-side\n");
+               PARGEMSLR_PRINT("\tUsing one vector as right-hand-side\n");
             }
             break;
          }
@@ -319,7 +319,7 @@ int main (int argc, char *argv[])
             b->Rand();
             if(myid == 0)
             {
-               printf("\tUsing random right-hand-side\n");
+               PARGEMSLR_PRINT("\tUsing random right-hand-side\n");
             }
             break;
          }
@@ -331,7 +331,7 @@ int main (int argc, char *argv[])
             parcsr_mat->MatVec( 'N', one, *x, zero, *b);
             if(myid == 0)
             {
-               printf("\tUsing one vector as solution\n");
+               PARGEMSLR_PRINT("\tUsing one vector as solution\n");
             }
             break;
          }
@@ -345,7 +345,7 @@ int main (int argc, char *argv[])
             x->Fill(one);
             if(myid == 0)
             {
-               printf("\tUsing one vector as initial guess\n");
+               PARGEMSLR_PRINT("\tUsing one vector as initial guess\n");
             }
             break;
          }
@@ -355,7 +355,7 @@ int main (int argc, char *argv[])
             x->Rand();
             if(myid == 0)
             {
-               printf("\tUsing random initial guess\n");
+               PARGEMSLR_PRINT("\tUsing random initial guess\n");
             }
             break;
          }
@@ -365,7 +365,7 @@ int main (int argc, char *argv[])
             x->Fill(zero);
             if(myid == 0)
             {
-               printf("\tUsing zero vector as initial guess\n");
+               PARGEMSLR_PRINT("\tUsing zero vector as initial guess\n");
             }
             break;
          }

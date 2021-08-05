@@ -1778,8 +1778,10 @@ namespace pargemslr
             }
             
             if(this->_gemslr_setups._nlev_setup == 2 && 
-               (this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveILUK && 
-                this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveILUT) )
+               this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveILUK && 
+               this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveILUT && 
+               this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveBJILUK && 
+               this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveBJILUT)
             {
                /* 2 levels with PSMR */
                this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
