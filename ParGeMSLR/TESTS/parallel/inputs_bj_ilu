@@ -21,12 +21,12 @@
  TR                        21. lr_arnoldi_option2      = LOWRANK: the Low-rank Option in GEMSLR for other levels. (STD, TR, SUB).
  TR                        22. lr_arnoldi_optionA      = LOWRANK: the Low-rank Option in GEMSLR for A. (STD, TR, SUB).
  0     0     20            23. lr_rank                 = LOWRANK: the target size of the low-rank correction on the top/other levels/A.
- 1e-12 1e-12 1e-12         24. lr_tol_eig              = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
- 1.1   1.1   1.1           25. lr_rank_factor          = LOWRANK: the target convergenced eigen-pairs is neig = lr_rankx * lr_rank_factor.
- 3.0   3.0   3.0           26. lr_arnoldi_factor       = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rankx * (1.0 + lr_rank_factor) * lr_arnoldi_factor.
+ 1e-03 1e-03 1e-03         24. lr_tol_eig              = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
+ 1.0   1.0   1.0           25. lr_rank_factor          = LOWRANK: the target convergenced eigen-pairs is neig = lr_rankx * lr_rank_factor.
+ 2.0   2.0   2.0           26. lr_arnoldi_factor       = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rankx * (1.0 + lr_rank_factor) * lr_arnoldi_factor.
  10    10    10            27. lr_maxits               = LOWRANK: the max number of restarts for the thick-restart Arnoldi or subspace iteration.
  0                         28. inner_iteration         = SCHUR: apply FGMRES on the top level Schur Complement system in the solve phase (1: yes, 0: no).
- 1e-03                     29. inner_iter_tol          = SCHUR: the tolorance of the SCHUR-FGMRES.
+ 1e-12                     29. inner_iter_tol          = SCHUR: the tolorance of the SCHUR-FGMRES.
  5                         30. inner_iter_maxits       = SCHUR: the max number of FGMRES outer iteration of the SCHUR-FGMRES.
  0                         31. diag_shift              = ADVANCED: Complex Version Only. Enable complex shift in the complex ILUT? (1: yes, 0: no).
  LU                        32. global_solve            = ADVANCED: the global solve option for GeMSLR (LU, U, MUL).

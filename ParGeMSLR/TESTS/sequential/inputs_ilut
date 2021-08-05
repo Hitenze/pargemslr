@@ -22,14 +22,14 @@
  TR           22. lr_arnoldi_option1      = LOWRANK: the Low-rank Option in GEMSLR for other levels, standard Arnoldi, Thick-restart Arnoldi, or subspace iteration (STD, TR, SUB).
  0            23. lr_rank0                = LOWRANK: the target size of the low-rank correction on the top level.
  0            24. lr_rank1                = LOWRANK: the target size of the low-rank correction on other levels.
- 1e-09        25. lr_tol_eig0             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
- 1e-09        26. lr_tol_eig1             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
- 1.1          27. lr_rank_factor0         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.
- 1.1          28. lr_rank_factor1         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.
- 3.0          29. lr_arnoldi_factor0      = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rank * lr_rank_factor * lr_arnoldi_factor.
- 3.0          30. lr_arnoldi_factor1      = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rank * lr_rank_factor * lr_arnoldi_factor.
- 1000         31. lr_maxits0              = LOWRANK: the max number of restarts for the thick-restart Arnoldi.
- 1000         32. lr_maxits1              = LOWRANK: the max number of restarts for the thick-restart Arnoldi.
+ 1e-03        25. lr_tol_eig0             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
+ 1e-03        26. lr_tol_eig1             = LOWRANK: eigenvalues with residual norm smaller than lr_tol_eig are considered convergenceded.
+ 1.0          27. lr_rank_factor0         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.
+ 1.0          28. lr_rank_factor1         = LOWRANK: the target convergenced eigen-pairs is neig = lr_rank * lr_rank_factor.
+ 2.0          29. lr_arnoldi_factor0      = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rank * lr_rank_factor * lr_arnoldi_factor.
+ 2.0          30. lr_arnoldi_factor1      = LOWRANK: the Arnoldi Steps during each restart is msteps = lr_rank * lr_rank_factor * lr_arnoldi_factor.
+ 10           31. lr_maxits0              = LOWRANK: the max number of restarts for the thick-restart Arnoldi.
+ 10           32. lr_maxits1              = LOWRANK: the max number of restarts for the thick-restart Arnoldi.
  1            33. inner_iteration         = SCHUR: apply FGMRES on the top level Schur Complement system in the solve phase (1: yes, 0: no).
  1e-02        34. inner_iter_tol          = SCHUR: the tolorance of the SCHUR-FGMRES.
  5            35. inner_iter_maxits       = SCHUR: the max number of FGMRES outer iteration of the SCHUR-FGMRES.

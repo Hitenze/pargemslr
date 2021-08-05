@@ -21,7 +21,7 @@ int main (int argc, char *argv[])
    double   *params = pargemslr_global::_params;
    
    int location;
-   char **matfile, **vecfile, outfile[1024], infile[1024], solfile[1024];
+   char **matfile, **vecfile, inmatfile[1024], outfile[1024], infile[1024], solfile[1024];
    bool writesol = false;
    int matfilebase;
    
@@ -145,14 +145,29 @@ int main (int argc, char *argv[])
       matfilebase = 1;
    }
    
-   if(read_matfile( "matfile_complex", nmats, &matfile, &vecfile) != 0)
+   if(PargemslrReadInputArg("matfile", inmatfile, argc, argv))
    {
-      if(myid == 0)
+      if(read_matfile( inmatfile, nmats, &matfile, &vecfile) != 0)
       {
-         PARGEMSLR_PRINT("Matrix file error\n");
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("Matrix file error\n");
+         }
+         PargemslrFinalize();
+         return -1;
       }
-      PargemslrFinalize();
-      return -1;
+   }
+   else
+   {
+      if(read_matfile( "matfile_complex", nmats, &matfile, &vecfile) != 0)
+      {
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("Matrix file error\n");
+         }
+         PargemslrFinalize();
+         return -1;
+      }
    }
    
    if(PargemslrReadInputArg("solone", argc, argv))

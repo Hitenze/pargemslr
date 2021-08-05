@@ -22,7 +22,7 @@ int main (int argc, char *argv[])
    long int nnzA, nnzM, nnzLR, nnzILU;
    double   *params = pargemslr_global::_params;
    
-   char outfile[1024], infile[1024], solfile[1024];
+   char outfile[1024], infile[1024], lapfile[1024], solfile[1024];
    bool writesol = false;
    int location;
    
@@ -76,13 +76,39 @@ int main (int argc, char *argv[])
     * 2. Read Laplacian Parameters
     * - - - - - - - - - - - - - - - */
    
-   if(read_double_complex_laplacian_param(nmats, &nx, &ny, &nz, &shift, &alphax, &alphay, &alphaz) != 0)
+   /* read from file "lapfile" when necessary */
+   if(PargemslrReadInputArg("lapfile", lapfile, argc, argv))
    {
       if(myid == 0)
       {
-         PARGEMSLR_PRINT("Matrix file error\n");
+         PARGEMSLR_PRINT("Reading laplacian from file %s\n",lapfile);
       }
-      return -1;
+      if(read_double_complex_laplacian_param(nmats, &nx, &ny, &nz, &shift, &alphax, &alphay, &alphaz, lapfile, true) != 0)
+      {
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("Matrix file error\n");
+         }
+         PargemslrFinalize();
+         return -1;
+      }
+      
+   }
+   else
+   {
+      if(myid == 0)
+      {
+         PARGEMSLR_PRINT("Reading laplacian from file \"lapfile_real\"\n");
+      }
+      if(read_double_complex_laplacian_param(nmats, &nx, &ny, &nz, &shift, &alphax, &alphay, &alphaz, lapfile, false) != 0)
+      {
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("Matrix file error\n");
+         }
+         PargemslrFinalize();
+         return -1;
+      }
    }
    
    /* - - - - - - - - - - - - - - - -

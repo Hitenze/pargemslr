@@ -35,7 +35,7 @@ int dummy_comm();
 int read_double_laplacian_param(int &nmats, int **nx, int **ny, int **nz, double **shift, double **alphax, double **alphay, double **alphaz, const char *filename, bool fromfile);
 
 /* read laplacian params */
-int read_double_complex_laplacian_param(int &nmats, int **nx, int **ny, int **nz, complexd **shift, complexd **alphax, complexd **alphay, complexd **alphaz);
+int read_double_complex_laplacian_param(int &nmats, int **nx, int **ny, int **nz, complexd **shift, complexd **alphax, complexd **alphay, complexd **alphaz, const char *filename, bool fromfile);
 
 /* read helmholtz params */
 int read_double_complex_helmholtz_param(int &nmats, int **n, complexd **w);

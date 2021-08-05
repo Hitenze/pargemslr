@@ -53,6 +53,7 @@ int print_parlap_test_usage()
    printf(" - - - - - - - - - - - - - -\n");
    printf(ANSI_COLOR_RESET);
    printf("   -fromfile   [str]      Read input from new file instead of \"inputs\".\n");
+   printf("   -lapfile    [str]      Read Laplacian from new file instead of the default file.\n");
    printf("   -outfile    [str]      Write output to file str instead of stdout.\n");
    printf("   -writesol   [str]      Write solution vector to file.\n");
    printf(ANSI_COLOR_RED);
@@ -85,6 +86,7 @@ int print_gen_test_usage()
    printf(" - - - - - - - - - - - - - -\n");
    printf(ANSI_COLOR_RESET);
    printf("   -fromfile   [str]      Read input from new file instead of \"inputs\".\n");
+   printf("   -matfile    [str]      Read matrix info from new file instead of the default file.\n");
    printf("   -outfile    [str]      Write output to file str instead of stdout.\n");
    printf("   -writesol   [str]      Write solution vector to file.\n");
    printf(ANSI_COLOR_RED);
@@ -194,16 +196,27 @@ int read_double_laplacian_param(int &nmats, int **nx, int **ny, int **nz, double
    return 0;
 }
 
-int read_double_complex_laplacian_param(int &nmats, int **nx, int **ny, int **nz, complexd **shift, complexd **alphax, complexd **alphay, complexd **alphaz)
+int read_double_complex_laplacian_param(int &nmats, int **nx, int **ny, int **nz, complexd **shift, complexd **alphax, complexd **alphay, complexd **alphaz, const char *filename, bool fromfile)
 {
    int i;
    
    FILE *f;
    
-   if ((f = fopen("lapfile_complex", "r")) == NULL)
+   if(fromfile)
    {
-      printf("Can't open file.\n");
-      return -1;
+      if ((f = fopen(filename, "r")) == NULL)
+      {
+         printf("Can't open file.\n");
+         return -1;
+      }
+   }
+   else
+   {
+      if ((f = fopen("lapfile_complex", "r")) == NULL)
+      {
+         printf("Can't open file.\n");
+         return -1;
+      }
    }
    
    /* number of matrices */
