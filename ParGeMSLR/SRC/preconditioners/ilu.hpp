@@ -167,10 +167,15 @@ namespace pargemslr
       int                                 _nnz;
       
       /**
-       * @brief   Should we turn on complex shift?
-       * @details Should we turn on complex shift?
+       * @brief   The complex shift. 0: disable. <0: dynamic. >0: fixed value.
+       * @details The complex shift. 0: disable. <0: dynamic. >0: fixed value. \n
+       *          0: No complex shift used.
+       *          <0: Dynamic shift. Automatically decide the shift on each row. \n
+       *          >0: Fixed shift. Shift by \sum_i |A_{ii}|/n * val. Val is this value.
        */
-      bool                                _complex_shift;
+      typename std::conditional<PargemslrIsDoublePrecision<DataType>::value, 
+                                 double, 
+                                 float>::type _complex_shift;
       
       /**
        * @brief   The L matrix of the ILU factorizaiton without diagonal.
@@ -959,7 +964,7 @@ namespace pargemslr
          this->_omp_option = params[PARGEMSLR_IO_ILU_OMP_OPTION_LOCAL];
          this->_poly_order = params[PARGEMSLR_IO_POLY_ORDER];
          this->_print_option = params[PARGEMSLR_IO_GENERAL_PRINT_LEVEL];
-         this->_complex_shift = params[PARGEMSLR_IO_ADVANCED_USE_COMPLEX_SHIFT] != 0.0;
+         this->_complex_shift = params[PARGEMSLR_IO_ADVANCED_USE_COMPLEX_SHIFT];
          this->_diag_shift_milu = params[PARGEMSLR_IO_ADVANCED_DIAG_SHIFT_MODIFIED];
          
          return PARGEMSLR_SUCCESS;
@@ -973,18 +978,27 @@ namespace pargemslr
        */
       int         SetLevelOfFill( int lfil)
       {
+         if(this->_ready)
+         {
+            PARGEMSLR_WARNING("Change setting after Setup is not going to change the preconditioner.");
+         }
          this->_fill_level = lfil;
          return PARGEMSLR_SUCCESS;
       }
       
       /**
-       * @brief   Set if we turn on the complex shift or not (complex version only).
-       * @details Set if we turn on the complex shift or not (complex version only).
-       * @param   [in]   complex_shift The new drop tol for ILUT.
+       * @brief   Set the complex shift parameter (complex version only).
+       * @details Set the complex shift parameter (complex version only).
+       * @param   [in]   complex_shift The new complex shift value.
        * @return     Return error message.
        */
-      int         SetIluComplexShift( bool complex_shift)
+      template <typename T>
+      int         SetIluComplexShift( T complex_shift)
       {
+         if(this->_ready)
+         {
+            PARGEMSLR_WARNING("Change setting after Setup is not going to change the preconditioner.");
+         }
          this->_complex_shift = complex_shift;
          return PARGEMSLR_SUCCESS;
       }
@@ -998,6 +1012,10 @@ namespace pargemslr
       template <typename T>
       int         SetDropTolerance( T droptol)
       {
+         if(this->_ready)
+         {
+            PARGEMSLR_WARNING("Change setting after Setup is not going to change the preconditioner.");
+         }
          this->_droptol = droptol;
          return PARGEMSLR_SUCCESS;
       }
