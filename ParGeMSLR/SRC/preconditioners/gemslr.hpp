@@ -813,7 +813,9 @@ namespace pargemslr
        * @brief   Should we turn on complex shift?
        * @details Should we turn on complex shift?
        */
-      bool                                   _ilu_complex_shift;
+      typename std::conditional<PargemslrIsDoublePrecision<DataType>::value, 
+                                 double, 
+                                 float>::type _ilu_complex_shift;
       
       /** 
        * @brief   The global droptol for ILUT.
@@ -2144,7 +2146,7 @@ namespace pargemslr
          this->_gemslr_setups._level_setups._C_ilu_fill_level_setup          = params[PARGEMSLR_IO_ILU_LFIL_C_GLOBAL];
          this->_gemslr_setups._level_setups._B_poly_order                    = params[PARGEMSLR_IO_POLY_ORDER];
          
-         this->_gemslr_setups._level_setups._ilu_complex_shift               = params[PARGEMSLR_IO_ADVANCED_USE_COMPLEX_SHIFT] != 0.0;
+         this->_gemslr_setups._level_setups._ilu_complex_shift               = params[PARGEMSLR_IO_ADVANCED_USE_COMPLEX_SHIFT];
          this->_gemslr_setups._level_setups._ilu_residual_iters              = params[PARGEMSLR_IO_ADVANCED_RESIDUAL_ITERS];
          
          pargemslr_global::_gram_schmidt                                     = params[PARGEMSLR_IO_ADVANCED_GRAM_SCHMIDT];
@@ -3158,7 +3160,8 @@ namespace pargemslr
        * @param   [in]   complex_shift The new drop tol for ILUT.
        * @return     Return error message.
        */
-      int         SetIluComplexShift(bool complex_shift)
+      template <typename T>
+      int         SetIluComplexShift(T complex_shift)
       {
          PARGEMSLR_FIRM_CHKERR(this->CheckReadySetups("GemslrSets"));
          this->_gemslr_setups._level_setups._ilu_complex_shift = complex_shift;

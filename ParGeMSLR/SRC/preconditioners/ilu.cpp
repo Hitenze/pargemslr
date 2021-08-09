@@ -25,7 +25,7 @@ namespace pargemslr
       this->_location = kMemoryHost;
       this->_n = 0;
       this->_modified = false;
-      this->_complex_shift = false;
+      this->_complex_shift = 0;
       this->_nB = 0;
       this->_nnz = 0;
       this->_fill_level = 1;
@@ -116,7 +116,7 @@ namespace pargemslr
       this->_n = precond._n;
       precond._n = 0;
       this->_complex_shift = precond._complex_shift;
-      precond._complex_shift = false;
+      precond._complex_shift = 0;
       this->_nnz = precond._nnz;
       precond._nnz = 0;
       this->_L = std::move(precond._L);
@@ -253,7 +253,7 @@ namespace pargemslr
       this->_n = precond._n;
       precond._n = 0;
       this->_complex_shift = precond._complex_shift;
-      precond._complex_shift = false;
+      precond._complex_shift = 0;
       this->_nnz = precond._nnz;
       precond._nnz = 0;
       this->_L = std::move(precond._L);
@@ -722,8 +722,16 @@ namespace pargemslr
    template <typename T>
    int IluClass<MatrixType, VectorType, DataType>::ApplyShift( ComplexValueClass<T> &w, int nz, T norm)
    {
-      if(this->_complex_shift)
+      
+      if(this->_complex_shift == 0)
       {
+         /* no shift */
+         return PARGEMSLR_SUCCESS;
+      }
+      
+      if(this->_complex_shift < 0)
+      {
+         /* dynamic */
          T shf;
          /* |rho +  I *(del + eta) | > average |off-diagonal entry|  */
          /*-------------------- 
@@ -733,6 +741,12 @@ namespace pargemslr
          shf = w.Imag() <=0 ? -shf : shf;
          w += ComplexValueClass<T>( T(), shf);
       }
+      else
+      {
+         /* fix */
+         w += ComplexValueClass<T>( T(), this->_complex_shift);
+      }
+      
       return PARGEMSLR_SUCCESS;
    }
    template int precond_ilu_csr_seq_complexs::ApplyShift( ComplexValueClass<float> &w, int nz, float norm);
@@ -1776,7 +1790,31 @@ namespace pargemslr
       {
          iw[i] = -1;
       }
-
+      
+      if(this->_complex_shift > 0)
+      {
+         
+         RealDataType diag_sum = 0.0;          
+      
+         for( i = 0; i < n; i++ ) 
+         {
+            j1 = A_i[i];
+            j2 = A_i[i+1];
+            
+            for( j = j1; j < j2; j++ ) 
+            {
+               col = A_j[j];
+               if(i == col)
+               {
+                  //diag
+                  diag_sum += PargemslrAbs(A_a[j]);
+               }
+            }
+         }
+         diag_sum /= n;
+         this->_complex_shift *= diag_sum;
+      }
+      
       /* beginning of main loop */
       for( ii = 0; ii < n; ii++ ) 
       {
@@ -2161,7 +2199,7 @@ namespace pargemslr
       }
       
       /* define the data type */
-      //typedef typename std::conditional<PargemslrIsDoublePrecision<DataType>::value, double, float>::type RealDataType;
+      typedef typename std::conditional<PargemslrIsDoublePrecision<DataType>::value, double, float>::type RealDataType;
       typedef DataType T;
       
       if(this->_print_option>0)
@@ -2193,6 +2231,7 @@ namespace pargemslr
       
       int                              *pperm, *qperm, *rqperm;
       vector_int                       unitperm;
+      RealDataType                     tnorm;
       int                              *A_i, *A_j, *L_i, *L_j, *U_i, *U_j;
       T                                *A_a, *L_a = NULL, *U_a = NULL, *D;
       
@@ -2299,6 +2338,31 @@ namespace pargemslr
          PARGEMSLR_CALLOC( U_a, U_i[n], kMemoryHost, T);
       }
       
+      /* enable complex shift when setted */
+      if(this->_complex_shift > 0)
+      {
+         
+         RealDataType diag_sum = 0.0;          
+      
+         for( i = 0; i < n; i++ ) 
+         {
+            k1 = A_i[i];
+            k2 = A_i[i+1];
+            
+            for( j = k1; j < k2; j++ ) 
+            {
+               col = A_j[j];
+               if(i == col)
+               {
+                  //diag
+                  diag_sum += PargemslrAbs(A_a[j]);
+               }
+            }
+         }
+         diag_sum /= n;
+         this->_complex_shift *= diag_sum;
+      }
+      
       /*
        * 3: Begin real factorization
        * we already have L and U structure ready, so no extra working array needed
@@ -2330,6 +2394,7 @@ namespace pargemslr
                //drop_val = this->_diag_shift_milu;
             }
          }
+         tnorm = 0.0;
          D[ii] = 0.0;
          iw[ii] = ii;
          for(j = U_i[ii] ; j < ku ; j ++)
@@ -2343,6 +2408,8 @@ namespace pargemslr
             /* compute everything in new index */
             col = rqperm[A_j[j]];
             icol = iw[col];
+            /* for complex shift */
+            tnorm += PargemslrAbs(A_a[j]);
             /* A for sure to be inside the pattern */
             if(col < ii)
             {
@@ -2356,6 +2423,13 @@ namespace pargemslr
             {
                U_a[icol] = A_a[j];
             }
+         }
+         
+         /* apply the complex diagonal shift */
+         if(!_modified)
+         {
+            /* only apply the shift when modified ILU is not used */
+            this->ApplyShift(D[ii], k2-k1, tnorm);
          }
          
          /* elimination */

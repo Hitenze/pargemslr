@@ -38,7 +38,7 @@ HYPRE_GEMSLRCreate( HYPRE_Solver *solver )
 
 /* create the gemslr solver */
 HYPRE_Int
-HYPRE_GEMSLRCreateFromFile( HYPRE_Solver *solver, char* filename )
+HYPRE_GEMSLRCreateFromFile( HYPRE_Solver *solver, const char* filename )
 {
    if (!solver)
    {
@@ -57,6 +57,8 @@ HYPRE_GEMSLRCreateFromFile( HYPRE_Solver *solver, char* filename )
    }
    else
    {
+      char tempfilename[1024];
+      snprintf( tempfilename, 1024, "%s",filename);
       params = hypre_PargemslrCreateParameterArrayFromFile(filename);
    }
    

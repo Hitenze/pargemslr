@@ -2406,7 +2406,7 @@ label_schurilu_local:
                this->_levs_v[0]._ncomps = 1;
                
                n_local  = this->_matrix->GetNumRowsLocal();
-                
+               
                /* check for global size */ 
                int nE = n_local - this->_levs_v[0]._nI, min_nE, min_nI;
                

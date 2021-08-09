@@ -38,7 +38,7 @@ extern "C"
 
    /* create the gemslr solver */
    HYPRE_Int
-   HYPRE_GEMSLRCreateFromFile( HYPRE_Solver *solver, char *filename );
+   HYPRE_GEMSLRCreateFromFile( HYPRE_Solver *solver, const char *filename );
 
    HYPRE_Int
    HYPRE_GEMSLRDestroy( HYPRE_Solver solver );

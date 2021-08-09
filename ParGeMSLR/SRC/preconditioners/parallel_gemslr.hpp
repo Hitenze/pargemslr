@@ -1709,7 +1709,7 @@ namespace pargemslr
          this->_gemslr_setups._level_setups._C_ilu_fill_level_setup          = params[PARGEMSLR_IO_ILU_LFIL_C_GLOBAL];
          this->_gemslr_setups._level_setups._B_poly_order                    = params[PARGEMSLR_IO_POLY_ORDER];
          
-         this->_gemslr_setups._level_setups._ilu_complex_shift               = params[PARGEMSLR_IO_ADVANCED_USE_COMPLEX_SHIFT] != 0.0;
+         this->_gemslr_setups._level_setups._ilu_complex_shift               = params[PARGEMSLR_IO_ADVANCED_USE_COMPLEX_SHIFT];
          this->_gemslr_setups._level_setups._ilu_residual_iters              = params[PARGEMSLR_IO_ADVANCED_RESIDUAL_ITERS];
          
          pargemslr_global::_gram_schmidt                                     = params[PARGEMSLR_IO_ADVANCED_GRAM_SCHMIDT];
