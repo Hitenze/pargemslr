@@ -7748,7 +7748,6 @@ namespace pargemslr
             marker[map[i]] = 1;
          }
          
-         
          /* check for empty domain */
          PARGEMSLR_MPI_CALL( PargemslrMpiAllreduceInplace( marker.GetData(), num_dom, MPI_MAX, comm) );
 
@@ -11941,22 +11940,205 @@ namespace pargemslr
       int                              clvl;
       vector_long                      vtxdist, xadj, adjncy;
       
-      /* The ND version currently removed, limitid weak scalability
-      if(vertexsep && ( (ncomp)&(ncomp-1) )==0 )
-      {
-         clvl = 1;
-         mapptr_v.Setup(1, true);
-         err = SetupPermutationParallelRKwayRecursive2( A, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
-      }
-      */
-
       A.GetGraphArrays(vtxdist, xadj, adjncy);
       
-      /* call rKway function */
-      clvl = 1;
-      mapptr_v.Setup(1, true);
-      
-      err = SetupPermutationParallelRKwayRecursive( vtxdist, xadj, adjncy, vertexsep, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
+      if( A.GetSeparatorNumSubdomains() == ncomp)
+      {
+         /* the partition on the top level is provided, use it */
+         if(vertexsep)
+         {
+            int                           i, j;
+            int                           n_local; 
+            long int                      col;
+            vector_int                    map, vtxsep, map2_v;
+            int                           err = 0;
+            vector_long                   vtxdist_s, xadj_s, adjncy_s;
+            
+            n_local = A.GetNumRowsLocal();
+            map = A.GetSeparatorDomi();
+            
+            /* get the separator. In array vtxsep, mark as 1 to be in the seprator */
+            err = ParallelRKwayGetSeparator2( vtxdist, xadj, adjncy, vertexsep, vtxdist_s, xadj_s, adjncy_s, map, ncomp, vtxsep, A);
+            
+            if(err == -1)
+            {
+               /* Get separator failes, no next level availiable */
+               if(bj_last)
+               {
+                  /* in this case just use the input partition */
+                  mapptr_v.Setup(2, true);
+                  mapptr_v[1] = ncomp;
+                  map_v.Setup(n_local);
+                  
+                  for(i = 0 ; i < n_local ; i ++)
+                  {
+                     map_v[i] = map[i];
+                  }
+               }
+               else
+               {
+                  /* only one subdomain, 0 */
+                  mapptr_v.Setup(2, true);
+                  mapptr_v[1] = 1;
+                  map_v.Setup(n_local);
+                  col = 0;
+                  map_v.Fill(col);
+               }
+               
+               nlev = 1;
+               return PARGEMSLR_SUCCESS;
+            }
+            PARGEMSLR_CHKERR(err);
+            
+            clvl = 1;
+            mapptr_v.Setup(1, true);
+            mapptr_v.PushBack(ncomp);
+            
+            if(ncomp > kmin)
+            {
+               ncomp = ncomp / kfactor;
+               if(ncomp < kmin)
+               {
+                  ncomp = kmin;
+               }
+            }
+            
+            // (Increase clvl by 1)
+            SetupPermutationParallelRKwayRecursive( vtxdist_s, xadj_s, adjncy_s, vertexsep, clvl+1, nlev, ncomp, minsep, kmin, kfactor, map2_v, mapptr_v, bj_last, A);
+            
+            /* udpate map information */
+            map_v.Setup(n_local);
+            j = 0;
+            for(i = 0 ; i < n_local ; i ++)
+            {
+               if(map[i] >= 0)
+               {
+                  /* interior nodes */
+                  map_v[i] = map[i];
+               }
+               else
+               {
+                  /* exterior nodes */
+                  map_v[i] = map2_v[j++];
+               }
+            }
+            
+            vtxdist_s.Clear(); 
+            xadj_s.Clear();
+            adjncy_s.Clear();
+            vtxsep.Clear();
+            map2_v.Clear();
+         }
+         else
+         {
+            int                           i, j;
+            int                           n_local; 
+            long int                      col;
+            vector_int                    map2, vtxsep, map2_v;
+            vector_long                   map;
+            int                           err = 0;
+            vector_long                   vtxdist_s, xadj_s, adjncy_s;
+            
+            n_local = A.GetNumRowsLocal();
+            map2 = A.GetSeparatorDomi();
+            
+            map.Setup(n_local);
+            
+            for(i = 0 ; i < n_local ; i ++)
+            {
+               if(map2[i] >= 0)
+               {
+                  map[i] = map2[i];
+               }
+               else
+               {
+                  map[i] = -map2[i]-1;
+               }
+            }
+            
+            /* get the separator. In array vtxsep, mark as 1 to be in the seprator */
+            err = ParallelRKwayGetSeparator( vtxdist, xadj, adjncy, vertexsep, vtxdist_s, xadj_s, adjncy_s, map, ncomp, vtxsep, A);
+            
+            if(err == -1)
+            {
+               /* Get separator failes, no next level availiable */
+               if(bj_last)
+               {
+                  /* in this case just use the input partition */
+                  mapptr_v.Setup(2, true);
+                  mapptr_v[1] = ncomp;
+                  map_v.Setup(n_local);
+                  
+                  for(i = 0 ; i < n_local ; i ++)
+                  {
+                     map_v[i] = map[i];
+                  }
+               }
+               else
+               {
+                  /* only one subdomain, 0 */
+                  mapptr_v.Setup(2, true);
+                  mapptr_v[1] = 1;
+                  map_v.Setup(n_local);
+                  col = 0;
+                  map_v.Fill(col);
+               }
+               
+               nlev = 1;
+               return PARGEMSLR_SUCCESS;
+            }
+            PARGEMSLR_CHKERR(err);
+            
+            clvl = 1;
+            mapptr_v.Setup(1, true);
+            mapptr_v.PushBack(ncomp);
+            
+            if(ncomp > kmin)
+            {
+               ncomp = ncomp / kfactor;
+               if(ncomp < kmin)
+               {
+                  ncomp = kmin;
+               }
+            }
+            
+            // (Increase clvl by 1)
+            SetupPermutationParallelRKwayRecursive( vtxdist_s, xadj_s, adjncy_s, vertexsep, clvl+1, nlev, ncomp, minsep, kmin, kfactor, map2_v, mapptr_v, bj_last, A);
+            
+            /* udpate map information */
+            map_v.Setup(n_local);
+            j = 0;
+            for(i = 0 ; i < n_local ; i ++)
+            {
+               if(vtxsep[i] <= 0)
+               {
+                  /* interior nodes */
+                  map_v[i] = map2[i];
+               }
+               else
+               {
+                  /* exterior nodes */
+                  map_v[i] = map2_v[j++];
+               }
+            }
+            
+            vtxdist_s.Clear(); 
+            xadj_s.Clear();
+            adjncy_s.Clear();
+            vtxsep.Clear();
+            map2_v.Clear();
+            map2.Clear();
+         }
+         
+      }
+      else
+      {
+         /* call rKway function */
+         clvl = 1;
+         mapptr_v.Setup(1, true);
+         
+         err = SetupPermutationParallelRKwayRecursive( vtxdist, xadj, adjncy, vertexsep, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
+      }
       
       return err;
    }
@@ -11996,14 +12178,18 @@ namespace pargemslr
             if(bj_last && nA >= np)
             {
                /* treat last level with block-Jacobi like partition 
-                * we assign np subdomains to the last level
+                * since in this case the METIS fails
+                * we assign ncomp subdomains to the last level evenly
                 */
                
                long int       bjdom1, bjdom2, k;
                vector_long    bjdisps, bjns;
                
-               bjdom1 = nA / np;
-               bjdom2 = nA % np;
+               /* if we have enough nodes, assign ncomp, otherwise np */
+               long int       ncomp3 = nA >= ncomp ? ncomp : np;
+               
+               bjdom1 = nA / ncomp3;
+               bjdom2 = nA % ncomp3;
                
                bjdisps.Setup(np+1);
                bjns.Setup(np);
@@ -12061,56 +12247,15 @@ namespace pargemslr
             
             if(err == -1)
             {
-               /* No next level availiable */
-               if(bj_last && nA >= np)
+               /* Get separator failes, no next level availiable */
+               if(bj_last)
                {
-                  /* treat last level with block-Jacobi like partition 
-                   * we assign np subdomains to the last level
-                   */
-                  
-                  long int       bjdom1, bjdom2, k;
-                  vector_long    bjdisps, bjns;
-                  
-                  bjdom1 = nA / np;
-                  bjdom2 = nA % np;
-                  
-                  bjdisps.Setup(np+1);
-                  bjns.Setup(np);
-                  
-                  for(i = 0 ; i < np ; i ++)
-                  {
-                     if(i < bjdom2)
-                     {
-                        bjns[i] = bjdom1 + 1;
-                     }
-                     else
-                     {
-                        bjns[i] = bjdom1;
-                     }
-                  }
-                  
-                  bjdisps[0] = 0;
-                  for(i = 0 ; i < np ; i ++)
-                  {
-                     bjdisps[i+1] = bjdisps[i] + bjns[i];
-                  }
-                  
-                  col = mapptr_v.Back();
-                  mapptr_v.PushBack(col+np);
+                  /* in this case just use the partition provided by parMETIS */
+                  mapptr_v.PushBack(mapptr_v.Back()+ncomp2);
                   map_v.Setup(n_local);
-                  
-                  j = 0;
-                  for(i = 0, k = vtxdist[myid]; i < n_local ; i ++, k++)
+                  for(i = 0 ; i < n_local ; i ++)
                   {
-                     while(bjdisps[j+1] <= k)
-                     {
-                        /* in this case, current node blongs to the next one 
-                         * we want k in [bjdisps[j], bjdisps[j+1])
-                         * example: 0, 2, 4, 6, 8, when k = 2, j should be 2.
-                         */
-                        j++;
-                     }
-                     map_v[i] = j+col;
+                     map_v[i] = map[i] + mapptr_v[clvl-1];
                   }
                }
                else
@@ -12165,56 +12310,134 @@ namespace pargemslr
           */
          if(nA > 0)
          {
+            
             if(bj_last && nA >= np)
             {
-               /* treat last level with block-Jacobi like partition 
-                * we assign np subdomains to the last level
-                */
-               
-               long int       bjdom1, bjdom2, k;
-               vector_long    bjdisps, bjns;
-               
-               bjdom1 = nA / np;
-               bjdom2 = nA % np;
-               
-               bjdisps.Setup(np+1);
-               bjns.Setup(np);
-               
-               for(i = 0 ; i < np ; i ++)
+               if(nA >= ncomp)
                {
-                  if(i < bjdom2)
+                  /* good for one extra partition */
+                  
+                  ncomp2 = ncomp;
+                  
+                  err = ParmetisKwayHost( vtxdist, xadj, adjncy, ncomp2, map, parlog); //PARGEMSLR_CHKERR(err);
+                  
+                  if( err || ncomp2 < ncomp)
                   {
-                     bjns[i] = bjdom1 + 1;
+                     /* fails, use bj
+                      * treat last level with block-Jacobi like partition 
+                      * since in this case the METIS fails
+                      * we assign ncomp subdomains to the last level evenly
+                      */
+                     
+                     long int       bjdom1, bjdom2, k;
+                     vector_long    bjdisps, bjns;
+                     
+                     bjdom1 = nA / ncomp;
+                     bjdom2 = nA % ncomp;
+                     
+                     bjdisps.Setup(np+1);
+                     bjns.Setup(np);
+                     
+                     for(i = 0 ; i < np ; i ++)
+                     {
+                        if(i < bjdom2)
+                        {
+                           bjns[i] = bjdom1 + 1;
+                        }
+                        else
+                        {
+                           bjns[i] = bjdom1;
+                        }
+                     }
+                     
+                     bjdisps[0] = 0;
+                     for(i = 0 ; i < np ; i ++)
+                     {
+                        bjdisps[i+1] = bjdisps[i] + bjns[i];
+                     }
+                     
+                     col = mapptr_v.Back();
+                     mapptr_v.PushBack(col+np);
+                     map_v.Setup(n_local);
+                     
+                     j = 0;
+                     for(i = 0, k = vtxdist[myid]; i < n_local ; i ++, k++)
+                     {
+                        while(bjdisps[j+1] <= k)
+                        {
+                           /* in this case, current node blongs to the next one 
+                            * we want k in [bjdisps[j], bjdisps[j+1])
+                            * example: 0, 2, 4, 6, 8, when k = 2, j should be 2.
+                            */
+                           j++;
+                        }
+                        map_v[i] = j+col;
+                     }
                   }
                   else
                   {
-                     bjns[i] = bjdom1;
+                     mapptr_v.PushBack(mapptr_v.Back()+ncomp2);
+                     map_v.Setup(n_local);
+                     /* use the partition */
+                     for(i = 0 ; i < n_local ; i ++)
+                     {
+                        map_v[i] = map[i] + mapptr_v[clvl-1];
+                     }
                   }
                }
-               
-               bjdisps[0] = 0;
-               for(i = 0 ; i < np ; i ++)
+               else
                {
-                  bjdisps[i+1] = bjdisps[i] + bjns[i];
-               }
-               
-               col = mapptr_v.Back();
-               mapptr_v.PushBack(col+np);
-               map_v.Setup(n_local);
-               
-               j = 0;
-               for(i = 0, k = vtxdist[myid]; i < n_local ; i ++, k++)
-               {
-                  while(bjdisps[j+1] <= k)
+                  /* treat last level with block-Jacobi like partition 
+                   * since in this case the METIS fails
+                   * we assign ncomp subdomains to the last level evenly
+                   */
+                  
+                  long int       bjdom1, bjdom2, k;
+                  vector_long    bjdisps, bjns;
+                  
+                  bjdom1 = nA / np;
+                  bjdom2 = nA % np;
+                  
+                  bjdisps.Setup(np+1);
+                  bjns.Setup(np);
+                  
+                  for(i = 0 ; i < np ; i ++)
                   {
-                     /* in this case, current node blongs to the next one 
-                      * we want k in [bjdisps[j], bjdisps[j+1])
-                      * example: 0, 2, 4, 6, 8, when k = 2, j should be 2.
-                      */
-                     j++;
+                     if(i < bjdom2)
+                     {
+                        bjns[i] = bjdom1 + 1;
+                     }
+                     else
+                     {
+                        bjns[i] = bjdom1;
+                     }
                   }
-                  map_v[i] = j+col;
+                  
+                  bjdisps[0] = 0;
+                  for(i = 0 ; i < np ; i ++)
+                  {
+                     bjdisps[i+1] = bjdisps[i] + bjns[i];
+                  }
+                  
+                  col = mapptr_v.Back();
+                  mapptr_v.PushBack(col+np);
+                  map_v.Setup(n_local);
+                  
+                  j = 0;
+                  for(i = 0, k = vtxdist[myid]; i < n_local ; i ++, k++)
+                  {
+                     while(bjdisps[j+1] <= k)
+                     {
+                        /* in this case, current node blongs to the next one 
+                         * we want k in [bjdisps[j], bjdisps[j+1])
+                         * example: 0, 2, 4, 6, 8, when k = 2, j should be 2.
+                         */
+                        j++;
+                     }
+                     map_v[i] = j+col;
+                  }
                }
+               
             }
             else
             {
@@ -12539,7 +12762,7 @@ namespace pargemslr
          vector_long tree;
          
          int k, ts, te, tlen, idxi, leveli, tree_size, tree_level;
-         long int n1, n2, n1_g, n2_g, domi;
+         long int ns[4], nsg[4], domi;
          
          bool marker, even;
          
@@ -12585,8 +12808,10 @@ namespace pargemslr
             tlen = pow(2,leveli+1) + 1;
             te = ts + tlen;
             
-            n1 = 0;
-            n2 = 0;
+            ns[0] = 0;
+            ns[1] = 0;
+            ns[2] = 0;
+            ns[3] = 0;
             
             vector_long treei;
             std::unordered_map<long int, int> tree_idx_hash;
@@ -12645,6 +12870,25 @@ namespace pargemslr
                         
                         tree_idx_hash[domi] = idx;
                      }
+                  }
+               }
+               else
+               {
+                  /* interior node, just check the tree location */
+                  dom = map[i];
+                  
+                  /* check if we know the index of the local domain */
+                  auto find_dom =  tree_idx_hash.find(dom);
+                  if(find_dom == tree_idx_hash.end())
+                  {
+                     /* a new one */
+                     if( treei.BinarySearch( dom, idx, true) < 0)
+                     {
+                        /* In this case, we haven't found it, belongs to the previous inteval */
+                        idx--;
+                     }
+                     
+                     tree_idx_hash[dom] = idx;
                   }
                }
             }
@@ -12708,23 +12952,62 @@ namespace pargemslr
                      if(even)
                      {
                         vtxsep[i] = 3;
-                        n1++;
+                        ns[0]++;
                      }
                      else
                      {
                         vtxsep[i] = 4;
-                        n2++;
+                        ns[1]++;
                      }
                   }
+                  else
+                  {
+                     if(even)
+                     {
+                        ns[2]++;
+                     }
+                     else
+                     {
+                        ns[3]++;
+                     }
+                  }
+               }
+               else if(vtxsep[i] == 0)
+               {
+                  /* this is the interior nodes */
+                  dom = map[i];
+                  
+                  auto find_idx = tree_idx_hash.find(dom);
+                  idx = find_idx->second;
+                  
+                  if( idx % 2 == 0)
+                  {
+                     even = true;
+                  }
+                  else
+                  {
+                     even = false;
+                  }
+                  
+                  if(even)
+                  {
+                     ns[2]++;
+                  }
+                  else
+                  {
+                     ns[3]++;
+                  }
+                  
                }
             }
             
             /* now check which to add to separator */
-            PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( &n1, &n1_g, 1, MPI_SUM,comm));
-            PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( &n2, &n2_g, 1, MPI_SUM,comm));
+            PARGEMSLR_MPI_CALL(PargemslrMpiAllreduce( ns, nsg, 4, MPI_SUM,comm));
             
             /* main loop done */
-            if(n1_g <= n2_g)
+            //if(nsg[0] <= nsg[1])
+            //if(nsg[3] <= nsg[2])
+            if(PargemslrAbs(nsg[2]-nsg[1]-nsg[3]) <= PargemslrAbs(nsg[0]+nsg[2]-nsg[3]))
             {
                /* in this case putting those marked 3 into 2 */
                for(i = 0 ; i < n_local ; i ++)
@@ -12853,6 +13136,378 @@ namespace pargemslr
       
       /* --------------------------------
        * Step 6: get vtxsep info of offds
+       * --------------------------------
+       */
+      
+      col_map_uncertain_hash.clear();
+      
+      sendsize.Fill(0);
+      recvsize.Fill(0);
+      for(i = 0 ; i < np ; i ++)
+      {
+         send_v2[i].Clear();
+         send_v2[i].Clear();
+         send2_v2[i].Clear();
+         recv2_v2[i].Clear();
+      }
+      
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] >= 0)
+         {
+            /* this is a vtxsep */
+            j1 = xadj[i];
+            j2 = xadj[i+1];
+            
+            for(j = j1 ; j < j2 ; j ++)
+            {
+               col = adjncy[j];
+               id = ids[j]; /* this is the id this col belongs to */
+               
+               if(id != myid)
+               {
+                  /* only check off-diagonal entries */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(find_col == col_map_uncertain_hash.end())
+                  {
+                     /* breaking news! a NEW column! */
+                     send_v2[id].PushBack(col);
+                     col_map_uncertain_hash[col] = sendsize[id];
+                     sendsize[id]++;
+                  }
+               }
+            }
+         }
+      }
+      
+      /* communicate send and recv size */
+      PARGEMSLR_MPI_CALL( MPI_Alltoall( sendsize.GetData(), 1, MPI_INT, recvsize.GetData(), 1, MPI_INT, comm) );
+      
+      /* then apply communication */
+      
+      /* first send cols */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( send_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv_v2[i].Setup(recvsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( recv_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* get the map value */
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            recv2_v2[i].Setup(recvsize[i]);
+            for(j = 0 ; j < recvsize[i]; j ++)
+            {
+               recv2_v2[i][j] = vtxsep[recv_v2[i][j] - n_start];
+            }
+         }
+      }
+      
+      /* then apply communication again */
+      
+      /* or MPI_Alltoallv? */
+      numwaits = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(recvsize[i] > 0)
+         {
+            /* myid have data for processor i */
+            PARGEMSLR_MPI_CALL( PargemslrMpiIsend( recv2_v2[i].GetData(), recvsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         if(sendsize[i] > 0)
+         {
+            send2_v2[i].Setup(sendsize[i]);
+            PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( send2_v2[i].GetData(), sendsize[i], i, 0, comm, &(requests[numwaits++])) );
+         }
+      }
+      
+      PARGEMSLR_MPI_CALL( MPI_Waitall( numwaits, requests.data(), MPI_STATUSES_IGNORE) );
+      
+      /* now adding elements */
+      
+      xadj_s.Setup(n_local_s+1);
+      adjncy_s.Resize(0, false, false);
+      
+      xadj_s[0] = 0;
+      
+      ii = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] >= 0)
+         {
+            xadj_s[ii+1] = xadj_s[ii];
+            j1 = xadj[i];
+            j2 = xadj[i+1];
+            for(j = j1 ; j < j2 ; j ++)
+            {
+               col = adjncy[j];
+               id = ids[j];
+               
+               if(id != myid)
+               {
+                  /* off-diagonal blocks */
+                  auto find_col = col_map_uncertain_hash.find(col);
+                  if(find_col != col_map_uncertain_hash.end())
+                  {
+                     idx = send2_v2[id][find_col->second];
+                     if(idx >= 0)
+                     {
+                        adjncy_s.PushBack(idx+vtxdist_s[id]);
+                        xadj_s[ii+1]++;
+                     }
+                  }
+               }
+               else
+               {
+                  /* diagonal block */
+                  idx = vtxsep[col-n_start];
+                  if(idx >= 0)
+                  {
+                     adjncy_s.PushBack(idx+vtxdist_s[myid]);
+                     xadj_s[ii+1]++;
+                  }
+               }
+            }
+            ii++;
+         }
+      }
+      
+      /* reset vtxsep */
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(vtxsep[i] >= 0)
+         {
+            vtxsep[i] = 1;
+         }
+         else
+         {
+            vtxsep[i] = -1;
+         }
+      }
+      
+      /* deallocate */
+      ids.Clear();
+      marker2.Clear();
+      n_local_ss.Clear();
+      sendsize.Clear();
+      recvsize.Clear();
+      
+      for(i = 0 ; i < np ; i ++)
+      {
+         send_v2[i].Clear();
+         recv_v2[i].Clear();
+         send2_v2[i].Clear();
+         recv2_v2[i].Clear();
+      }
+      
+      std::vector<vector_long>().swap(send_v2);
+      std::vector<vector_long>().swap(recv_v2);
+      std::vector<vector_int>().swap(send2_v2);
+      std::vector<vector_int>().swap(recv2_v2);
+      
+      col_map_uncertain_hash.clear();
+      vector<MPI_Request>().swap(requests);
+      
+      return PARGEMSLR_SUCCESS;
+   }
+   
+   int ParallelRKwayGetSeparator2( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_int &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
+   {
+      long int                   i, ii, j, j1, j2;
+      long int                   n_local, n_start, n_end, col, nnz, n_local_s, local_diff, global_diff;
+      int                        id, idx;
+      vector_int                 ids, marker2;
+      vector_long                n_local_ss;
+      
+      std::unordered_map<long int, int> col_map_hash;
+      int                        ncols;
+      vector_long                cols;
+      vector_int                 col_ids;
+      
+      std::unordered_map<long int, int> col_map_uncertain_hash;
+      vector_int                 sendsize, recvsize;
+      std::vector<vector_long>   send_v2, recv_v2;
+      std::vector<vector_int>    send2_v2, recv2_v2;
+      
+      MPI_Comm                comm;
+      int                     myid, np, numwaits;
+      vector<MPI_Request>     requests;
+      
+      parlog.GetMpiInfo(np, myid, comm);
+      
+      n_start = vtxdist[myid];
+      n_end = vtxdist[myid+1];
+      n_local = n_end - n_start;
+      
+      if(n_local == 0)
+      {
+         /* empty, no need to setup */
+         nnz = 0;
+         vtxsep.Clear();
+      }
+      else
+      {
+         nnz = xadj[n_local];
+         vtxsep.Setup(n_local, true);
+         ids.Setup(nnz, true);
+      }
+      
+      /* -------------------------
+       * Step 1: put all local columns into the hash table
+       * -------------------------
+       */
+      ncols = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         j1 = xadj[i];
+         j2 = xadj[i+1];
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            col = adjncy[j];
+            /* get the processor holds this index 
+             * note that there might be duplicate entries 
+             */
+            auto find_col =  col_map_hash.find(col);
+            if(find_col == col_map_hash.end())
+            {
+               /* a new one */
+               if(vtxdist.BinarySearch( col, id, true) < 0)
+               {
+                  /* in this case, col fall in between */
+                  id--;
+               }
+               
+               cols.PushBack(col);
+               col_ids.PushBack(id);
+               col_map_hash[col] = ncols;
+               ncols++;
+            }
+         }
+      }
+      
+      /* ids[j] is the MPI process adjncy[j] belongs to */
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         j1 = xadj[i];
+         j2 = xadj[i+1];
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            col = adjncy[j];
+            /* get the processor holds this index 
+             * note that there might be duplicate entries 
+             */
+            auto find_col =  col_map_hash.find(col);
+            ids[j] = col_ids[find_col->second];
+         }
+      }
+      
+      requests.resize(2*np);
+      sendsize.Setup(np, true);
+      recvsize.Setup(np, true);
+      send_v2.resize(np);
+      recv_v2.resize(np);
+      send2_v2.resize(np);
+      recv2_v2.resize(np);
+      
+      /* -------------------------
+       * Step 2: check the separator
+       * If some subdomain has no
+       * interior nodes, we would
+       * have to reject this
+       * -------------------------
+       */
+      
+      /* check if some color has no interior nodes */
+      
+      marker2.Setup(num_dom);
+      marker2.Fill(-1);
+      
+      /* mark local domains */
+      for (i = 0; i < n_local; i++)
+      {
+         /* if found interior, mark to 1 */
+         if(map[i] >= 0)
+         {
+            marker2[map[i]] = 1;
+         }
+      }
+      
+      /* check for empty domain */
+      PARGEMSLR_MPI_CALL( PargemslrMpiAllreduceInplace( marker2.GetData(), num_dom, MPI_MAX, comm) );
+      
+      for (i = 0; i < num_dom; i++)
+      {
+         if(marker2[i] == -1)
+         {
+            return -1;
+         }
+      }
+      
+      /* -------------------------
+       * Step 2: now form the 
+       * reduced system
+       * first get the local vertices
+       * -------------------------
+       */
+      
+      n_local_s = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         if(map[i] < 0)
+         {
+            vtxsep[i] = n_local_s;
+            n_local_s++;
+         }
+         else
+         {
+            vtxsep[i] = -1;
+         }
+      }
+      
+      local_diff = n_local - n_local_s;
+      PARGEMSLR_MPI_CALL( PargemslrMpiAllreduce( &local_diff, &global_diff, 1, MPI_MIN, comm) );
+      
+      if(global_diff == 0)
+      {
+         /* we have no exterior nodes, stop here */
+         return -1;
+      }
+      
+      /* global displacement */
+      n_local_ss.Setup(np);
+      
+      PARGEMSLR_MPI_CALL( MPI_Allgather( &n_local_s, 1, MPI_LONG, n_local_ss.GetData(), 1, MPI_LONG, comm) );
+      
+      vtxdist_s.Setup(np+1);
+      vtxdist_s[0] = 0;
+      for(i = 0 ; i < np ; i ++)
+      {
+         vtxdist_s[i+1] = vtxdist_s[i] + n_local_ss[i];
+      }
+      
+      /* --------------------------------
+       * Step 3: get vtxsep info of offds
        * --------------------------------
        */
       

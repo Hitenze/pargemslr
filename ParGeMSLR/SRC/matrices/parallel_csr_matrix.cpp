@@ -2537,6 +2537,7 @@ namespace pargemslr
       int                  i, j, k;
       int                  ldx, ldy, ldz;
       int                  ii, offdsize, lidx;
+      int                  dom_init;
       T                    vd, vxm, vxp, vym, vyp, vzm, vzp;
       RealDataType         ptrb, shift_abs; 
       CooMatrixClass<T>    Acoo_diag, Acoo_offd;
@@ -2655,6 +2656,7 @@ namespace pargemslr
       this->_ncol_start       = this->_nrow_start;
       
       /* set the default partition, init every node to be interior, update later */
+      dom_init = -myid-1;
       this->_separator_ndom   = np;
       this->_separator_domi.Setup(this->_nrow_local);
       this->_separator_domi.Fill(myid);
@@ -2872,7 +2874,7 @@ namespace pargemslr
                // add to offd
                ii = 0 * numxs[ldx] * numys[ldy] + i * numxs[ldx] + j;
                
-               this->_separator_domi[ii] = -1;
+               this->_separator_domi[ii] = dom_init;
             }
          }
          
@@ -2905,7 +2907,7 @@ namespace pargemslr
                // ii is the local index
                ii = i * numxs[ldx] * numys[ldy] + 0 * numxs[ldx] + j;
                
-               this->_separator_domi[ii] = -1;
+               this->_separator_domi[ii] = dom_init;
             }
          }
       }
@@ -2936,7 +2938,7 @@ namespace pargemslr
                // ii is the local index
                ii = i * numxs[ldx] * numys[ldy] + j * numxs[ldx] + 0;
                
-               this->_separator_domi[ii] = -1;
+               this->_separator_domi[ii] = dom_init;
             }
          }
       }
@@ -2967,7 +2969,7 @@ namespace pargemslr
                // ii is the local index
                ii = i * numxs[ldx] * numys[ldy] + j * numxs[ldx] + numxs[ldx] - 1;
                
-               this->_separator_domi[ii] = -1;
+               this->_separator_domi[ii] = dom_init;
             }
          }
       }
@@ -3000,7 +3002,7 @@ namespace pargemslr
                // ii is the local index
                ii = i * numxs[ldx] * numys[ldy] + (numys[ldy] - 1) * numxs[ldx] + j;
                
-               this->_separator_domi[ii] = -1;
+               this->_separator_domi[ii] = dom_init;
             }
          }
       }
@@ -3033,7 +3035,7 @@ namespace pargemslr
                // ii is the local index
                ii = (numzs[ldz] - 1) * numxs[ldx] * numys[ldy] + i * numxs[ldx] + j;
                
-               this->_separator_domi[ii] = -1;
+               this->_separator_domi[ii] = dom_init;
             }
          }
       }
@@ -3527,6 +3529,7 @@ namespace pargemslr
       /* prepare the separator */
       int         i1, j1, k1;
       int         ndomxy, ndomx, ndomy, ndomz, ndom, color;
+      int         dom_init, dom_sep;
       vector_int  ndomxs, ndomys, ndomzs;
       vector_int  ndomxdisps, ndomydisps, ndomzdisps;
       vector_int  globalndomdisp;
@@ -3614,6 +3617,8 @@ namespace pargemslr
          {
             for(k1 = 0 ; k1 < ndomx ; k1 ++)
             {
+               dom_init = color+myid*ndom;
+               dom_sep = -dom_init-1;
                for(i = 0 ; i < ndomzs[i1] ; i ++)
                {
                   for(j = 0 ; j < ndomys[j1] ; j ++)
@@ -3622,7 +3627,7 @@ namespace pargemslr
                      {
                         // ii is the local index
                         ii = globalndomdisp[color] + i * numxs[ldx] * numys[ldy] + j * numxs[ldx] + k;
-                        this->_separator_domi[ii] = color+myid*ndom;
+                        this->_separator_domi[ii] = dom_init;
                      }
                   }
                }
@@ -3636,7 +3641,7 @@ namespace pargemslr
                      for(j = 0 ; j < ndomys[j1] ; j ++)
                      {
                         ii = globalndomdisp[color] + i * numxs[ldx] * numys[ldy] + j * numxs[ldx];
-                        this->_separator_domi[ii] = -1;
+                        this->_separator_domi[ii] = dom_sep;
                      }
                   }
                }
@@ -3648,7 +3653,7 @@ namespace pargemslr
                      for(j = 0 ; j < ndomys[j1] ; j ++)
                      {
                         ii = globalndomdisp[color] + i * numxs[ldx] * numys[ldy] + j * numxs[ldx] + ndomxs[k1] - 1;
-                        this->_separator_domi[ii] = -1;
+                        this->_separator_domi[ii] = dom_sep;
                      }
                   }
                }
@@ -3660,7 +3665,7 @@ namespace pargemslr
                      for(k = 0 ; k < ndomxs[k1] ; k ++)
                      {
                         ii = globalndomdisp[color] + i * numxs[ldx] * numys[ldy] + k;
-                        this->_separator_domi[ii] = -1;
+                        this->_separator_domi[ii] = dom_sep;
                      }
                   }
                   
@@ -3673,7 +3678,7 @@ namespace pargemslr
                      for(k = 0 ; k < ndomxs[k1] ; k ++)
                      {
                         ii = globalndomdisp[color] + i * numxs[ldx] * numys[ldy] + (ndomys[j1]-1) * numxs[ldx] + k;
-                        this->_separator_domi[ii] = -1;
+                        this->_separator_domi[ii] = dom_sep;
                      }
                   }
                }
@@ -3685,7 +3690,7 @@ namespace pargemslr
                      for(k = 0 ; k < ndomxs[k1] ; k ++)
                      {
                         ii = globalndomdisp[color] + j * numxs[ldx] + k;
-                        this->_separator_domi[ii] = -1;
+                        this->_separator_domi[ii] = dom_sep;
                      }
                   }
                }
@@ -3697,7 +3702,7 @@ namespace pargemslr
                      for(k = 0 ; k < ndomxs[k1] ; k ++)
                      {
                         ii = globalndomdisp[color] + (ndomzs[i1] - 1) * numxs[ldx] * numys[ldy] + j * numxs[ldx] + k;
-                        this->_separator_domi[ii] = -1;
+                        this->_separator_domi[ii] = dom_sep;
                      }
                   }
                }

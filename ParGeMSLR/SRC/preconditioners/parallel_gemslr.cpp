@@ -1589,7 +1589,7 @@ namespace pargemslr
             }
          }
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
-         PARGEMSLR_PRINT("Level   Ncomp   Size           Nnz            rk      nmvs    nnzLU            nnzLR\n");
+         PARGEMSLR_PRINT("Level | Ncomp |   Total Size | Min B Size | Max B Size |          Nnz |    rk |  nmvs |        nnzLU |        nnzLR\n");
       }
       
       if(this->_lev_A[0]._lrc > 0)
@@ -1601,7 +1601,7 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("OUTER     N/A            N/A            N/A   %5d   %5d   %10e   %10e\n", this->_lev_A[0]._nmvs, this->_lev_A[0]._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("OUTER |   N/A |          N/A |        N/A |        N/A |          N/A | %5d | %5d | %10e | %10e\n", this->_lev_A[0]._lrc, this->_lev_A[0]._nmvs, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       
@@ -1609,10 +1609,13 @@ namespace pargemslr
       {
          ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[i];
          
-         long int n_level_local = (long int)this->_n - (long int)this->_lev_ptr_v[i];
-         long int n_level_global;
+         long int n_level_local = (long int)this->_lev_ptr_v[this->_nlev_used] - (long int)this->_lev_ptr_v[i];
+         long int n_level_b = (long int)this->_lev_ptr_v[i+1] - (long int)this->_lev_ptr_v[i];
+         long int n_level_global, n_level_min, n_level_max;
          
          PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_local, &n_level_global, 1, MPI_SUM, 0, comm));
+         PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_b, &n_level_min, 1, MPI_MIN, 0, comm));
+         PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_b, &n_level_max, 1, MPI_MAX, 0, comm));
          
          //long int nnz_level_local = level_str._E_mat.GetNumNonzeros() + level_str._F_mat.GetNumNonzeros();
          long int nnz_level_local = 0;
@@ -1642,7 +1645,7 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("%5d   %5d   %12ld   %12ld   %5d   %5d   %10e   %10e\n", i, ncomp_global, n_level_global, nnz_level_global, level_str._lrc, level_str._nmvs, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("%5d | %5d | %12ld | %10ld | %10ld | %12ld | %5d | %5d | %10e | %10e\n", i, ncomp_global, n_level_global, n_level_min, n_level_max, nnz_level_global, level_str._lrc, level_str._nmvs, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       long int nnzA, nnz, nnzLU, nnzLR;
@@ -8258,13 +8261,26 @@ perm_gemslr_global:
       
       /* Matvec with E */
 #ifdef PARGEMSLR_TIMING
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
-      
-      /* Solve with B */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, 0, level)));
-      
-      /* Matvec with F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', one, yu, one, y)));
+      if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
+      {
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
+         
+         /* Solve with B */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, 0, level)));
+         
+         /* Matvec with F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', one, yu, one, y)));
+      }
+      else
+      {
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
+         
+         /* Solve with B */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT, (this->SolveB(yu, zu, 0, level)));
+         
+         /* Matvec with F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_EMV, (level_str._E_mat.MatVec( 'N', one, yu, one, y)));
+      }
 #else
       level_str._F_mat.MatVec( 'N', one, zl, zero, zu);
       
@@ -8357,24 +8373,46 @@ perm_gemslr_global:
       /* after that, we need 2EB^{-1}F - EB^{-1}BB^{-1}F */
       
 #ifdef PARGEMSLR_TIMING
-      /* Matvec with F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
-      
-      /* Solve with B */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, solve_option, level)));
-      
-      /* y = 2EB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', two, yu, one, y)));
-      
-      /* zu = BB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_BMV, (this->BMatVec(level, 0, 'N', one, yu, zero, zu)));
-      
-      /* yu = B^{-1}BB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, solve_option, level)));
-      
-      /* y -= EB^{-1}BB^{-1}F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', mone, yu, one, y)));
-      
+      if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
+      {
+         /* Matvec with F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
+         
+         /* Solve with B */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, solve_option, level)));
+         
+         /* y = 2EB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', two, yu, one, y)));
+         
+         /* zu = BB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_BMV, (this->BMatVec(level, 0, 'N', one, yu, zero, zu)));
+         
+         /* yu = B^{-1}BB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(yu, zu, solve_option, level)));
+         
+         /* y -= EB^{-1}BB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', mone, yu, one, y)));
+      }
+      else
+      {
+         /* Matvec with F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_FMV, (level_str._F_mat.MatVec( 'N', one, zl, zero, zu)));
+         
+         /* Solve with B */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT, (this->SolveB(yu, zu, solve_option, level)));
+         
+         /* y = 2EB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_EMV, (level_str._E_mat.MatVec( 'N', two, yu, one, y)));
+         
+         /* zu = BB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_BMV, (this->BMatVec(level, 0, 'N', one, yu, zero, zu)));
+         
+         /* yu = B^{-1}BB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT, (this->SolveB(yu, zu, solve_option, level)));
+         
+         /* y -= EB^{-1}BB^{-1}F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_EMV, (level_str._E_mat.MatVec( 'N', mone, yu, one, y)));
+      }
 #else
       /* Matvec with F */
       level_str._F_mat.MatVec( 'N', one, zl, zero, zu);
@@ -8752,22 +8790,36 @@ perm_gemslr_global:
       
       /* we first compute y = -alpha*EB^{-1}F*x + beta y */
       
-      /* Matvec with E */
 #ifdef PARGEMSLR_TIMING
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, x, zero, wu)));
-      
-      /* Solve with B */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(vu, wu, 0, level)));
-      
-      /* Matvec with F */
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', malpha, vu, beta, y)));
+      if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
+      {
+         /* Matvec with F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (level_str._F_mat.MatVec( 'N', one, x, zero, wu)));
+         
+         /* Solve with B */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_SOLVELU, (this->SolveB(vu, wu, 0, level)));
+         
+         /* Matvec with E */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (level_str._E_mat.MatVec( 'N', malpha, vu, beta, y)));
+      }
+      else
+      {
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_FMV, (level_str._F_mat.MatVec( 'N', one, x, zero, wu)));
+         
+         /* Solve with B */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_ILUT, (this->SolveB(vu, wu, 0, level)));
+         
+         /* Matvec with F */
+         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_EMV, (level_str._E_mat.MatVec( 'N', malpha, vu, beta, y)));
+      }
 #else
+      /* Matvec with F */
       level_str._F_mat.MatVec( 'N', one, x, zero, wu);
       
       /* Solve with B */
       this->SolveB(vu, wu, 0, level);
       
-      /* Matvec with F */
+      /* Matvec with E */
       level_str._E_mat.MatVec( 'N', malpha, vu, beta, y);
 #endif
       
@@ -9001,14 +9053,28 @@ perm_gemslr_global:
          yl.UpdatePtr(y_compute.GetData()+n_local, this->_location);
          
 #ifdef PARGEMSLR_TIMING
-         /* Matvec with F */
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (leveld_str._F_mat.MatVec( 'N', alpha, xl, beta, yu)));
-         
-         /* Matvec with E */
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (leveld_str._E_mat.MatVec( 'N', alpha, xu, beta, yl)));
-         
-         /* Matvec with B */
-         PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_BMV, (this->BMatVec(level+1, 0, 'N', alpha, xu, one, yu)));
+         if(this->_gemslr_setups._solve_phase_setup == kGemslrPhaseSetup)
+         {
+            /* Matvec with F */
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_FMV, (leveld_str._F_mat.MatVec( 'N', alpha, xl, beta, yu)));
+            
+            /* Matvec with E */
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_EMV, (leveld_str._E_mat.MatVec( 'N', alpha, xu, beta, yl)));
+            
+            /* Matvec with B */
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_BMV, (this->BMatVec(level+1, 0, 'N', alpha, xu, one, yu)));
+         }
+         else
+         {
+            /* Matvec with F */
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_FMV, (leveld_str._F_mat.MatVec( 'N', alpha, xl, beta, yu)));
+            
+            /* Matvec with E */
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_EMV, (leveld_str._E_mat.MatVec( 'N', alpha, xu, beta, yl)));
+            
+            /* Matvec with B */
+            PARGEMSLR_TIME_CALL( comm, PARGEMSLR_PRECTIME_BMV, (this->BMatVec(level+1, 0, 'N', alpha, xu, one, yu)));
+         }
          
          /* Matvec with C */
          this->CMatVec(level+1, 0, 'N', alpha, xl, one, yl);

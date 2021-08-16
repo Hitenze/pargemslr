@@ -1726,6 +1726,25 @@ namespace pargemslr
    int ParallelRKwayGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog);
    
    /**                                                                                                                                                                                                                                                                   
+    * @brief   This function finds the separator based on the map information given by GetSeparatorNumSubdomains function.
+    * @details This function finds the separator based on the map information given by GetSeparatorNumSubdomains function.                                       
+    * @param [in]       vtxdist  The distribution of rows for parMETIS.                                         
+    * @param [in]       xadj     The column ptr for parMETIS.    
+    * @param [in]       adjncy   The column numbers for parMETIS.    
+    * @param [in]       vertexsep Do we find the vertex separator? 
+    * @param [in]       vtxdist_s   The distribution of rows for the edge separator.                                         
+    * @param [in]       xadj_s      The column ptr for the edge separator.    
+    * @param [in]       adjncy_s    The column numbers for the edge separator.
+    * @param [in]       map      The subdomain number of each node, <0 means the separator.
+    * @param [in]       num_dom      The number ofsubdomain number of each node.
+    * @param [out]      vtxsep   vtxsep[i] > 0 if node i is inside the edge separator.
+    * @param [in]       parallel_log Parallel info struct.
+    * @return           return PARGEMSLR_SUCCESS or error information.
+    * @note             We assume that A_mat has symmetric pattern.
+    */
+   int ParallelRKwayGetSeparator2( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_int &map, int num_dom, vector_int &vtxsep, parallel_log &parlog);
+   
+   /**                                                                                                                                                                                                                                                                   
     * @brief   This is the recursive function to build the mapping information, using an approximate vetrex separator (not the minimal).
     * @details This is the recursive function to build the mapping information, using an approximate vetrex separator (not the minimal).
     * @param [in]       A        The target matrix.
