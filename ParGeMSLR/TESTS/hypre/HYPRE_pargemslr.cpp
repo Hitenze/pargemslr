@@ -59,7 +59,7 @@ HYPRE_GEMSLRCreateFromFile( HYPRE_Solver *solver, const char* filename )
    {
       char tempfilename[1024];
       snprintf( tempfilename, 1024, "%s",filename);
-      params = hypre_PargemslrCreateParameterArrayFromFile(filename);
+      params = hypre_PargemslrCreateParameterArrayFromFile(tempfilename);
    }
    
    if( sizeof(HYPRE_Complex) == sizeof(hypre_double) )
