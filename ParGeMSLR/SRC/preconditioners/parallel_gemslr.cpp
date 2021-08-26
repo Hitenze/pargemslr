@@ -1396,7 +1396,7 @@ namespace pargemslr
             }
          }
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
-         PARGEMSLR_PRINT("Level   Ncomp   Size           Nnz            rk      nnzLU            nnzLR\n");
+         PARGEMSLR_PRINT("Level | Ncomp |   Total Size | Min B Size | Max B Size |          Nnz |    rk |        nnzLU |        nnzLR\n");
       }
       
       if(this->_lev_A[0]._lrc > 0)
@@ -1408,7 +1408,7 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("OUTER     N/A            N/A            N/A   %5d   %10e   %10e\n", this->_lev_A[0]._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("OUTER |   N/A |          N/A |        N/A |        N/A |          N/A | %5d | %10e | %10e\n", this->_lev_A[0]._lrc, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       
@@ -1416,10 +1416,13 @@ namespace pargemslr
       {
          ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[i];
          
-         long int n_level_local = (long int)this->_n - (long int)this->_lev_ptr_v[i];
-         long int n_level_global;
+         long int n_level_local = (long int)this->_lev_ptr_v[this->_nlev_used] - (long int)this->_lev_ptr_v[i];
+         long int n_level_b = (long int)this->_lev_ptr_v[i+1] - (long int)this->_lev_ptr_v[i];
+         long int n_level_global, n_level_min, n_level_max;
          
          PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_local, &n_level_global, 1, MPI_SUM, 0, comm));
+         PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_b, &n_level_min, 1, MPI_MIN, 0, comm));
+         PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_b, &n_level_max, 1, MPI_MAX, 0, comm));
          
          //long int nnz_level_local = level_str._E_mat.GetNumNonzeros() + level_str._F_mat.GetNumNonzeros();
          long int nnz_level_local = 0;
@@ -1449,7 +1452,7 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
-            PARGEMSLR_PRINT("%5d   %5d   %12ld   %12ld   %5d   %10e   %10e\n", i, ncomp_global, n_level_global, nnz_level_global, level_str._lrc, (float)nnz_bsolver, (float)nnz_lr);
+            PARGEMSLR_PRINT("%5d | %5d | %12ld | %10ld | %10ld | %12ld | %5d | %10e | %10e\n", i, ncomp_global, n_level_global, n_level_min, n_level_max, nnz_level_global, level_str._lrc, (float)nnz_bsolver, (float)nnz_lr);
          }
       }
       long int nnzA, nnz, nnzLU, nnzLR;
@@ -2555,6 +2558,9 @@ perm_gemslr_global:
       std::vector<vector_long>               i2_v, j2_v, j3_v, perm2_v, dom2_v;
       std::vector<SequentialVectorClass<T> > a2_v;
       
+      int                                    n_colors, colors, colore, colorc, cmark, cmarks, cmarke;
+      vector_int                             n_colori_loc_vec, n_colori_global_vec, n_color_levi_vec, n_color_order_vec, color_map_vec, color_imap_vec;
+      
       int                                    new_offd_idx;
       long int                               A_nstart;
       vector_long                            new_offds;
@@ -2629,6 +2635,87 @@ perm_gemslr_global:
          dom_ptr[i].Setup(np+1);
       }
       
+      /* Step 0.1: Get the amount of nodes in each subdomain
+       */
+      n_colors = mapptr_v[nlev_max];
+      
+      n_colori_loc_vec.Setup(n_colors, true);
+      n_colori_global_vec.Setup(n_colors, true);
+      color_map_vec.Setup(n_colors, true);
+      color_imap_vec.Setup(n_colors, true);
+      
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         n_colori_loc_vec[map_v[i]]++;
+      }
+      
+      PargemslrMpiAllreduce( n_colori_loc_vec.GetData(), n_colori_global_vec.GetData(), n_colors, MPI_SUM, comm);
+      
+      /* Step 0.2: Get the new order
+       */
+      
+      for(levi = 0 ; levi < nlev_used ; levi++)
+      {
+         
+         /* for the last level we treat differently */
+         colors = mapptr_v[levi];
+         colore = (levi != nlev_used - 1) ? mapptr_v[levi+1] : mapptr_v[nlev_max];
+         nblocks = colore - colors;
+         colorc = (colors + colore) / 2;
+         
+         if(nblocks > np)
+         {
+            /* in this case, we have more domains than the np, we need to find a more balanced partition
+             * for simplicity, we assume that the number of subdomains is a integer multiple of np
+             * we simply sort the number of subdomains, and re-order them by largest/smallest
+             */
+            n_color_levi_vec.SetupPtr( n_colori_global_vec, nblocks, colors);
+            n_color_levi_vec.Sort( n_color_order_vec, true, false);
+            
+            vector_int n_color_levi_vec2;
+            n_color_levi_vec2.Copy(n_color_levi_vec.GetData(), nblocks, kMemoryHost, kMemoryHost);
+            n_color_levi_vec2.Perm(n_color_order_vec);
+            
+            cmark = colors;
+            cmarks = 0;
+            cmarke = nblocks-1;
+            
+            for(i = colors ; i < colorc ; i++)
+            {
+               /* put even */
+               color_map_vec[cmark++] = colors + n_color_order_vec[cmarks++];
+               color_map_vec[cmark++] = colors + n_color_order_vec[cmarke--];
+            }
+            
+            if(cmark < colore)
+            {
+               color_map_vec[cmark++] = colors + n_color_order_vec[cmarks];
+            }
+            
+         }
+         else
+         {
+            for(i = colors ; i < colore ; i ++)
+            {
+               /* identity map */
+               color_map_vec[i] = i;
+            }
+         }
+      }
+      
+      /* Step 0.3: Update the order
+       */
+      
+      for(i = 0 ; i < n_colors ; i ++)
+      {
+         color_imap_vec[color_map_vec[i]] = i;
+      }
+      
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         map_v[i] = color_imap_vec[map_v[i]];
+      }
+       
       /* Step 1.1: Get the map information
        * The map vector now holds the domain information
        * For each map value, decide the processor that it belongs to
@@ -3747,6 +3834,13 @@ perm_gemslr_global:
       offd_new_dom.Clear();
       A_vtxdist.Clear();
       col_map_hash.clear();
+      
+      n_colori_loc_vec.Clear();
+      n_colori_global_vec.Clear();
+      n_color_levi_vec.Clear();
+      n_color_order_vec.Clear();
+      color_map_vec.Clear();
+      color_imap_vec.Clear();
       
       for(i = 0 ; i < n_local ; i ++)
       {
