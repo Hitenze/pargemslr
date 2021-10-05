@@ -19,6 +19,7 @@ EXTRASRC = ./SRC/utils/utils.o\
 	./SRC/vectors/parallel_vector.o\
 	./SRC/vectors/vectorops.o\
 	./SRC/matrices/matrix.o\
+	./SRC/matrices/arnoldimatrix.o\
 	./SRC/matrices/dense_matrix.o\
 	./SRC/matrices/coo_matrix.o\
 	./SRC/matrices/csr_matrix.o\

@@ -17,7 +17,7 @@ namespace pargemslr
 {
 	
    template <class MatrixType, class VectorType, typename DataType>
-   GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GemslrEBFCMatrixClass()
+   GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GemslrEBFCMatrixClass() : ArnoldiMatrixClass<VectorType, DataType>()
    {
       this->_level = 0;
       this->_gemslr = NULL;
@@ -38,7 +38,7 @@ namespace pargemslr
    template precond_gemslrebfc_csr_seq_complexd::~GemslrEBFCMatrixClass();
    
    template <class MatrixType, class VectorType, typename DataType>
-   GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GemslrEBFCMatrixClass(const GemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &precond)
+   GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GemslrEBFCMatrixClass(const GemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &precond) : ArnoldiMatrixClass<VectorType, DataType>()
    {
       this->_level = precond._level;
       this->_gemslr = precond._gemslr;
@@ -50,7 +50,7 @@ namespace pargemslr
    template precond_gemslrebfc_csr_seq_complexd::GemslrEBFCMatrixClass(const precond_gemslrebfc_csr_seq_complexd &precond);
    
    template <class MatrixType, class VectorType, typename DataType>
-   GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GemslrEBFCMatrixClass(GemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &&precond)
+   GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GemslrEBFCMatrixClass(GemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &&precond) : ArnoldiMatrixClass<VectorType, DataType>()
    {
       this->_level = precond._level;
       precond._level = 0;
@@ -132,26 +132,26 @@ namespace pargemslr
    template int precond_gemslrebfc_csr_seq_complexd::SetupVectorPtrStr(vector_seq_complexd &v);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumRowsLocal()
+   int GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumRowsLocal() const
    {
       PARGEMSLR_CHKERR(this->_gemslr == NULL);
       return this->_gemslr->GetNumRows(this->_level);
    }
-   template int precond_gemslrebfc_csr_seq_float::GetNumRowsLocal();
-   template int precond_gemslrebfc_csr_seq_double::GetNumRowsLocal();
-   template int precond_gemslrebfc_csr_seq_complexs::GetNumRowsLocal();
-   template int precond_gemslrebfc_csr_seq_complexd::GetNumRowsLocal();
+   template int precond_gemslrebfc_csr_seq_float::GetNumRowsLocal() const;
+   template int precond_gemslrebfc_csr_seq_double::GetNumRowsLocal() const;
+   template int precond_gemslrebfc_csr_seq_complexs::GetNumRowsLocal() const;
+   template int precond_gemslrebfc_csr_seq_complexd::GetNumRowsLocal() const;
    
    template <class MatrixType, class VectorType, typename DataType>
-   int GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumColsLocal()
+   int GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumColsLocal() const
    {
       PARGEMSLR_CHKERR(this->_gemslr == NULL);
       return this->_gemslr->GetNumRows(this->_level);
    }
-   template int precond_gemslrebfc_csr_seq_float::GetNumColsLocal();
-   template int precond_gemslrebfc_csr_seq_double::GetNumColsLocal();
-   template int precond_gemslrebfc_csr_seq_complexs::GetNumColsLocal();
-   template int precond_gemslrebfc_csr_seq_complexd::GetNumColsLocal();
+   template int precond_gemslrebfc_csr_seq_float::GetNumColsLocal() const;
+   template int precond_gemslrebfc_csr_seq_double::GetNumColsLocal() const;
+   template int precond_gemslrebfc_csr_seq_complexs::GetNumColsLocal() const;
+   template int precond_gemslrebfc_csr_seq_complexd::GetNumColsLocal() const;
    
    template <class MatrixType, class VectorType, typename DataType>
    int GemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::MatVec( char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y)
@@ -2763,7 +2763,8 @@ namespace pargemslr
        * 2: Arnoldi and get result
        *------------------------*/
       
-      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
+      ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
+      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( temp_EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
       
       /* free of V and H are handled inside */
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, neig_c, neig_k, level));
@@ -2865,7 +2866,8 @@ namespace pargemslr
        * 2: Arnoldi and get result
        *------------------------*/
       
-      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs));
+      ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
+      PARGEMSLR_LOCAL_TIME_CALL(PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( temp_EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs));
       
       /* free of V and H are handled inside */
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, neig_k, level));
@@ -2994,7 +2996,9 @@ namespace pargemslr
       v.Scale(one/normv);
       
       /* apply Arnoldi thick-restart */
-      m = PargemslrArnoldiThickRestartNoLock<VectorType>( level_str._EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(GemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
+      
+      ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
+      m = PargemslrArnoldiThickRestartNoLock<VectorType>( temp_EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(GemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
       
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, m, level));
       

@@ -148,7 +148,7 @@ namespace pargemslr
     * @details Class of matvec EB^{-1}FC^{-1}.
     */
    template <class MatrixType, class VectorType, typename DataType>
-   class GemslrEBFCMatrixClass
+   class GemslrEBFCMatrixClass : public ArnoldiMatrixClass<VectorType, DataType>
    {
    private:
       
@@ -239,14 +239,14 @@ namespace pargemslr
        * @details Get the local number of rows of the matrix.
        * @return     Return the number of rows of the matrix.
        */
-      int      GetNumRowsLocal();
+      int      GetNumRowsLocal() const;
       
       /**
        * @brief   Get the local number of columns of the matrix.
        * @details Get the local number of columns of the matrix.
        * @return     Return the number of columns of the matrix.
        */
-      int      GetNumColsLocal();
+      int      GetNumColsLocal() const;
       
       /**
        * @brief   In place csr Matrix-Vector product ==>  y := alpha*A*x + beta*y, or y := alpha*A'*x + beta*y.

@@ -31,7 +31,7 @@ namespace pargemslr
     *          kGemslrGlobalPrecondBJ, kGemslrGlobalPrecondESMSLR, kGemslrGlobalPrecondGeMSLR, kGemslrGlobalPrecondPSLR, kGemslrGlobalPrecondSchurILU
     */
    template <class MatrixType, class VectorType, typename DataType>
-   class ParallelGemslrEBFCMatrixClass
+   class ParallelGemslrEBFCMatrixClass : public ArnoldiMatrixClass<VectorType, DataType>
    {
    private:
       
@@ -130,14 +130,14 @@ namespace pargemslr
        * @details Get the local number of rows of the matrix.
        * @return     Return the number of rows of the matrix.
        */
-      int      GetNumRowsLocal();
+      int      GetNumRowsLocal() const;
       
       /**
        * @brief   Get the local number of columns of the matrix.
        * @details Get the local number of columns of the matrix.
        * @return     Return the number of columns of the matrix.
        */
-      int      GetNumColsLocal();
+      int      GetNumColsLocal() const;
       
       /**
        * @brief   In place csr Matrix-Vector product ==>  y := alpha*A*x + beta*y, or y := alpha*A'*x + beta*y.

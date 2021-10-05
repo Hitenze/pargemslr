@@ -20,7 +20,7 @@
 namespace pargemslr
 {
    template <class MatrixType, class VectorType, typename DataType>
-   ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::ParallelGemslrEBFCMatrixClass()
+   ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::ParallelGemslrEBFCMatrixClass() : ArnoldiMatrixClass<VectorType, DataType>()
    {
       this->_level = 0;
       this->_option = kGemslrGlobalPrecondGeMSLR;
@@ -42,7 +42,7 @@ namespace pargemslr
    template precond_gemslrebfc_csr_par_complexd::~ParallelGemslrEBFCMatrixClass();
    
    template <class MatrixType, class VectorType, typename DataType>
-   ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::ParallelGemslrEBFCMatrixClass(const ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &precond)
+   ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::ParallelGemslrEBFCMatrixClass(const ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &precond) : ArnoldiMatrixClass<VectorType, DataType>()
    {
       this->_level = precond._level;
       this->_option = precond._option;
@@ -55,7 +55,7 @@ namespace pargemslr
    template precond_gemslrebfc_csr_par_complexd::ParallelGemslrEBFCMatrixClass(const precond_gemslrebfc_csr_par_complexd &precond);
    
    template <class MatrixType, class VectorType, typename DataType>
-   ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::ParallelGemslrEBFCMatrixClass(ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &&precond)
+   ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::ParallelGemslrEBFCMatrixClass(ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType> &&precond) : ArnoldiMatrixClass<VectorType, DataType>()
    {
       this->_level = precond._level;
       precond._level = 0;
@@ -151,26 +151,26 @@ namespace pargemslr
    template int precond_gemslrebfc_csr_par_complexd::SetupVectorPtrStr(vector_par_complexd &v);
    
    template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumRowsLocal()
+   int ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumRowsLocal() const
    {
       PARGEMSLR_CHKERR(this->_gemslr == NULL);
       return this->_gemslr->GetNumRows(this->_level);
    }
-   template int precond_gemslrebfc_csr_par_float::GetNumRowsLocal();
-   template int precond_gemslrebfc_csr_par_double::GetNumRowsLocal();
-   template int precond_gemslrebfc_csr_par_complexs::GetNumRowsLocal();
-   template int precond_gemslrebfc_csr_par_complexd::GetNumRowsLocal();
+   template int precond_gemslrebfc_csr_par_float::GetNumRowsLocal() const;
+   template int precond_gemslrebfc_csr_par_double::GetNumRowsLocal() const;
+   template int precond_gemslrebfc_csr_par_complexs::GetNumRowsLocal() const;
+   template int precond_gemslrebfc_csr_par_complexd::GetNumRowsLocal() const;
    
    template <class MatrixType, class VectorType, typename DataType>
-   int ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumColsLocal()
+   int ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::GetNumColsLocal() const
    {
       PARGEMSLR_CHKERR(this->_gemslr == NULL);
       return this->_gemslr->GetNumRows(this->_level);
    }
-   template int precond_gemslrebfc_csr_par_float::GetNumColsLocal();
-   template int precond_gemslrebfc_csr_par_double::GetNumColsLocal();
-   template int precond_gemslrebfc_csr_par_complexs::GetNumColsLocal();
-   template int precond_gemslrebfc_csr_par_complexd::GetNumColsLocal();
+   template int precond_gemslrebfc_csr_par_float::GetNumColsLocal() const;
+   template int precond_gemslrebfc_csr_par_double::GetNumColsLocal() const;
+   template int precond_gemslrebfc_csr_par_complexs::GetNumColsLocal() const;
+   template int precond_gemslrebfc_csr_par_complexd::GetNumColsLocal() const;
    
    template <class MatrixType, class VectorType, typename DataType>
    int ParallelGemslrEBFCMatrixClass<MatrixType, VectorType, DataType>::MatVec( char trans, const DataType &alpha, VectorType &x, const DataType &beta, VectorType &y)
@@ -5764,11 +5764,11 @@ perm_gemslr_global:
       /*------------------------ 
        * 2: Arnoldi and get result
        *------------------------*/
-      
+      ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
 #ifdef PARGEMSLR_TIMING
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
+      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, PargemslrSubSpaceIteration<VectorType>( temp_EBFC, neig_c, maxits, V, H, RealDataType(), nmvs));
 #else
-      PargemslrSubSpaceIteration<VectorType>( level_str._EBFC, neig_c, maxits, V, H, RealDataType(), nmvs);
+      PargemslrSubSpaceIteration<VectorType>( temp_EBFC, neig_c, maxits, V, H, RealDataType(), nmvs);
 #endif
 
       /* free of V and H are handled inside */
@@ -5903,11 +5903,11 @@ perm_gemslr_global:
       /*------------------------ 
        * 2: Arnoldi and get result
        *------------------------*/
-      
+      ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
 #ifdef PARGEMSLR_TIMING
-      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs));
+      PARGEMSLR_TIME_CALL( comm, PARGEMSLR_BUILDTIME_ARNOLDI, m = PargemslrArnoldiNoRestart<VectorType>( temp_EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs));
 #else
-      m = PargemslrArnoldiNoRestart<VectorType>( level_str._EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs);
+      m = PargemslrArnoldiNoRestart<VectorType>( temp_EBFC, 0, neig_c, V, H, tol_orth, tol_reorth, nmvs);
 #endif
       
       /* free of V and H are handled inside */
@@ -6066,7 +6066,8 @@ perm_gemslr_global:
       v.Scale(one/normv);
       
       /* apply Arnoldi thick-restart */
-      m = PargemslrArnoldiThickRestartNoLock<VectorType>( level_str._EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(ParallelGemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
+      ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
+      m = PargemslrArnoldiThickRestartNoLock<VectorType>( temp_EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(ParallelGemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
       
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, m, level, option) );
       

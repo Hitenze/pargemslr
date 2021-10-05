@@ -35,6 +35,7 @@
 #include "../SRC/vectors/vectorops.hpp"
 
 #include "../SRC/matrices/matrix.hpp"
+#include "../SRC/matrices/arnoldimatrix.hpp"
 #include "../SRC/matrices/matrixops.hpp"
 #include "../SRC/matrices/coo_matrix.hpp"
 #include "../SRC/matrices/csr_matrix.hpp"
