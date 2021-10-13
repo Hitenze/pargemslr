@@ -657,6 +657,13 @@ namespace pargemslr
       int            ReadFromMMFile(const char *matfile, int idxin);
       
       /**
+       * @brief   Set the number of cols in this matrix.
+       * @details Set the number of cols in this matrix. Note that we do not check maximum column value in this function.
+       * @return     Return error message.
+       */
+      int               SetNumCols(int cols);
+      
+      /**
        * @brief   Set the diagonal complex shift for some preconditioner options.
        * @details Set the diagonal complex shift for some preconditioner options.
        * @param   [in]    diagonal_shift The complex shift will be 0+shifti.

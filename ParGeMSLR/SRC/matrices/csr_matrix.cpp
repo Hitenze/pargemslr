@@ -1719,6 +1719,20 @@ namespace pargemslr
    template int CsrMatrixClass<complexd>::ReadFromMMFile(const char *matfile, int idxin);
    
    template <typename T>
+   int CsrMatrixClass<T>::SetNumCols(int cols)
+   {
+      PARGEMSLR_CHKERR(cols < 0);
+      
+      this->_ncols = cols;
+      
+      return PARGEMSLR_SUCCESS;
+   }
+   template int CsrMatrixClass<float>::SetNumCols(int cols);
+   template int CsrMatrixClass<double>::SetNumCols(int cols);
+   template int CsrMatrixClass<complexs>::SetNumCols(int cols);
+   template int CsrMatrixClass<complexd>::SetNumCols(int cols);
+   
+   template <typename T>
    template <typename T1>
    int CsrMatrixClass<T>::GetComplexShift(T1 &diagonal_shift)
    {

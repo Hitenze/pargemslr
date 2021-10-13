@@ -2961,10 +2961,10 @@ namespace pargemslr
       /* we don't want to do more steps than the size of the matrix 
        * maxsteps is the maximun size of steps we can have,
        */
-      maxsteps    = PargemslrMin( (int)(lr_m + (lr_m * tr_fact)), n);
       
-      rank        = PargemslrMin(rank, maxsteps);
-      rank2       = PargemslrMin(rank2, maxsteps);
+      rank        = PargemslrMin(rank, n);
+      rank2       = PargemslrMin(rank2, n);
+      maxsteps    = PargemslrMin( (int)( 2*rank2 + lr_m + (lr_m * tr_fact)), n);
       
       /* create matrix V and H used in Arnoldi 
        * Note that V can be on the device.
@@ -2998,7 +2998,7 @@ namespace pargemslr
       /* apply Arnoldi thick-restart */
       
       ArnoldiMatrixClass<VectorType, DataType> &temp_EBFC = level_str._EBFC;
-      m = PargemslrArnoldiThickRestartNoLock<VectorType>( temp_EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, RealDataType(1.0), RealDataType(0.0), &(GemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
+      m = PargemslrArnoldiThickRestartNoLock<VectorType>( temp_EBFC, lr_m, maxits, rank2, rank, RealDataType(0.0), tr_fact, tol_eig, &(GemslrClass<MatrixType, VectorType, DataType>::ComputeDistance), V, H, tol_orth, tol_reorth, nmvs);
       
       PARGEMSLR_LOCAL_TIME_CALL( PARGEMSLR_BUILDTIME_BUILD_RES, err = this->SetupLowRankBuildLowRank(x, rhs, V, H, m, m, level));
       
