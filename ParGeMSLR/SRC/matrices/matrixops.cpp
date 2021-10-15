@@ -10684,51 +10684,52 @@ namespace pargemslr
             {
                maxsteps_new += expand;
             }
-         }
+            
+            maxsteps_new = (int)PargemslrMin((long int)maxsteps_new, n_global);
          
-         maxsteps_new = (int)PargemslrMin((long int)maxsteps_new, n_global);
-         
-         /* update V_data, H_data, and work_int when needed */
-         if(maxsteps_new > maxsteps)
-         {
-            /* expand needed */
-            
-            V_data_new = std::move(V_data);
-            V_new = std::move(V);
-            H_data_new = std::move(H_data);
-            H_new = std::move(H);
-            
-            V_data.Setup( n_local, maxsteps_new+1, location, true);
-            V.Setup( n_local, maxsteps_new+1, location, true);
-            H_data.Setup( maxsteps_new+1, maxsteps_new, kMemoryHost, true);
-            H.Setup( maxsteps_new+1, maxsteps_new, kMemoryHost, true);
-            
-            PARGEMSLR_MEMCPY( V_data.GetData(), V_data_new.GetData(), n_local*maxsteps, location, location, DataType);
-            PARGEMSLR_MEMCPY( V.GetData(), V_new.GetData(), n_local*maxsteps, location, location, DataType);
-            /* copy H */
-            for(i = 0 ; i < maxsteps ; i ++)
+            /* update V_data, H_data, and work_int when needed */
+            if(maxsteps_new > maxsteps)
             {
-               for(j = 0 ; j < maxsteps+1 ; j ++)
+               /* expand needed */
+               
+               V_data_new = std::move(V_data);
+               V_new = std::move(V);
+               H_data_new = std::move(H_data);
+               H_new = std::move(H);
+               
+               V_data.Setup( n_local, maxsteps_new+1, location, true);
+               V.Setup( n_local, maxsteps_new+1, location, true);
+               H_data.Setup( maxsteps_new+1, maxsteps_new, kMemoryHost, true);
+               H.Setup( maxsteps_new+1, maxsteps_new, kMemoryHost, true);
+               
+               PARGEMSLR_MEMCPY( V_data.GetData(), V_data_new.GetData(), n_local*maxsteps, location, location, DataType);
+               PARGEMSLR_MEMCPY( V.GetData(), V_new.GetData(), n_local*maxsteps, location, location, DataType);
+               /* copy H */
+               for(i = 0 ; i < maxsteps ; i ++)
                {
-                  H_data(j, i) = H_data_new(j, i);
-                  H(j, i) = H_new(j, i);
+                  for(j = 0 ; j < maxsteps+1 ; j ++)
+                  {
+                     H_data(j, i) = H_data_new(j, i);
+                     H(j, i) = H_new(j, i);
+                  }
                }
+               
+               work_int.Resize( 2*maxsteps_new, false, false);
+               icov.Resize( maxsteps_new, false, false);
+               iicov.Resize( maxsteps_new, false, false);
+               /* the distance */
+               dcov.Resize( maxsteps_new, false, false);
+               dicov.Resize( maxsteps_new, false, false);
+               dall.Resize( maxsteps_new, false, false);
+               
+               
+               maxsteps = maxsteps_new;
+               V_data_new.Clear();
+               V_new.Clear();
+               H_data_new.Clear();
+               H_new.Clear();
             }
             
-            work_int.Resize( 2*maxsteps_new, false, false);
-            icov.Resize( maxsteps_new, false, false);
-            iicov.Resize( maxsteps_new, false, false);
-            /* the distance */
-            dcov.Resize( maxsteps_new, false, false);
-            dicov.Resize( maxsteps_new, false, false);
-            dall.Resize( maxsteps_new, false, false);
-            
-            
-            maxsteps = maxsteps_new;
-            V_data_new.Clear();
-            V_new.Clear();
-            H_data_new.Clear();
-            H_new.Clear();
          }
          
          /*------------------------ 
