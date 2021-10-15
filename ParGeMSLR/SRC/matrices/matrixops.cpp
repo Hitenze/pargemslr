@@ -10388,16 +10388,16 @@ namespace pargemslr
    
    template <class VectorType, class MatrixType, typename DataType, typename RealDataType>
    int PargemslrArnoldiThickRestartNoLock( MatrixType &A, int msteps, int maxits, int rank, int rank2, 
-                                 RealDataType tr_fact, RealDataType tol_eig, char opt1, char opt2,
+                                 RealDataType tr_fact, RealDataType tol_eig, char* opt,
                                  DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, 
                                  RealDataType tol_orth, RealDataType tol_reorth, int &nmvs)
    {
       
-      switch(opt1)
+      switch(opt[0])
       {
          case 'S':
          {
-            switch(opt2)
+            switch(opt[1])
             {
                case 'R':
                {
@@ -10428,7 +10428,7 @@ namespace pargemslr
          }
          case 'L':
          {
-            switch(opt2)
+            switch(opt[1])
             {
                case 'R':
                {
@@ -10466,22 +10466,22 @@ namespace pargemslr
       
       return PARGEMSLR_ERROR_INVALED_OPTION;
    }
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_float>( arnoldimatrix_seq_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_double>( arnoldimatrix_seq_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_float>( arnoldimatrix_par_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_double>( arnoldimatrix_par_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexs>( arnoldimatrix_seq_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexd>( arnoldimatrix_seq_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexs>( arnoldimatrix_par_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexd>( arnoldimatrix_par_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_float>( matrix_csr_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_double>( matrix_csr_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_float>( matrix_csr_par_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_double>( matrix_csr_par_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexs>( matrix_csr_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexd>( matrix_csr_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexs>( matrix_csr_par_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char opt1, char opt2, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
-   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexd>( matrix_csr_par_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char opt1, char opt2, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_float>( arnoldimatrix_seq_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_double>( arnoldimatrix_seq_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_float>( arnoldimatrix_par_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_double>( arnoldimatrix_par_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexs>( arnoldimatrix_seq_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexd>( arnoldimatrix_seq_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexs>( arnoldimatrix_par_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexd>( arnoldimatrix_par_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_float>( matrix_csr_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_double>( matrix_csr_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_float>( matrix_csr_par_float &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_float &V, matrix_dense_float &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_double>( matrix_csr_par_double &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_double &V, matrix_dense_double &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexs>( matrix_csr_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_seq_complexd>( matrix_csr_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexs>( matrix_csr_par_complexs &A, int msteps, int maxits, int rank, int rank2, float tr_fact, float tol_eig, char* opt, matrix_dense_complexs &V, matrix_dense_complexs &H, float tol_orth, float tol_reorth, int &nmvs);
+   template int PargemslrArnoldiThickRestartNoLock<vector_par_complexd>( matrix_csr_par_complexd &A, int msteps, int maxits, int rank, int rank2, double tr_fact, double tol_eig, char* opt, matrix_dense_complexd &V, matrix_dense_complexd &H, double tol_orth, double tol_reorth, int &nmvs);
    
    template <class VectorType, class MatrixType, typename DataType, typename RealDataType>
    int PargemslrArnoldiThickRestartNoLock( MatrixType &A, int msteps, int maxits, int rank, int rank2, 
