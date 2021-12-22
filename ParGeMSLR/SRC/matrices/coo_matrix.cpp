@@ -270,7 +270,7 @@ namespace pargemslr
    template <typename T>
    long int CooMatrixClass<T>::GetNumNonzeros() const
    {
-      return this->_nnz;
+      return (long int)this->_nnz;
    }
    template long int CooMatrixClass<float>::GetNumNonzeros() const;
    template long int CooMatrixClass<double>::GetNumNonzeros() const;

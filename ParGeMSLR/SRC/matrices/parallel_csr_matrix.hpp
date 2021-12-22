@@ -11,6 +11,7 @@
 #include "../utils/structs.hpp"
 #include "matrix.hpp"
 #include "csr_matrix.hpp"
+#include "dense_matrix.hpp"
 
 #ifdef PARGEMSLR_CUDA
 #include "cusparse.h"
@@ -337,6 +338,39 @@ namespace pargemslr
       template <typename T>
       int                           DataTransferOverReverse(VectorVirtualClass<T> &vec_out, int loc_out);
       
+      /**
+       * @brief   Apply communication using the buffer inside this comm helper.
+       * @details Apply communication using the buffer inside this comm helper.
+       * @param [in]  mat_in The matrix we send information from.
+       * @param [out] mat_out The matrix we recv information to. Space should be reserved before calling this function.
+       * @param [in]  loc_in The data location of the input data.
+       * @param [in]  loc_out The data location of the output data.
+       * @return     Return error information.
+       */
+      template <typename T>
+      int                           DataTransfer( DenseMatrixClass<T> &mat_in, DenseMatrixClass<T> &mat_out, int loc_in, int loc_out);
+      
+      /**
+       * @brief   Start communication using the buffer inside this comm helper.
+       * @details Start communication using the buffer inside this comm helper.
+       * @note    Need to call DataTransferOver function to make sure the communication finished.
+       * @param [in]  mat_in The matrix we send information from.
+       * @param [in]  loc_in The data location of the input data.
+       * @return     Return error information.
+       */
+      template <typename T>
+      int                           DataTransferStart( DenseMatrixClass<T> &mat_in, int loc_in);
+      
+      /**
+       * @brief   Finish communication using the buffer inside this comm helper.
+       * @details Finish communication using the buffer inside this comm helper.
+       * @param [out] mat_out The matrix we recv information to. Space should be reserved before calling this function.
+       * @param [in]  loc_out The data location of the output data.
+       * @return      Return error information.
+       */
+      template <typename T>
+      int                           DataTransferOver(DenseMatrixClass<T> &mat_out, int loc_out);
+      
    };
    
 	/**
@@ -354,25 +388,25 @@ namespace pargemslr
        * @brief   Global number of rows.
        * @details Global number of rows.
        */
-      long int                   _nrow_global;
+      pargemslr_long             _nrow_global;
       
       /**
        * @brief   Global number of cols.
        * @details Global number of cols.
        */
-      long int                   _ncol_global;
+      pargemslr_long             _ncol_global;
       
       /**
        * @brief   Start index of rows.
        * @details Start index of rows.
        */
-      long int                   _nrow_start;
+      pargemslr_long             _nrow_start;
       
       /**
        * @brief   Start index of cols.
        * @details Start index of cols.
        */
-      long int                   _ncol_start;
+      pargemslr_long             _ncol_start;
       
       /**
        * @brief   Local number of rows.
@@ -410,7 +444,7 @@ namespace pargemslr
        * @brief   Map from column number in offd_mat to the exact global column number.
        * @details Map from column number in offd_mat to the exact global column number. This is useful in parallel matvec.
        */
-      vector_long                _offd_map_v;
+      vector_pargemslr_long      _offd_map_v;
       
       /** 
        * @brief   Working vector for matvec.
@@ -526,7 +560,7 @@ namespace pargemslr
        * @param   [in] parlog The Parallel log data structure, if parallel_log._comm == NULL, will use the global one.
        * @return     Return error message.
        */
-      int            Setup(int nrow_local, long int nrow_start, long int nrow_global, int ncol_local, long int ncol_start, long int ncol_global, parallel_log &parlog);
+      int            Setup(int nrow_local, pargemslr_long nrow_start, pargemslr_long nrow_global, int ncol_local, pargemslr_long ncol_start, pargemslr_long ncol_global, parallel_log &parlog);
       
       /**
        * @brief   Free the current matrix.
@@ -561,28 +595,28 @@ namespace pargemslr
        * @details Get the global number of rows of the matrix.
        * @return     Return the global number of rows of the matrix.
        */
-      long int       GetNumRowsGlobal() const;
+      pargemslr_long GetNumRowsGlobal() const;
       
       /**
        * @brief   Get the global number of columns of the matrix.
        * @details Get the global number of columns of the matrix.
        * @return     Return the global number of columns of the matrix.
        */
-      long int       GetNumColsGlobal() const;
+      pargemslr_long GetNumColsGlobal() const;
       
       /**
        * @brief   Get the global number of the first row of the matrix.
        * @details Get the global number of the first row of the matrix.
        * @return     Return the global number of the first row of the matrix.
        */
-      long int       GetRowStartGlobal() const;
+      pargemslr_long GetRowStartGlobal() const;
       
       /**
        * @brief   Get the global number of the first column of the matrix.
        * @details Get the global number of the first column of the matrix.
        * @return     Return the global number of the first column of the matrix.
        */
-      long int       GetColStartGlobal() const;
+      pargemslr_long GetColStartGlobal() const;
       
       /**
        * @brief   Get the number of nonzeros in this matrix.
@@ -599,7 +633,7 @@ namespace pargemslr
        * @param   [in] adjncy The local J in CSR format.
        * @return     Return error message.
        */
-      int            GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
+      int            GetGraphArrays( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy);
       
       /**
        * @brief   Get the diagonal matrix.
@@ -620,7 +654,7 @@ namespace pargemslr
        * @details Get the off-diagonal column map vector.
        * @return  Return the off-diagonal column map vector.
        */
-      vector_long&                  GetOffdMap();
+      vector_pargemslr_long&        GetOffdMap();
       
       /**
        * @brief   Tell if the off-diagonal map vector is sorted.
@@ -792,7 +826,7 @@ namespace pargemslr
        * @param [out]   parcsrmat_out The output matrix.
        * @return           Return error message.                                                                                                                                                
        */
-      int            SubMatrix(vector_long &rows, vector_long &cols, int location, ParallelCsrMatrixClass<T> &parcsrmat_out);
+      int            SubMatrix(vector_pargemslr_long &rows, vector_pargemslr_long &cols, int location, ParallelCsrMatrixClass<T> &parcsrmat_out);
       
       /**
        * @brief   Generate Laplacian matrix on the host memory, 5-pt for 2D problem and 7-pt for 3D problem.

@@ -1112,6 +1112,308 @@ namespace pargemslr
    template int CommunicationHelperClass::DataTransferOverReverse(VectorVirtualClass<complexd> &vec_out, int loc_out);
    
    template <typename T>
+   int CommunicationHelperClass::DataTransfer( DenseMatrixClass<T> &mat_in, DenseMatrixClass<T> &mat_out, int loc_in, int loc_out)
+   {
+      this->DataTransferStart(mat_in, loc_in);
+      this->DataTransferOver(mat_out, loc_out);
+      return PARGEMSLR_SUCCESS;
+   }
+   template int CommunicationHelperClass::DataTransfer( DenseMatrixClass<float> &mat_in, DenseMatrixClass<float> &mat_out, int loc_in, int loc_out);
+   template int CommunicationHelperClass::DataTransfer( DenseMatrixClass<double> &mat_in, DenseMatrixClass<double> &mat_out, int loc_in, int loc_out);
+   template int CommunicationHelperClass::DataTransfer( DenseMatrixClass<complexs> &mat_in, DenseMatrixClass<complexs> &mat_out, int loc_in, int loc_out);
+   template int CommunicationHelperClass::DataTransfer( DenseMatrixClass<complexd> &mat_in, DenseMatrixClass<complexd> &mat_out, int loc_in, int loc_out);
+   
+   template <typename T>
+   int CommunicationHelperClass::DataTransferStart( DenseMatrixClass<T> &mat_in, int loc_in)
+   {
+      if(!(this->_is_ready))
+      {
+         PARGEMSLR_ERROR("Communication helper not ready, please call SetupMatvec() function first.");
+         return PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+      }
+      
+      /* stop if some other communication is ongoing */
+      PARGEMSLR_CHKERR(this->_is_waiting);
+      this->_is_waiting = true;
+      
+      PARGEMSLR_CHKERR(mat_in.GetNumRowsLocal() != this->_n_in);
+      
+      int   i, j, k, ncols, nsends, nrecvs, unitsize, length;
+      
+      /* for integer, create integer vector, otherwise real vector */
+      SequentialVectorClass<T> send_ptr, send_ptr2;
+      
+      /* get MPI info */
+      MPI_Comm comm;
+      int      np, myid;
+      this->GetMpiInfo(np, myid, comm);
+      
+      /* num blocks */
+      ncols = mat_in.GetNumColsLocal();
+      
+      /* start copying data */
+      nsends = (int) this->_send_idx_v2.size();
+      nrecvs = (int) this->_recv_idx_v2.size();
+      
+      this->_requests_v.resize(nsends+nrecvs);
+      
+      /* This step is to check the loaction of the input data
+       * We might need to handle same input data for multiple times, thus,
+       * we move the indices vectors.
+       * Check location only when cuda enabled.
+       */
+#ifdef PARGEMSLR_CUDA
+      switch(loc_in)
+      {
+         case kMemoryHost: case kMemoryPinned:
+         {
+            /* the input data is on the host */
+            if(this->_location_send == kMemoryDevice)
+            {
+               /* moving buffer to the host */
+               this->MoveSendData(kMemoryHost);
+            }
+            break;
+         }
+         case kMemoryDevice:
+         {
+            /* the input data is on the device memory */
+            if(this->_location_send == kMemoryHost || this->_location_send == kMemoryPinned)
+            {
+               /* moving buffer to the device */
+               this->MoveSendData(kMemoryDevice);
+            }
+            break;
+         }
+         default:
+         {
+            /* unified memory, do nothing */
+            break;
+         }
+      }
+#endif
+
+      /* Now start the communication
+       * v_in on host: host perm
+       * v_in on device: device perm
+       */
+      switch(loc_in)
+      {
+         case kMemoryHost: case kMemoryPinned:
+         {
+            /* the input data is on the host */
+            
+            /* update host buffer, for matrix we need a much larger buffer */
+            unitsize = sizeof(T)*ncols;
+            this->CreateHostBuffer(unitsize);
+            
+            /* apply permutation on the host */
+            for(i = 0 ; i < nsends ; i ++)
+            {
+               length = this->_send_idx_v2[i].GetLengthLocal();
+               for(k = 0 ; k < ncols ; k ++)
+               {
+                  /* copy data column by column */
+                  send_ptr.SetupPtr( ((T*) (this->_send_buff_v2[i])) + k*length, length, kMemoryHost);
+                  send_ptr2.SetupPtr( &(mat_in(0,k)), mat_in.GetNumRowsLocal(), kMemoryHost);
+                  this->_send_idx_v2[i].GatherPerm(send_ptr2, send_ptr);
+               }
+            }
+            
+            break;
+         }
+#ifdef PARGEMSLR_CUDA
+         case kMemoryDevice: case kMemoryUnified:
+         {
+            /* the input data is on the device memory or unified memory, apply perm on the device */
+            
+            /* update all buffers */
+            unitsize = sizeof(T)*ncols;
+            this->CreateHostBuffer(unitsize);
+            this->CreateDeviceBuffer(unitsize);
+            /* apply permutation on the device, and copy result from device to host */
+            for(i = 0 ; i < nsends ; i ++)
+            {
+               length = this->_send_idx_v2[i].GetLengthLocal();
+               for(k = 0 ; k < ncols ; k ++)
+               {
+                  /* copy data column by column */
+                  send_ptr.SetupPtr( (T*) (this->_send_buff_v2_d[i]) + k*length, length, kMemoryDevice);
+                  send_ptr2.SetupPtr( &(mat_in(0,k)), mat_in.GetNumRowsLocal(), kMemoryDevice);
+                  this->_send_idx_v2[i].GatherPerm(send_ptr2, send_ptr);
+               }
+               PARGEMSLR_MEMCPY(this->_send_buff_v2[i], this->_send_buff_v2_d[i], length*ncols, kMemoryHost, kMemoryDevice, T);
+            }
+            
+            break;
+         }
+#endif
+         default:
+         {
+            /* should not reach here */
+            PARGEMSLR_ERROR("Unknown memory location.");
+            return PARGEMSLR_ERROR_INVALED_PARAM;
+         }
+      }
+
+      
+      /* mpi send and recv on host buffer */
+      j = 0;
+      for(i = 0 ; i < nsends ; i ++)
+      {
+         PARGEMSLR_MPI_CALL( PargemslrMpiIsend( (T*) (this->_send_buff_v2[i]), this->_send_idx_v2[i].GetLengthLocal()*ncols, 
+                           this->_send_to_v[i], 0, comm, &(this->_requests_v[j++])) );
+      }
+      
+      for(i = 0 ; i < nrecvs ; i ++)
+      {
+         PARGEMSLR_MPI_CALL( PargemslrMpiIrecv( (T*) (this->_recv_buff_v2[i]), this->_recv_idx_v2[i].GetLengthLocal()*ncols,
+                           this->_recv_from_v[i], 0, comm, &(this->_requests_v[j++])) );
+      }
+      
+      return PARGEMSLR_SUCCESS;
+   }
+   template int CommunicationHelperClass::DataTransferStart( DenseMatrixClass<float> &mat_in, int loc_in);
+   template int CommunicationHelperClass::DataTransferStart( DenseMatrixClass<double> &mat_in, int loc_in);
+   template int CommunicationHelperClass::DataTransferStart( DenseMatrixClass<complexs> &mat_in, int loc_in);
+   template int CommunicationHelperClass::DataTransferStart( DenseMatrixClass<complexd> &mat_in, int loc_in);
+   
+   template <typename T>
+   int CommunicationHelperClass::DataTransferOver(DenseMatrixClass<T> &mat_out, int loc_out)
+   {
+      if(!(this->_is_waiting))
+      {
+         return PARGEMSLR_SUCCESS;
+      }
+      
+      PARGEMSLR_CHKERR(mat_out.GetNumRowsLocal() != this->_n_out);
+      
+      int   i, k, ncols, sendrecvs, nsends, nrecvs, idx, length;
+      
+      /* for integer, create integer vector, otherwise real vector */
+      SequentialVectorClass<T> recv_ptr, recv_ptr2;
+      
+      ncols = mat_out.GetNumColsLocal();
+      
+      /* start recing data 
+       * note that vec_out typicaly should have same location as 
+       * mat_in, however, we need to support different location.
+       * If mat_in and vec_out has different location, the index 
+       * vector will follow the location of mat_in.
+       * We definitly can have those indices on different location,
+       * however, since this is not common, we don't do it.
+       */
+      
+      nsends = (int) this->_send_idx_v2.size();
+      nrecvs = (int) this->_recv_idx_v2.size();
+      sendrecvs = nsends + nrecvs;
+      
+      /* This step is to check the loaction of the output data
+       * We might need to handle same output data for multiple times, thus,
+       * we move the indices vectors.
+       */
+#ifdef PARGEMSLR_CUDA
+      switch(loc_out)
+      {
+         case kMemoryHost: case kMemoryPinned:
+         {
+            /* the output data is on the host */
+            if(this->_location_recv == kMemoryDevice)
+            {
+               /* moving buffer to the host */
+               this->MoveRecvData(kMemoryHost);
+            }
+            break;
+         }
+         case kMemoryDevice:
+         {
+            /* the output data is on the device memory */
+            if(this->_location_recv == kMemoryHost || this->_location_recv == kMemoryPinned)
+            {
+               /* moving buffer to the device */
+               this->MoveRecvData(kMemoryDevice);
+            }
+            break;
+         }
+         default:
+         {
+            /* unified memory, do nothing */
+            break;
+         }
+      }
+#endif
+
+      /* now apply permutation and copy data */
+      switch(loc_out)
+      {
+         case kMemoryHost: case kMemoryPinned:
+         {
+            /* on the host */
+            for(i = 0 ; i < sendrecvs ; i ++)
+            {
+               /* wait for any communication to be finished */
+               PARGEMSLR_MPI_CALL( MPI_Waitany( sendrecvs, this->_requests_v.data(), &idx, MPI_STATUSES_IGNORE) );
+               if(idx >= nsends)
+               {
+                  /* this is a recv that is finished */
+                  idx -= nsends;
+                  length = this->_recv_idx_v2[idx].GetLengthLocal();
+                  for(k = 0 ; k < ncols ; k ++)
+                  {
+                     recv_ptr.SetupPtr( (T*) this->_recv_buff_v2[idx] + k*length, length, kMemoryHost);
+                     recv_ptr2.SetupPtr( &(mat_out(0,k)), mat_out.GetNumRowsLocal(), kMemoryHost);
+                     this->_recv_idx_v2[idx].ScatterRperm(recv_ptr, recv_ptr2);
+                  }
+               } 
+            }
+            break;
+         }
+#ifdef PARGEMSLR_CUDA
+         case kMemoryDevice: case kMemoryUnified:
+         {
+            /* on the device */
+            for(i = 0 ; i < sendrecvs ; i ++)
+            {
+               /* wait for any communication to be finished */
+               PARGEMSLR_MPI_CALL( MPI_Waitany( sendrecvs, this->_requests_v.data(), &idx, MPI_STATUSES_IGNORE) );
+               
+               if(idx >= nsends)
+               {
+                  /* this is a recv that is finished */
+                  idx -= nsends;
+                  length = this->_recv_idx_v2[idx].GetLengthLocal();
+                  /* copy to device */
+                  PARGEMSLR_MEMCPY(this->_recv_buff_v2_d[idx], this->_recv_buff_v2[idx], length*ncols, kMemoryDevice, kMemoryHost, T);
+                  for(k = 0 ; k < ncols ; k ++)
+                  {
+                     /* apply device permutation */
+                     recv_ptr.SetupPtr( (T*) this->_recv_buff_v2_d[idx] + k*length, length, kMemoryDevice);
+                     recv_ptr2.SetupPtr( &(mat_out(0,k)), mat_out.GetNumRowsLocal(), kMemoryDevice);
+                     this->_recv_idx_v2[idx].ScatterRperm(recv_ptr, recv_ptr2);
+                  }
+               } 
+            }
+            break;
+         }
+#endif
+         default:
+         {
+            /* should not reach here */
+            PARGEMSLR_ERROR("Unknown memory location.");
+            return PARGEMSLR_ERROR_INVALED_PARAM;
+         }
+      }
+      
+      this->_is_waiting = false;
+      
+      return PARGEMSLR_SUCCESS;
+   }
+   template int CommunicationHelperClass::DataTransferOver(DenseMatrixClass<float> &mat_out, int loc_out);
+   template int CommunicationHelperClass::DataTransferOver(DenseMatrixClass<double> &mat_out, int loc_out);
+   template int CommunicationHelperClass::DataTransferOver(DenseMatrixClass<complexs> &mat_out, int loc_out);
+   template int CommunicationHelperClass::DataTransferOver(DenseMatrixClass<complexd> &mat_out, int loc_out);
+   
+   template <typename T>
    ParallelCsrMatrixClass<T>::ParallelCsrMatrixClass()
    {
       _nrow_global = 0;
@@ -1295,7 +1597,7 @@ namespace pargemslr
    int ParallelCsrMatrixClass<T>::Setup(int nrow_local, int ncol_local, parallel_log &parlog)
    {
       /* setup the parallel matrix */
-      long int nrow_start, ncol_start, nrow_global, ncol_global;
+      pargemslr_long nrow_start, ncol_start, nrow_global, ncol_global;
       
       MPI_Comm comm;
       int      np, myid;
@@ -1312,7 +1614,7 @@ namespace pargemslr
    template int ParallelCsrMatrixClass<complexd>::Setup(int nrow_local, int ncol_local, parallel_log &parlog);
    
    template <typename T>
-   int ParallelCsrMatrixClass<T>::Setup(int nrow_local, long int nrow_start, long int nrow_global, int ncol_local, long int ncol_start, long int ncol_global, parallel_log &parlog)
+   int ParallelCsrMatrixClass<T>::Setup(int nrow_local, pargemslr_long nrow_start, pargemslr_long nrow_global, int ncol_local, pargemslr_long ncol_start, pargemslr_long ncol_global, parallel_log &parlog)
    {
       this->Clear();
       
@@ -1336,10 +1638,10 @@ namespace pargemslr
       
       return PARGEMSLR_SUCCESS;
    }
-   template int ParallelCsrMatrixClass<float>::Setup(int nrow_local, long int nrow_start, long int nrow_global, int ncol_local, long int ncol_start, long int ncol_global, parallel_log &parlog);
-   template int ParallelCsrMatrixClass<double>::Setup(int nrow_local, long int nrow_start, long int nrow_global, int ncol_local, long int ncol_start, long int ncol_global, parallel_log &parlog);
-   template int ParallelCsrMatrixClass<complexs>::Setup(int nrow_local, long int nrow_start, long int nrow_global, int ncol_local, long int ncol_start, long int ncol_global, parallel_log &parlog);
-   template int ParallelCsrMatrixClass<complexd>::Setup(int nrow_local, long int nrow_start, long int nrow_global, int ncol_local, long int ncol_start, long int ncol_global, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<float>::Setup(int nrow_local, pargemslr_long nrow_start, pargemslr_long nrow_global, int ncol_local, pargemslr_long ncol_start, pargemslr_long ncol_global, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<double>::Setup(int nrow_local, pargemslr_long nrow_start, pargemslr_long nrow_global, int ncol_local, pargemslr_long ncol_start, pargemslr_long ncol_global, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<complexs>::Setup(int nrow_local, pargemslr_long nrow_start, pargemslr_long nrow_global, int ncol_local, pargemslr_long ncol_start, pargemslr_long ncol_global, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<complexd>::Setup(int nrow_local, pargemslr_long nrow_start, pargemslr_long nrow_global, int ncol_local, pargemslr_long ncol_start, pargemslr_long ncol_global, parallel_log &parlog);
    
    template <typename T>
    int ParallelCsrMatrixClass<T>::GetDataLocation() const
@@ -1373,44 +1675,44 @@ namespace pargemslr
    template int ParallelCsrMatrixClass<complexd>::GetNumColsLocal() const;
    
    template <typename T>
-   long int ParallelCsrMatrixClass<T>::GetNumRowsGlobal() const
+   pargemslr_long ParallelCsrMatrixClass<T>::GetNumRowsGlobal() const
    {
       return this->_nrow_global;
    }
-   template long int ParallelCsrMatrixClass<float>::GetNumRowsGlobal() const;
-   template long int ParallelCsrMatrixClass<double>::GetNumRowsGlobal() const;
-   template long int ParallelCsrMatrixClass<complexs>::GetNumRowsGlobal() const;
-   template long int ParallelCsrMatrixClass<complexd>::GetNumRowsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<float>::GetNumRowsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<double>::GetNumRowsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexs>::GetNumRowsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexd>::GetNumRowsGlobal() const;
    
    template <typename T>
-   long int ParallelCsrMatrixClass<T>::GetNumColsGlobal() const
+   pargemslr_long ParallelCsrMatrixClass<T>::GetNumColsGlobal() const
    {
       return this->_ncol_global;
    }
-   template long int ParallelCsrMatrixClass<float>::GetNumColsGlobal() const;
-   template long int ParallelCsrMatrixClass<double>::GetNumColsGlobal() const;
-   template long int ParallelCsrMatrixClass<complexs>::GetNumColsGlobal() const;
-   template long int ParallelCsrMatrixClass<complexd>::GetNumColsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<float>::GetNumColsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<double>::GetNumColsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexs>::GetNumColsGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexd>::GetNumColsGlobal() const;
    
    template <typename T>
-   long int ParallelCsrMatrixClass<T>::GetRowStartGlobal() const
+   pargemslr_long ParallelCsrMatrixClass<T>::GetRowStartGlobal() const
    {
       return this->_nrow_start;
    }
-   template long int ParallelCsrMatrixClass<float>::GetRowStartGlobal() const;
-   template long int ParallelCsrMatrixClass<double>::GetRowStartGlobal() const;
-   template long int ParallelCsrMatrixClass<complexs>::GetRowStartGlobal() const;
-   template long int ParallelCsrMatrixClass<complexd>::GetRowStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<float>::GetRowStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<double>::GetRowStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexs>::GetRowStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexd>::GetRowStartGlobal() const;
    
    template <typename T>
-   long int ParallelCsrMatrixClass<T>::GetColStartGlobal() const
+   pargemslr_long ParallelCsrMatrixClass<T>::GetColStartGlobal() const
    {
       return this->_ncol_start;
    }
-   template long int ParallelCsrMatrixClass<float>::GetColStartGlobal() const;
-   template long int ParallelCsrMatrixClass<double>::GetColStartGlobal() const;
-   template long int ParallelCsrMatrixClass<complexs>::GetColStartGlobal() const;
-   template long int ParallelCsrMatrixClass<complexd>::GetColStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<float>::GetColStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<double>::GetColStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexs>::GetColStartGlobal() const;
+   template pargemslr_long ParallelCsrMatrixClass<complexd>::GetColStartGlobal() const;
    
    template <typename T>
    long int ParallelCsrMatrixClass<T>::GetNumNonzeros() const
@@ -1432,7 +1734,7 @@ namespace pargemslr
    template long int ParallelCsrMatrixClass<complexd>::GetNumNonzeros() const;
    
    template <typename T>
-   int ParallelCsrMatrixClass<T>::GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy)
+   int ParallelCsrMatrixClass<T>::GetGraphArrays( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy)
    {
       int i, j, j1, j2;
       int np, myid;
@@ -1480,10 +1782,10 @@ namespace pargemslr
       }
       return PARGEMSLR_SUCCESS;
    }
-   template int ParallelCsrMatrixClass<float>::GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
-   template int ParallelCsrMatrixClass<double>::GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
-   template int ParallelCsrMatrixClass<complexs>::GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
-   template int ParallelCsrMatrixClass<complexd>::GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
+   template int ParallelCsrMatrixClass<float>::GetGraphArrays( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy);
+   template int ParallelCsrMatrixClass<double>::GetGraphArrays( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy);
+   template int ParallelCsrMatrixClass<complexs>::GetGraphArrays( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy);
+   template int ParallelCsrMatrixClass<complexd>::GetGraphArrays( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy);
    
    template <typename T>
    CsrMatrixClass<T>& ParallelCsrMatrixClass<T>::GetDiagMat()
@@ -1506,14 +1808,14 @@ namespace pargemslr
    template CsrMatrixClass<complexd>& ParallelCsrMatrixClass<complexd>::GetOffdMat();
    
    template <typename T>
-   vector_long& ParallelCsrMatrixClass<T>::GetOffdMap()
+   vector_pargemslr_long& ParallelCsrMatrixClass<T>::GetOffdMap()
    {
       return this->_offd_map_v;
    }
-   template vector_long& ParallelCsrMatrixClass<float>::GetOffdMap();
-   template vector_long& ParallelCsrMatrixClass<double>::GetOffdMap();
-   template vector_long& ParallelCsrMatrixClass<complexs>::GetOffdMap();
-   template vector_long& ParallelCsrMatrixClass<complexd>::GetOffdMap();
+   template vector_pargemslr_long& ParallelCsrMatrixClass<float>::GetOffdMap();
+   template vector_pargemslr_long& ParallelCsrMatrixClass<double>::GetOffdMap();
+   template vector_pargemslr_long& ParallelCsrMatrixClass<complexs>::GetOffdMap();
+   template vector_pargemslr_long& ParallelCsrMatrixClass<complexd>::GetOffdMap();
    
    template <typename T>
    bool& ParallelCsrMatrixClass<T>::IsOffdMapSorted()
@@ -1759,9 +2061,9 @@ namespace pargemslr
        * Declare all variables and setup parameters
        *------------------------*/
       
-      int                 i, j, k, noffd, startidx, endidx, sendsize, recvsize;
-      int                 upid, downid, sends, recvs, reqidx, sendrecv, sendidx, recvidx;
-      vector_long         send_buff_long_v, recv_buff_long_v, offd_map_vec; 
+      int                     i, j, k, noffd, startidx, endidx, sendsize, recvsize;
+      int                     upid, downid, sends, recvs, reqidx, sendrecv, sendidx, recvidx;
+      vector_pargemslr_long   send_buff_long_v, recv_buff_long_v, offd_map_vec; 
       
       /* mpi info and copy the current MPI_Comm for the parallel matrix */
       MPI_Comm comm;
@@ -1954,9 +2256,13 @@ namespace pargemslr
             /* send range to up, and get from down 
              * TODO: update this function to avoid the direct use of MPI_LONG
              */
-            PARGEMSLR_MPI_CALL( MPI_Sendrecv( send_buff_long_v.GetData(), 2, MPI_LONG, upid, myid*upid,
-                              recv_buff_long_v.GetData(), 2, MPI_LONG, downid, myid*downid,
-                              comm, MPI_STATUS_IGNORE) );
+            PargemslrMpiSendRecv( send_buff_long_v.GetData(), 2, upid, myid*upid,
+                                  recv_buff_long_v.GetData(), 2, downid, myid*downid,
+                                  comm, MPI_STATUS_IGNORE);
+            
+            //PARGEMSLR_MPI_CALL( MPI_Sendrecv( send_buff_long_v.GetData(), 2, MPI_LONG, upid, myid*upid,
+            //                  recv_buff_long_v.GetData(), 2, MPI_LONG, downid, myid*downid,
+            //                  comm, MPI_STATUS_IGNORE) );
             //MPI_Isend(send_buff_long_v._data, 2, GEMSLR_MPI_LONG, upid, myid*upid, *(matvec_helper.mpi_comm), &(matvec_helper.requests[0]));
             //MPI_Irecv(recv_buff_long_v._data, 2, GEMSLR_MPI_LONG, downid, myid*downid, *(matvec_helper.mpi_comm), &(matvec_helper.requests[1]));
             
@@ -2241,7 +2547,7 @@ namespace pargemslr
    template int ParallelCsrMatrixClass<complexd>::MatMat( const complexd &alpha, const ParallelCsrMatrixClass<complexd> &A, char transa, const ParallelCsrMatrixClass<complexd> &B, char transb, const complexd &beta);
    
    template <typename T>
-   int ParallelCsrMatrixClass<T>::SubMatrix(vector_long &rows, vector_long &cols, int location, ParallelCsrMatrixClass<T> &parcsrmat_out)
+   int ParallelCsrMatrixClass<T>::SubMatrix(vector_pargemslr_long &rows, vector_pargemslr_long &cols, int location, ParallelCsrMatrixClass<T> &parcsrmat_out)
    {
 
 #ifdef PARGEMSLR_CUDA
@@ -2256,12 +2562,12 @@ namespace pargemslr
          return PARGEMSLR_ERROR_MEMORY_LOCATION;
       }
 #endif
-      int                        i, j, j1, j2, k;
-      int                        nrows_local, ncols_local, A_noffd, noffd_new, row, col;
-      long int                   B_row_start, B_col_start;
-      vector_long                row_start, col_start, nCdisps, nRdisps, marker_offd;
-      vector_int                 rows_local, cols_local, marker_col, marker_row;
-      std::vector<vector_long>   send_buff_vec2, recv_buff_vec2;
+      int                                 i, j, j1, j2, k;
+      int                                 nrows_local, ncols_local, A_noffd, noffd_new, row, col;
+      pargemslr_long                      B_row_start, B_col_start;
+      vector_pargemslr_long               row_start, col_start, nCdisps, nRdisps, marker_offd;
+      vector_int                          rows_local, cols_local, marker_col, marker_row;
+      std::vector<vector_pargemslr_long>  send_buff_vec2, recv_buff_vec2;
       
       nrows_local                            = rows.GetLengthLocal();
       ncols_local                            = cols.GetLengthLocal();
@@ -2279,7 +2585,7 @@ namespace pargemslr
       CsrMatrixClass<T> &B_diag              = parcsrmat_out.GetDiagMat();
       CsrMatrixClass<T> &B_offd              = parcsrmat_out.GetOffdMat();
       
-      vector_long &B_offd_map                = parcsrmat_out.GetOffdMap();
+      vector_pargemslr_long &B_offd_map      = parcsrmat_out.GetOffdMap();
       
       int           np, myid;
       MPI_Comm      comm;
@@ -2368,7 +2674,7 @@ namespace pargemslr
       }
       
       /* start communication */
-      this->_comm_helper.template DataTransferStart<long int, vector_long>(send_buff_vec2, kMemoryHost);
+      this->_comm_helper.template DataTransferStart<pargemslr_long, vector_pargemslr_long>(send_buff_vec2, kMemoryHost);
       
       for(i = 0 ; i < nrows_local ; i ++)
       {
@@ -2384,7 +2690,7 @@ namespace pargemslr
       }
       
       /* finish communication */
-      this->_comm_helper.template DataTransferOver<long int, vector_long>(recv_buff_vec2, kMemoryHost);
+      this->_comm_helper.template DataTransferOver<pargemslr_long, vector_pargemslr_long>(recv_buff_vec2, kMemoryHost);
       
       j1 = (int)this->_comm_helper._recv_idx_v2.size();
       noffd_new = 0;
@@ -2457,23 +2763,23 @@ namespace pargemslr
       {
          send_buff_vec2[i].Clear();
       }
-      std::vector<vector_long>().swap(send_buff_vec2);
+      std::vector<vector_pargemslr_long>().swap(send_buff_vec2);
       
       j1 = (int) recv_buff_vec2.size();
       for(i = 0 ; i < j1 ; i ++)
       {
          recv_buff_vec2[i].Clear();
       }
-      std::vector<vector_long>().swap(recv_buff_vec2);
+      std::vector<vector_pargemslr_long>().swap(recv_buff_vec2);
       
       parcsrmat_out.MoveData(location);
       
       return PARGEMSLR_SUCCESS;
    }
-   template int ParallelCsrMatrixClass<float>::SubMatrix(vector_long &rows, vector_long &cols, int location, ParallelCsrMatrixClass<float> &parcsrmat_out);
-   template int ParallelCsrMatrixClass<double>::SubMatrix(vector_long &rows, vector_long &cols, int location, ParallelCsrMatrixClass<double> &parcsrmat_out);
-   template int ParallelCsrMatrixClass<complexs>::SubMatrix(vector_long &rows, vector_long &cols, int location, ParallelCsrMatrixClass<complexs> &parcsrmat_out);
-   template int ParallelCsrMatrixClass<complexd>::SubMatrix(vector_long &rows, vector_long &cols, int location, ParallelCsrMatrixClass<complexd> &parcsrmat_out);
+   template int ParallelCsrMatrixClass<float>::SubMatrix(vector_pargemslr_long &rows, vector_pargemslr_long &cols, int location, ParallelCsrMatrixClass<float> &parcsrmat_out);
+   template int ParallelCsrMatrixClass<double>::SubMatrix(vector_pargemslr_long &rows, vector_pargemslr_long &cols, int location, ParallelCsrMatrixClass<double> &parcsrmat_out);
+   template int ParallelCsrMatrixClass<complexs>::SubMatrix(vector_pargemslr_long &rows, vector_pargemslr_long &cols, int location, ParallelCsrMatrixClass<complexs> &parcsrmat_out);
+   template int ParallelCsrMatrixClass<complexd>::SubMatrix(vector_pargemslr_long &rows, vector_pargemslr_long &cols, int location, ParallelCsrMatrixClass<complexd> &parcsrmat_out);
    
    template <typename T>
    int ParallelCsrMatrixClass<T>::Transpose()
@@ -2532,26 +2838,26 @@ namespace pargemslr
       
       typedef typename std::conditional<PargemslrIsDoublePrecision<T>::value, double, float>::type RealDataType;
       
-      bool                 two_D;
-      long int             idx;
-      int                  i, j, k;
-      int                  ldx, ldy, ldz;
-      int                  ii, offdsize, lidx;
-      int                  dom_init;
-      T                    vd, vxm, vxp, vym, vyp, vzm, vzp;
-      RealDataType         ptrb, shift_abs; 
-      CooMatrixClass<T>    Acoo_diag, Acoo_offd;
-      T                    mone = -1.0;
+      bool                    two_D;
+      pargemslr_long          idx;
+      int                     i, j, k;
+      int                     ldx, ldy, ldz;
+      int                     ii, offdsize, lidx;
+      int                     dom_init;
+      T                       vd, vxm, vxp, vym, vyp, vzm, vzp;
+      RealDataType            ptrb, shift_abs; 
+      CooMatrixClass<T>       Acoo_diag, Acoo_offd;
+      T                       mone = -1.0;
       
       
       /* global displacement */
-      int                  dxy;
-      int                  ldx2, ldy2, ldz2;
-      int                  numx_base, numy_base, numz_base;
-      int                  numx_extra, numy_extra, numz_extra;
-      vector_int           numxs, numys, numzs;
-      vector_int           dispxs, dispys, dispzs;
-      vector_long          dispglobal;
+      int                     dxy;
+      int                     ldx2, ldy2, ldz2;
+      int                     numx_base, numy_base, numz_base;
+      int                     numx_extra, numy_extra, numz_extra;
+      vector_int              numxs, numys, numzs;
+      vector_int              dispxs, dispys, dispzs;
+      vector_pargemslr_long   dispglobal;
       
       
       dxy = dx * dy;
@@ -2623,7 +2929,7 @@ namespace pargemslr
          ldx2   = i % dx;
          ldz2   = i / dxy;
          ldy2   = (i - ldz2 * dxy) / dx;
-         dispglobal[i+1] = dispglobal[i] + (long int)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
+         dispglobal[i+1] = dispglobal[i] + (pargemslr_long)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
       }
       
       ldx   = myid % dx;
@@ -2648,7 +2954,7 @@ namespace pargemslr
       /* next step is to get the problem size 
        * note that now we might have uneven size
        */
-      this->_nrow_global      = (long int)nx * ny * nz;
+      this->_nrow_global      = (pargemslr_long)nx * ny * nz;
       this->_nrow_local       = numxs[ldx]*numys[ldy]*numzs[ldz];
       this->_nrow_start       = dispglobal[myid];
       this->_ncol_global      = this->_nrow_global;
@@ -3089,25 +3395,25 @@ namespace pargemslr
       
       typedef typename std::conditional<PargemslrIsDoublePrecision<T>::value, double, float>::type RealDataType;
       
-      bool                 two_D;
-      long int             idx;
-      int                  i, j, k;
-      int                  ldx, ldy, ldz;
-      int                  ii, offdsize, lidx;
-      T                    vd, vxm, vxp, vym, vyp, vzm, vzp;
-      RealDataType         ptrb, shift_abs;
-      CooMatrixClass<T>    Acoo_diag, Acoo_offd;
-      T                    mone = -1.0;
+      bool                    two_D;
+      pargemslr_long          idx;
+      int                     i, j, k;
+      int                     ldx, ldy, ldz;
+      int                     ii, offdsize, lidx;
+      T                       vd, vxm, vxp, vym, vyp, vzm, vzp;
+      RealDataType            ptrb, shift_abs;
+      CooMatrixClass<T>       Acoo_diag, Acoo_offd;
+      T                       mone = -1.0;
       
       
       /* global displacement */
-      int                  dxy;
-      int                  ldx2, ldy2, ldz2;
-      int                  numx_base, numy_base, numz_base;
-      int                  numx_extra, numy_extra, numz_extra;
-      vector_int           numxs, numys, numzs;
-      vector_int           dispxs, dispys, dispzs;
-      vector_long          dispglobal;
+      int                     dxy;
+      int                     ldx2, ldy2, ldz2;
+      int                     numx_base, numy_base, numz_base;
+      int                     numx_extra, numy_extra, numz_extra;
+      vector_int              numxs, numys, numzs;
+      vector_int              dispxs, dispys, dispzs;
+      vector_pargemslr_long   dispglobal;
       
       
       dxy = dx * dy;
@@ -3179,7 +3485,7 @@ namespace pargemslr
          ldx2   = i % dx;
          ldz2   = i / dxy;
          ldy2   = (i - ldz2 * dxy) / dx;
-         dispglobal[i+1] = dispglobal[i] + (long int)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
+         dispglobal[i+1] = dispglobal[i] + (pargemslr_long)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
       }
       
       ldx   = myid % dx;
@@ -3204,7 +3510,7 @@ namespace pargemslr
       /* next step is to get the problem size 
        * note that now we might have uneven size
        */
-      this->_nrow_global      = (long int)nx * ny * nz;
+      this->_nrow_global      = (pargemslr_long)nx * ny * nz;
       this->_nrow_local       = numxs[ldx]*numys[ldy]*numzs[ldz];
       this->_nrow_start       = dispglobal[myid];
       this->_ncol_global      = this->_nrow_global;
@@ -3751,7 +4057,7 @@ namespace pargemslr
       PARGEMSLR_CHKERR(n < dy);
       PARGEMSLR_CHKERR(n < dz);
       
-      long int             idx;
+      pargemslr_long       idx;
       int                  i, j, k;
       int                  ldx, ldy, ldz;
       int                  ii, offdsize, lidx;
@@ -3770,14 +4076,14 @@ namespace pargemslr
       c = T(0.0,2.0)*h*w;
       
       /* global displacement */
-      int                  nx, ny, nz;
-      int                  dxy;
-      int                  ldx2, ldy2, ldz2;
-      int                  numx_base, numy_base, numz_base;
-      int                  numx_extra, numy_extra, numz_extra;
-      vector_int           numxs, numys, numzs;
-      vector_int           dispxs, dispys, dispzs;
-      vector_long          dispglobal;
+      int                     nx, ny, nz;
+      int                     dxy;
+      int                     ldx2, ldy2, ldz2;
+      int                     numx_base, numy_base, numz_base;
+      int                     numx_extra, numy_extra, numz_extra;
+      vector_int              numxs, numys, numzs;
+      vector_int              dispxs, dispys, dispzs;
+      vector_pargemslr_long   dispglobal;
       
       nx = n;
       ny = n;
@@ -3852,7 +4158,7 @@ namespace pargemslr
          ldx2   = i % dx;
          ldz2   = i / dxy;
          ldy2   = (i - ldz2 * dxy) / dx;
-         dispglobal[i+1] = dispglobal[i] + (long int)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
+         dispglobal[i+1] = dispglobal[i] + (pargemslr_long)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
       }
       
       ldx   = myid % dx;
@@ -3862,7 +4168,7 @@ namespace pargemslr
       /* next step is to get the problem size 
        * note that now we might have uneven size
        */
-      this->_nrow_global      = (long int)nx * ny * nz;
+      this->_nrow_global      = (pargemslr_long)nx * ny * nz;
       this->_nrow_local       = numxs[ldx]*numys[ldy]*numzs[ldz];
       this->_nrow_start       = dispglobal[myid];
       this->_ncol_global      = this->_nrow_global;
@@ -4359,7 +4665,7 @@ namespace pargemslr
       }
       
       
-      long int             idx;
+      pargemslr_long       idx;
       int                  i, j, k;
       int                  ldx, ldy, ldz;
       int                  ii, offdsize, lidx;
@@ -4378,14 +4684,14 @@ namespace pargemslr
       c = T(0.0,2.0)*h*w;
       
       /* global displacement */
-      int                  nx, ny, nz;
-      int                  dxy;
-      int                  ldx2, ldy2, ldz2;
-      int                  numx_base, numy_base, numz_base;
-      int                  numx_extra, numy_extra, numz_extra;
-      vector_int           numxs, numys, numzs;
-      vector_int           dispxs, dispys, dispzs;
-      vector_long          dispglobal;
+      int                     nx, ny, nz;
+      int                     dxy;
+      int                     ldx2, ldy2, ldz2;
+      int                     numx_base, numy_base, numz_base;
+      int                     numx_extra, numy_extra, numz_extra;
+      vector_int              numxs, numys, numzs;
+      vector_int              dispxs, dispys, dispzs;
+      vector_pargemslr_long   dispglobal;
       
       nx = n;
       ny = n;
@@ -4460,7 +4766,7 @@ namespace pargemslr
          ldx2   = i % dx;
          ldz2   = i / dxy;
          ldy2   = (i - ldz2 * dxy) / dx;
-         dispglobal[i+1] = dispglobal[i] + (long int)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
+         dispglobal[i+1] = dispglobal[i] + (pargemslr_long)numxs[ldx2]*numys[ldy2]*numzs[ldz2];
       }
       
       ldx   = myid % dx;
@@ -4470,7 +4776,7 @@ namespace pargemslr
       /* next step is to get the problem size 
        * note that now we might have uneven size
        */
-      this->_nrow_global      = (long int)nx * ny * nz;
+      this->_nrow_global      = (pargemslr_long)nx * ny * nz;
       this->_nrow_local       = numxs[ldx]*numys[ldy]*numzs[ldz];
       this->_nrow_start       = dispglobal[myid];
       this->_ncol_global      = this->_nrow_global;
@@ -5151,14 +5457,14 @@ namespace pargemslr
       int np, myid;
       parlog.GetMpiInfo(np, myid, comm);
       
-      CooMatrixClass<T>                global_coo_mat;
-      CooMatrixClass<T>                local_diag_coo_mat;
-      CooMatrixClass<T>                local_offd_coo_mat;
-      std::vector<CooMatrixClass<T> >  diag_coo_mats;
-      std::vector<CooMatrixClass<T> >  offd_coo_mats;
-      std::vector<vector_long>         offd_maps;
-      vector_int                       info;
-      std::vector<vector_int>          offd_markers;
+      CooMatrixClass<T>                   global_coo_mat;
+      CooMatrixClass<T>                   local_diag_coo_mat;
+      CooMatrixClass<T>                   local_offd_coo_mat;
+      std::vector<CooMatrixClass<T> >     diag_coo_mats;
+      std::vector<CooMatrixClass<T> >     offd_coo_mats;
+      std::vector<vector_pargemslr_long>  offd_maps;
+      vector_int                          info;
+      std::vector<vector_int>             offd_markers;
       
       if(np == 1)
       {
@@ -5323,7 +5629,7 @@ namespace pargemslr
          
          this->_offd_map_v.Setup(offd_maps[0].GetLengthLocal());
          
-         PARGEMSLR_MEMCPY( this->_offd_map_v.GetData(), offd_maps[0].GetData(), offd_maps[0].GetLengthLocal(), kMemoryHost, kMemoryHost, long int);
+         PARGEMSLR_MEMCPY( this->_offd_map_v.GetData(), offd_maps[0].GetData(), offd_maps[0].GetLengthLocal(), kMemoryHost, kMemoryHost, pargemslr_long);
          
          diag_coo_mats[0].ToCsr(this->GetDataLocation(), this->_diag_mat);
          offd_coo_mats[0].ToCsr(this->GetDataLocation(), this->_offd_mat);
@@ -5339,7 +5645,7 @@ namespace pargemslr
          
          std::vector<CooMatrixClass<T> >().swap(diag_coo_mats);
          std::vector<CooMatrixClass<T> >().swap(offd_coo_mats);
-         std::vector<vector_long>().swap(offd_maps);
+         std::vector<vector_pargemslr_long>().swap(offd_maps);
          std::vector<vector_int>().swap(offd_markers);
       }
       else
@@ -5414,7 +5720,7 @@ namespace pargemslr
       int *diag_j = this->_diag_mat.GetJ();
       int *offd_i = this->_offd_mat.GetI();
       int *offd_j = this->_offd_mat.GetJ();
-      long int *offd_map = this->_offd_map_v.GetData();
+      pargemslr_long *offd_map = this->_offd_map_v.GetData();
       
       for(i = 0 ; i < _nrow_local ; i ++)
       {
@@ -5422,13 +5728,22 @@ namespace pargemslr
          j2 = diag_i[i+1];
          for(j = j1 ; j < j2 ; j ++)
          {
+#ifdef PARGEMSLR_INT32
+            fprintf(fdata, "%d %d \n", _ncol_start+diag_j[j]+1, _nrow_global-_nrow_start-i);
+
+#else
             fprintf(fdata, "%ld %ld \n", _ncol_start+diag_j[j]+1, _nrow_global-_nrow_start-i);
+#endif
          }
          j1 = offd_i[i];
          j2 = offd_i[i+1];
          for(j = j1 ; j < j2 ; j ++)
          {
+#ifdef PARGEMSLR_INT32
+            fprintf(fdata, "%d %d \n", offd_map[offd_j[j]]+1, _nrow_global-_nrow_start-i);
+#else
             fprintf(fdata, "%ld %ld \n", offd_map[offd_j[j]]+1, _nrow_global-_nrow_start-i);
+#endif
          }
       }
       
@@ -5448,8 +5763,13 @@ namespace pargemslr
          }
          
          fprintf(pgnuplot, "set title \"nnz = %ld\"\n", nnz);
+#ifdef PARGEMSLR_INT32
+         fprintf(pgnuplot, "set xrange [0:%d]\n", _ncol_global+1);
+         fprintf(pgnuplot, "set yrange [0:%d]\n", _nrow_global+1);
+#else
          fprintf(pgnuplot, "set xrange [0:%ld]\n", _ncol_global+1);
          fprintf(pgnuplot, "set yrange [0:%ld]\n", _nrow_global+1);
+#endif
          fprintf(pgnuplot, "plot '%s' pt %d", filename, pttype);
          for(i = 1 ; i < np ; i ++)
          {

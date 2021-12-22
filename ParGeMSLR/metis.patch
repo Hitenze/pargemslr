@@ -2,7 +2,3 @@
 < #define IDXTYPEWIDTH 32
 ---
 > #define IDXTYPEWIDTH 64
-43c43
-< #define REALTYPEWIDTH 32
----
-> #define REALTYPEWIDTH 64

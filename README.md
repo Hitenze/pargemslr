@@ -68,13 +68,13 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
 **INSTALLATION**
 
  * Package
-   1. Edit makefile.in. Set the path of BLAS, LAPACK, and ParMETIS (using INT_64 for ParMETIS). Change compile options.
+   1. Edit makefile.in. Set the path of BLAS, LAPACK, and ParMETIS (please use INT_64 and FLOAT for ParMETIS by setting IDXTYPEWIDTH and REALTYPEWIDTH in parmetis/metis/include/metis.h to 64 and 32 respectively. If use INT_32 please compile with -DPARGEMSLR_INT32). Change compile options.
    2. Make the library with make command.
    
  * Tests
    1. Make the library.
    2. For sequential tests, go to folder TESTS/sequential.
-   3. For sequential tests, go to folder TESTS/parallel.
+   3. For parallel tests, go to folder TESTS/parallel.
    3. Make those tests with make command.
 
  * hypre Interface
@@ -85,24 +85,24 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
    
 **SAMPLE RUNS**
 
- * Sequential version 
+ * Sequential version (Our current sequential version requires mpirun)
  
-   - ./driver_gen_gemslr_seq.ex
+   - mpirun -np 1 ./driver_gen_gemslr_seq.ex
       - Solve general real matrix with GeMSLR.
       - Read solver/preconditioner settings from file "inputs".
       - Load matrix from file "matfile_real".
    
-   - ./driver_gen_gemslrz_seq.ex
+   - mpirun -np 1 ./driver_gen_gemslrz_seq.ex
       - Solve general complex matrix with GeMSLR.
       - Read solver/preconditioner settings from file "inputs".
       - Load matrix from file "matfile_complex".
       
-   - ./driver_laplacian_gemslr_seq.ex -fromfile inputs_user
+   - mpirun -np 1 ./driver_laplacian_gemslr_seq.ex -fromfile inputs_user
       - Solve real Laplacian matrix with GeMSLR.
       - Read solver/preconditioner settings from file "inputs_user".
       - Load matrix from file "lapfile_real".
    
-   - ./driver_laplacian_gemslrz_seq.ex -fromfile inputs_user -outfile out.log
+   - mpirun -np 1 ./driver_laplacian_gemslrz_seq.ex -fromfile inputs_user -outfile out.log
       - Solve compplex Laplacian matrix with GeMSLR.
       - Read solver/preconditioner settings from file "inputs_user", write output to "out.log"
       - Load matrix from file "lapfile_complex".

@@ -26,7 +26,7 @@ OBJ_ALLTESTS = driver_laplacian_gemslr_par.o\
 	driver_gen_gemslrzmix_par.o\
 	driver_gen_gemslrz_par.o
 
-LIB := -L../../ -lpargemslr -L../../$(METIS_PATH)/libparmetis -lparmetis -L../../$(METIS_PATH)/libmetis -lmetis -L../../$(LAPACK_PATH) $(LIBLAPACK) $(LIBOPENMP) $(LIBMKL) -lgfortran $(LIBCUDA)
+LIB := -L../../ -lpargemslr -L../../$(METIS_PATH)/libparmetis -lparmetis -L../../$(METIS_PATH)/libmetis -lmetis -L../../$(LAPACK_PATH) $(LIBLAPACK) -L$(PARPACK_PATH) $(LIBPARPACK) $(LIBOPENMP) $(LIBMKL) -lgfortran $(LIBCUDA)
 
 ALLEXE = driver_laplacian_gemslr_par.ex\
 	driver_laplacian_gemslrmix_par.ex\

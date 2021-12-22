@@ -194,14 +194,14 @@ namespace pargemslr
        * @details Get the global length of the vector.
        * @return     Return the length of the vector.
        */
-      virtual long int GetLengthGlobal() const = 0;
+      virtual pargemslr_long GetLengthGlobal() const = 0;
       
       /**
        * @brief   Get the global start index of the vector.
        * @details Get the global start index of the vector.
        * @return     Return the global start index of the vector.
        */
-      virtual long int GetStartGlobal() const = 0;
+      virtual pargemslr_long GetStartGlobal() const = 0;
       
       /**
        * @brief   Fill the vector with constant value.

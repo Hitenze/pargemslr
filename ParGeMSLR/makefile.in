@@ -3,12 +3,13 @@ USING_BLAS = 0
 USING_OPENBLAS = 0
 USING_CUDA = 0
 USING_MKL = 0
+USING_PARPACK = 0
+USING_INT32 = 0
 DEBUG_MODE = 1
 TIMING_MODE = 1
 
 # Path to support library
 HYPRE_PATH = ./hypre/src
-#METIS_PATH = ./parmetis/build/Darwin-x86_64
 METIS_PATH = ./parmetis/build/Linux-x86_64
 # also change LIBLAPACK when changing the LAPACK
 ifeq ($(USING_OPENBLAS),0)
@@ -59,6 +60,13 @@ FLAGS += -fopenmp -DPARGEMSLR_OPENMP
 LIBOPENMP =
 endif
 
+ifneq ($(USING_PARPACK),0)
+# -DPARGEMSLR_PARPACK: enable parallel arpack
+PARPACK_PATH = .
+FLAGS += -DPARGEMSLR_PARPACK
+LIBPARPACK = -larpack -lparpack
+endif
+
 ifeq ($(USING_CUDA),0)
 FLAGS += -Wall
 else
@@ -81,6 +89,10 @@ endif
 
 ifneq ($(USING_BLAS),0)
 FLAGS += -DPARGEMSLR_BLAS
+endif
+
+ifneq ($(USING_INT32),0)
+FLAGS += -DPARGEMSLR_INT32
 endif
 
 ifneq ($(USING_CUDA),0)

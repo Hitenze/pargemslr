@@ -16,6 +16,17 @@
 #include <climits>
 #include <cassert>
 
+/* do we use long int? 
+ * PARGEMSLR_INT32 controls pargemslr_long
+ * if always want long int use long int instead
+ */
+#ifdef PARGEMSLR_INT32
+   typedef int pargemslr_long;
+#else
+   typedef long int pargemslr_long;
+#endif
+
+
 #define PARGEMSLR_FIRM_CHKERR(ierr) {{if(ierr){printf("Err value: %d on MPI rank %d\n",ierr, parallel_log::_grank);assert(!(ierr));};}}
 
 #ifdef PARGEMSLR_DEBUG

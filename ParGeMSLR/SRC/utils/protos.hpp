@@ -193,12 +193,25 @@
 
 #endif
 
+#ifdef PARGEMSLR_PARPACK
+#define PARGEMSLR_PARPACK_PSNAUPD         psnaupd_
+#define PARGEMSLR_PARPACK_PDNAUPD         pdnaupd_
+#define PARGEMSLR_PARPACK_PCNAUPD         pcnaupd_
+#define PARGEMSLR_PARPACK_PZNAUPD         pznaupd_
+#define PARGEMSLR_PARPACK_PSNEUPD         psneupd_
+#define PARGEMSLR_PARPACK_PDNEUPD         pdneupd_
+#define PARGEMSLR_PARPACK_PCNEUPD         pcneupd_
+#define PARGEMSLR_PARPACK_PZNEUPD         pzneupd_
+#endif
+
 namespace pargemslr
 {
    /* note that those functions can be call directly without namespace */
    extern "C" 
    {
       
+#ifndef PARGEMSLR_MKL
+
       void PARGEMSLR_BLASLAPACK_SAXPY(int *n, const float *alpha, const float *x, int *incx, float *y, int *incy);
       void PARGEMSLR_BLASLAPACK_DAXPY(int *n, const double *alpha, const double *x, int *incx, double *y, int *incy);
       void PARGEMSLR_BLASLAPACK_CAXPY(int *n, const ccomplexs *alpha, const ccomplexs *x, int *incx, ccomplexs *y, int *incy);
@@ -279,13 +292,15 @@ namespace pargemslr
       void PARGEMSLR_BLASLAPACK_DTREXC(char *compq, int *n, double *t, int *ldt, double *q, int *ldq, int *ifst, int *ilst, double *work, int *info);
       void PARGEMSLR_BLASLAPACK_CTREXC(char *compq, int *n, ccomplexs *t, int *ldt, ccomplexs *q, int *ldq, int *ifst, int *ilst, int *info);
       void PARGEMSLR_BLASLAPACK_ZTREXC(char *compq, int *n, ccomplexd *t, int *ldt, ccomplexd *q, int *ldq, int *ifst, int *ilst, int *info);
-      
-      int METIS_PartGraphRecursive(long int *nvtxs, long int *ncon, long int *xadj, long int *adjncy, long int *vwgt, long int *vsize, long int *adjwgt, long int *nparts, double *tpwgts, double *ubvec, long int *options, long int *edgecut, long int *part);
-      int METIS_PartGraphKway(long int *nvtxs, long int *ncon, long int *xadj, long int *adjncy, long int *vwgt, long int *vsize, long int *adjwgt, long int *nparts, double *tpwgts, double *ubvec, long int *options, long int *edgecut, long int *part);
-      int METIS_NodeND(long int *nvtxs, long int *xadj, long int *adjncy, long int *vwgt, long int *options, long int *perm, long int *iperm);
-      int ParMETIS_V3_PartKway(long int*, long int*, long int*, long int*, long int*, long int*, long int*, long int*, long int*, double*, double*, long int*, long int*, long int*, MPI_Comm* );
-		int ParMETIS_V3_RefineKway(long int*, long int*, long int*, long int*, long int*, long int*, long int*, long int*, long int*, double*, double*, long int*, long int*, long int*, MPI_Comm*);
-      int ParMETIS_V3_NodeND(long int*, long int*, long int*, long int*, long int*, long int*,long int*, MPI_Comm*);
+
+#endif
+
+      int METIS_PartGraphRecursive(pargemslr_long *nvtxs, pargemslr_long *ncon, pargemslr_long *xadj, pargemslr_long *adjncy, pargemslr_long *vwgt, pargemslr_long *vsize, pargemslr_long *adjwgt, pargemslr_long *nparts, float *tpwgts, float *ubvec, pargemslr_long *options, pargemslr_long *edgecut, pargemslr_long *part);
+      int METIS_PartGraphKway(pargemslr_long *nvtxs, pargemslr_long *ncon, pargemslr_long *xadj, pargemslr_long *adjncy, pargemslr_long *vwgt, pargemslr_long *vsize, pargemslr_long *adjwgt, pargemslr_long *nparts, float *tpwgts, float *ubvec, pargemslr_long *options, pargemslr_long *edgecut, pargemslr_long *part);
+      int METIS_NodeND(pargemslr_long *nvtxs, pargemslr_long *xadj, pargemslr_long *adjncy, pargemslr_long *vwgt, pargemslr_long *options, pargemslr_long *perm, pargemslr_long *iperm);
+      int ParMETIS_V3_PartKway(pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, float*, float*, pargemslr_long*, pargemslr_long*, pargemslr_long*, MPI_Comm* );
+		int ParMETIS_V3_RefineKway(pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, float*, float*, pargemslr_long*, pargemslr_long*, pargemslr_long*, MPI_Comm*);
+      int ParMETIS_V3_NodeND(pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*, pargemslr_long*,pargemslr_long*, MPI_Comm*);
       
       /* AMD order for experiments only */
       //int amd_order(int, const int*, const int*, int*, double*, double*);
@@ -294,6 +309,16 @@ namespace pargemslr
       void openblas_set_num_threads(int);
 #endif      
       
+#ifdef PARGEMSLR_PARPACK
+      void PARGEMSLR_PARPACK_PSNAUPD( int *comm, int* ido, char* bmat, int* n, char* which, int* nev, float* tol, float* resid, int* ncv, float* v, int* ldv, int* iparam, int* ipntr, float* workd, float* workl, int* lworkl, int* info);
+      void PARGEMSLR_PARPACK_PSNEUPD( int *comm, int* rvec, char* howmny, int* select, float* dr, float* di, float* z, int* ldz, float* sigmar, float* sigmai, float* workev, char* bmat, int* n, char* which, int* nev, float* tol, float* resid, int* ncv, float* v, int* ldv, int* iparam, int* ipntr, float* workd, float* workl, int* lworkl, int* info);
+      void PARGEMSLR_PARPACK_PDNAUPD( int *comm, int* ido, char* bmat, int* n, char* which, int* nev, double* tol, double* resid, int* ncv, double* v, int* ldv, int* iparam, int* ipntr, double* workd, double* workl, int* lworkl, int* info);
+      void PARGEMSLR_PARPACK_PDNEUPD( int *comm, int* rvec, char* howmny, int* select, double* dr, double* di, double* z, int* ldz, double* sigmar, double* sigmai, double* workev, char* bmat, int* n, char* which, int* nev, double* tol, double* resid, int* ncv, double* v, int* ldv, int* iparam, int* ipntr, double* workd, double* workl, int* lworkl, int* info);
+      void PARGEMSLR_PARPACK_PCNAUPD( int *comm, int* ido, char* bmat, int* n, char* which, int* nev, float* tol, ccomplexs* resid, int* ncv, ccomplexs* v, int* ldv, int* iparam, int* ipntr, ccomplexs* workd, ccomplexs* workl, int* lworkl, float* rwork, int* info);
+      void PARGEMSLR_PARPACK_PCNEUPD( int *comm, int* rvec, char* howmny, int* select, ccomplexs* d, ccomplexs* z, int* ldz, ccomplexs* sigma, ccomplexs* workev, char* bmat, int* n, char* which, int* nev, float* tol, ccomplexs* resid, int* ncv, ccomplexs* v, int* ldv, int* iparam, int* ipntr, ccomplexs* workd, ccomplexs* workl, int* lworkl, float* rwork, int* info);
+      void PARGEMSLR_PARPACK_PZNAUPD( int *comm, int* ido, char* bmat, int* n, char* which, int* nev, double* tol, ccomplexd* resid, int* ncv, ccomplexd* v, int* ldv, int* iparam, int* ipntr, ccomplexd* workd, ccomplexd* workl, int* lworkl, double* rwork, int* info);
+      void PARGEMSLR_PARPACK_PZNEUPD( int *comm, int* rvec, char* howmny, int* select, ccomplexd* d, ccomplexd* z, int* ldz, ccomplexd* sigma, ccomplexd* workev, char* bmat, int* n, char* which, int* nev, double* tol, ccomplexd* resid, int* ncv, ccomplexd* v, int* ldv, int* iparam, int* ipntr, ccomplexd* workd, ccomplexd* workl, int* lworkl, double* rwork, int* info);
+#endif 
    }
    
 }

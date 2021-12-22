@@ -58,7 +58,7 @@ namespace pargemslr
       
       /**
        * @brief   The number of nonzeros of the matrix.
-       * @details The number of nonzeros of the matrix.
+       * @details The number of nonzeros of the matrix.  Note that we assume local matrix would not be too large. Use int here.
        */
       int                        _nnz;
       

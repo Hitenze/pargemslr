@@ -59,6 +59,13 @@ FLAGS += -Xpreprocessor -fopenmp -DPARGEMSLR_OPENMP
 LIBOPENMP = -lomp
 endif
 
+ifneq ($(USING_PARPACK),0)
+# -DPARGEMSLR_PARPACK: enable parallel arpack
+PARPACK_PATH = .
+FLAGS += -DPARGEMSLR_PARPACK
+LIBPARPACK = -larpack -lparpack
+endif
+
 ifeq ($(USING_CUDA),0)
 FLAGS += -Wall
 else
@@ -81,6 +88,10 @@ endif
 
 ifneq ($(USING_BLAS),0)
 FLAGS += -DPARGEMSLR_BLAS
+endif
+
+ifneq ($(USING_INT32),0)
+FLAGS += -DPARGEMSLR_INT32
 endif
 
 ifneq ($(USING_CUDA),0)

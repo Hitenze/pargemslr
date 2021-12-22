@@ -10,7 +10,7 @@ include ../../$(HYPRE_PATH)/config/Makefile.config
 
 LINK_CXX +=  -std=c++11
 CFLAGS += -I../../INC
-LIBPARGEMSLR = -L../../ -lpargemslr -L../../$(LAPACK_PATH) $(LIBLAPACK) -L../../$(METIS_PATH)/libparmetis -lparmetis -L../../$(METIS_PATH)/libmetis -lmetis
+LIBPARGEMSLR = -L../../ -lpargemslr -L../../$(LAPACK_PATH) $(LIBLAPACK) -L../../$(PARPACK_PATH) $(LIBPARPACK) -L../../$(METIS_PATH)/libparmetis -lparmetis -L../../$(METIS_PATH)/libmetis -lmetis
 
 CINCLUDES = ${INCLUDES} ${MPIINCLUDE}
 

@@ -108,14 +108,14 @@ namespace pargemslr
    template int ParallelVectorClass<complexd>::Setup(int n_local, parallel_log &parlog);
 
    template <typename T>
-   int ParallelVectorClass<T>::Setup(int n_local, long int n_start, long int n_global, parallel_log &parlog)
+   int ParallelVectorClass<T>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, parallel_log &parlog)
    {
       return Setup( n_local, n_start, n_global, n_local, this->GetDataLocation(), false, parlog);
    }
-   template int ParallelVectorClass<float>::Setup(int n_local, long int n_start, long int n_global, parallel_log &parlog);
-   template int ParallelVectorClass<double>::Setup(int n_local, long int n_start, long int n_global, parallel_log &parlog);
-   template int ParallelVectorClass<complexs>::Setup(int n_local, long int n_start, long int n_global, parallel_log &parlog);
-   template int ParallelVectorClass<complexd>::Setup(int n_local, long int n_start, long int n_global, parallel_log &parlog);
+   template int ParallelVectorClass<float>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, parallel_log &parlog);
+   template int ParallelVectorClass<double>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, parallel_log &parlog);
+   template int ParallelVectorClass<complexs>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, parallel_log &parlog);
+   template int ParallelVectorClass<complexd>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, parallel_log &parlog);
 
    template <typename T>
    int ParallelVectorClass<T>::Setup(int n_local, bool setzero, parallel_log &parlog)
@@ -128,14 +128,14 @@ namespace pargemslr
    template int ParallelVectorClass<complexd>::Setup(int n_local, bool setzero, parallel_log &parlog);
 
    template <typename T>
-   int ParallelVectorClass<T>::Setup(int n_local, long int n_start, long int n_global, bool setzero, parallel_log &parlog)
+   int ParallelVectorClass<T>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, bool setzero, parallel_log &parlog)
    {
       return Setup( n_local, n_start, n_global, n_local, this->GetDataLocation(), setzero, parlog);
    }
-   template int ParallelVectorClass<float>::Setup(int n_local, long int n_start, long int n_global, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<double>::Setup(int n_local, long int n_start, long int n_global, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexs>::Setup(int n_local, long int n_start, long int n_global, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexd>::Setup(int n_local, long int n_start, long int n_global, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<float>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<double>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<complexs>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<complexd>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, bool setzero, parallel_log &parlog);
 
    template <typename T>
    int ParallelVectorClass<T>::Setup(int n_local, int location, bool setzero, parallel_log &parlog)
@@ -148,42 +148,17 @@ namespace pargemslr
    template int ParallelVectorClass<complexd>::Setup(int n_local, int location, bool setzero, parallel_log &parlog);
 
    template <typename T>
-   int ParallelVectorClass<T>::Setup(int n_local, long int n_start, long int n_global, int location, bool setzero, parallel_log &parlog)
+   int ParallelVectorClass<T>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int location, bool setzero, parallel_log &parlog)
    {
       return Setup( n_local, n_start, n_global, n_local, location, setzero, parlog);
    }
-   template int ParallelVectorClass<float>::Setup(int n_local, long int n_start, long int n_global, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<double>::Setup(int n_local, long int n_start, long int n_global, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexs>::Setup(int n_local, long int n_start, long int n_global, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexd>::Setup(int n_local, long int n_start, long int n_global, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<float>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<double>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<complexs>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<complexd>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int location, bool setzero, parallel_log &parlog);
 
    template <typename T>
-   int ParallelVectorClass<T>::Setup(int n_local, int reserve, int location, bool setzero, parallel_log &parlog)
-   {
-      PARGEMSLR_CHKERR(n_local < 0);
-      PARGEMSLR_CHKERR(n_local > reserve);
-      
-      MPI_Comm comm;
-      int      np, myid;
-      
-      parlog.GetMpiInfo(np, myid, comm);
-      
-      /* get the global start/end */
-      long int n_start, n_global;
-      PargemslrNLocalToNGlobal( n_local, n_start, n_global, comm);
-      
-      /* now build the parallel vector */
-      this->Setup( n_local, n_start, n_global, reserve, location, setzero, parlog);
-      
-      return PARGEMSLR_SUCCESS;
-   }
-   template int ParallelVectorClass<float>::Setup(int n_local, int reserve, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<double>::Setup(int n_local, int reserve, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexs>::Setup(int n_local, int reserve, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexd>::Setup(int n_local, int reserve, int location, bool setzero, parallel_log &parlog);
-   
-   template <typename T>
-   int ParallelVectorClass<T>::Setup(int n_local, long int n_start, long int n_global, int reserve, int location, bool setzero, parallel_log &parlog)
+   int ParallelVectorClass<T>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int reserve, int location, bool setzero, parallel_log &parlog)
    {
       PARGEMSLR_CHKERR(n_local < 0);
       PARGEMSLR_CHKERR(n_local > reserve);
@@ -205,10 +180,10 @@ namespace pargemslr
       
       return PARGEMSLR_SUCCESS;
    }
-   template int ParallelVectorClass<float>::Setup(int n_local, long int n_start, long int n_global, int reserve, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<double>::Setup(int n_local, long int n_start, long int n_global, int reserve, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexs>::Setup(int n_local, long int n_start, long int n_global, int reserve, int location, bool setzero, parallel_log &parlog);
-   template int ParallelVectorClass<complexd>::Setup(int n_local, long int n_start, long int n_global, int reserve, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<float>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int reserve, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<double>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int reserve, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<complexs>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int reserve, int location, bool setzero, parallel_log &parlog);
+   template int ParallelVectorClass<complexd>::Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int reserve, int location, bool setzero, parallel_log &parlog);
 
    template <typename T>
    int ParallelVectorClass<T>::SetupPtrStr( ParallelVectorClass<T> &x)
@@ -341,24 +316,24 @@ namespace pargemslr
    template int ParallelVectorClass<complexd>::GetLengthLocal() const;
    
    template <typename T>
-   long int ParallelVectorClass<T>::GetLengthGlobal() const
+   pargemslr_long ParallelVectorClass<T>::GetLengthGlobal() const
    {
       return this->_n_global;
    }
-   template long int ParallelVectorClass<float>::GetLengthGlobal() const;
-   template long int ParallelVectorClass<double>::GetLengthGlobal() const;
-   template long int ParallelVectorClass<complexs>::GetLengthGlobal() const;
-   template long int ParallelVectorClass<complexd>::GetLengthGlobal() const;
+   template pargemslr_long ParallelVectorClass<float>::GetLengthGlobal() const;
+   template pargemslr_long ParallelVectorClass<double>::GetLengthGlobal() const;
+   template pargemslr_long ParallelVectorClass<complexs>::GetLengthGlobal() const;
+   template pargemslr_long ParallelVectorClass<complexd>::GetLengthGlobal() const;
    
    template <typename T>
-   long int ParallelVectorClass<T>::GetStartGlobal() const
+   pargemslr_long ParallelVectorClass<T>::GetStartGlobal() const
    {
       return this->_n_start;
    }
-   template long int ParallelVectorClass<float>::GetStartGlobal() const;
-   template long int ParallelVectorClass<double>::GetStartGlobal() const;
-   template long int ParallelVectorClass<complexs>::GetStartGlobal() const;
-   template long int ParallelVectorClass<complexd>::GetStartGlobal() const;
+   template pargemslr_long ParallelVectorClass<float>::GetStartGlobal() const;
+   template pargemslr_long ParallelVectorClass<double>::GetStartGlobal() const;
+   template pargemslr_long ParallelVectorClass<complexs>::GetStartGlobal() const;
+   template pargemslr_long ParallelVectorClass<complexd>::GetStartGlobal() const;
    
    template <typename T>
    bool ParallelVectorClass<T>::IsHoldingData() const
@@ -657,14 +632,14 @@ namespace pargemslr
       this->GetMpiInfo(np, myid, comm);
       
       SequentialVectorClass<T>         global_vec;
-      vector_long                      nstarts;
+      IntVectorClass<pargemslr_long>   nstarts;
       
       /* only one MPI rank, do as sequential */
       if(np == 1)
       {
          err = global_vec.ReadFromMMFile( vecfile, idxin); PARGEMSLR_CHKERR(err);
          
-         PARGEMSLR_CHKERR( this->_n_global != (long int)(global_vec.GetLengthLocal()));
+         PARGEMSLR_CHKERR( this->_n_global != (pargemslr_long)(global_vec.GetLengthLocal()));
          
          this->_data_vec = std::move(global_vec);
          
@@ -675,7 +650,7 @@ namespace pargemslr
       {
          /* read the global vector */
          err = global_vec.ReadFromMMFile( vecfile, idxin); PARGEMSLR_CHKERR(err);
-         PARGEMSLR_CHKERR( this->_n_global != (long int)(global_vec.GetLengthLocal()));
+         PARGEMSLR_CHKERR( this->_n_global != (pargemslr_long)(global_vec.GetLengthLocal()));
          nstarts.Setup(np+1);
       }
       

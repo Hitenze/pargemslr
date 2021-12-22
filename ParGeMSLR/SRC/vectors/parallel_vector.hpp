@@ -35,13 +35,13 @@ namespace pargemslr
        * @brief   The start index of the vector.
        * @details The start index of the vector.
        */
-      long int                   _n_start;
+      pargemslr_long             _n_start;
       
       /**
        * @brief   The global length of the vector.
        * @details The global length of the vector.
        */
-      long int                   _n_global;
+      pargemslr_long             _n_global;
       
    public:
       
@@ -118,19 +118,6 @@ namespace pargemslr
       int            Setup(int n_local, int location, bool setzero, parallel_log &parlog);
       
       /**
-       * @brief   Free the current vector, and allocate memory at give location to initilize the vector.
-       * @details Free the current vector, and allocate memory at give location to initilize the vector. \n
-       *          The actual memory size is set by the value reserve, and the vector length is given by the value length.
-       * @param   [in]        n_local The local length of the vector.
-       * @param   [in]        reserve The length allocated in the memory, should be no less than length.
-       * @param   [in]        location The location of the vector.
-       * @param   [in]        setzero Call calloc if we need to fill the memory with 0.
-       * @param   [in]        parlog The Parallel log data structure, if parallel_log._comm == NULL, will use the global one.
-       * @return     Return error message.
-       */
-      int            Setup(int n_local, int reserve, int location, bool setzero, parallel_log &parlog);
-      
-      /**
        * @brief   Free the current vector, and malloc memory to initilize the vector on comm.
        * @details Free the current vector, and malloc memory to initilize the vector on comm.
        * @param   [in]        n_local The local length of the vector.
@@ -139,7 +126,7 @@ namespace pargemslr
        * @param   [in]        parlog The Parallel log data structure, if parallel_log._comm == NULL, will use the global one.
        * @return     Return error message.
        */
-      int            Setup(int n_local, long int n_start, long int n_global, parallel_log &parlog);
+      int            Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, parallel_log &parlog);
       
       /**
        * @brief   Free the current vector, and allocate memory to initilize the vector.
@@ -151,7 +138,7 @@ namespace pargemslr
        * @param   [in]        parlog The Parallel log data structure, if parallel_log._comm == NULL, will use the global one.
        * @return     Return error message.
        */
-      int            Setup(int n_local, long int n_start, long int n_global, bool setzero, parallel_log &parlog);
+      int            Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, bool setzero, parallel_log &parlog);
       
       /**
        * @brief   Free the current vector, and allocate memory at give location to initilize the vector.
@@ -164,7 +151,7 @@ namespace pargemslr
        * @param   [in]        parlog The Parallel log data structure, if parallel_log._comm == NULL, will use the global one.
        * @return     Return error message.
        */
-      int            Setup(int n_local, long int n_start, long int n_global, int location, bool setzero, parallel_log &parlog);
+      int            Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int location, bool setzero, parallel_log &parlog);
       
       /**
        * @brief   Free the current vector, and allocate memory at give location to initilize the vector.
@@ -179,7 +166,7 @@ namespace pargemslr
        * @param   [in]        parlog The Parallel log data structure, if parallel_log._comm == NULL, will use the global one.
        * @return     Return error message.
        */
-      int            Setup(int n_local, long int n_start, long int n_global, int reserve, int location, bool setzero, parallel_log &parlog);
+      int            Setup(int n_local, pargemslr_long n_start, pargemslr_long n_global, int reserve, int location, bool setzero, parallel_log &parlog);
       
       /**
        * @brief   Setup the length information of a vector pointer with the information of a ParallelVectorClass.
@@ -256,14 +243,14 @@ namespace pargemslr
        * @details Get the global length of the vector.
        * @return     Return the global length of the vector.
        */
-      virtual long int GetLengthGlobal() const;
+      virtual pargemslr_long GetLengthGlobal() const;
       
       /**
        * @brief   Get the global start index of the vector.
        * @details Get the global start index of the vector.
        * @return     Return the global start index of the vector.
        */
-      virtual long int GetStartGlobal() const;
+      virtual pargemslr_long GetStartGlobal() const;
       
       /**
        * @brief   Check if the vector holding its own data.

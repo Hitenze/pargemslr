@@ -397,8 +397,9 @@ namespace pargemslr
       
    };
    
-   typedef IntVectorClass<int>         vector_int;
-   typedef IntVectorClass<long int>    vector_long;
+   typedef IntVectorClass<int>               vector_int;
+   typedef IntVectorClass<long int>          vector_long;
+   typedef IntVectorClass<pargemslr_long>    vector_pargemslr_long;
    template<> struct PargemslrIsComplex<IntVectorClass<complexs> > : public std::true_type {};
    template<> struct PargemslrIsComplex<IntVectorClass<complexd> > : public std::true_type {};
    

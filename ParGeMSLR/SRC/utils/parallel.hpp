@@ -491,7 +491,7 @@ namespace pargemslr
     * @param [out]      comm The MPI_comm.
     * @return           Return error message.                                                         
     */
-   int PargemslrNLocalToNGlobal( int n_local, long int &n_start, long int &n_global, MPI_Comm &comm);
+   int PargemslrNLocalToNGlobal( int n_local, pargemslr_long &n_start, pargemslr_long &n_global, MPI_Comm &comm);
    
    /**
     * @brief   Each MPI rank holds two n_locals, get the n_starts and n_globals.
@@ -505,7 +505,7 @@ namespace pargemslr
     * @param [out]      comm The MPI_comm.
     * @return           Return error message.                                                         
     */
-   int PargemslrNLocalToNGlobal( int nrow_local, int ncol_local, long int &nrow_start, long int &ncol_start, long int &nrow_global, long int &ncol_global, MPI_Comm &comm);
+   int PargemslrNLocalToNGlobal( int nrow_local, int ncol_local, pargemslr_long &nrow_start, pargemslr_long &ncol_start, pargemslr_long &nrow_global, pargemslr_long &ncol_global, MPI_Comm &comm);
    
    /**
     * @brief   Initilize MPI, OpenMP, and CUDA. Note that if you have already called MPI_Init, call other init functions instead.
@@ -640,6 +640,24 @@ namespace pargemslr
    template <typename T>
    int PargemslrMpiRecv(T *buf, int count, int source, int tag, MPI_Comm comm, MPI_Status * status);
    
+   /**
+    * @brief   MPI_Sendrecv.
+    * @details MPI_Sendrecv.
+    * @param [in]  sendbuf Pointer to the send data. 
+    * @param [in]  sendcount Number of send/recv elements. 
+    * @param [in]  dest Rank of the dest MPI rank. 
+    * @param [in]  sendtag Tag of the send message. 
+    * @param [in]  recvbuf Pointer to the recv data. 
+    * @param [in]  recvcount Number of send/recv elements. 
+    * @param [in]  source Rank of the source MPI rank. 
+    * @param [in]  recvtag Tag of the recv message. 
+    * @param [in]  comm MPI_Comm.  
+    * @param [out] status MPI_Status.  
+    * @return      Return error message.                                                         
+    */
+   template <typename T1, typename T2>
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   
 #else
    
    /**
@@ -760,6 +778,82 @@ namespace pargemslr
    template <typename T>
    typename std::enable_if<PargemslrIsComplex<T>::value, int>::type
    PargemslrMpiRecv(T *buf, int count, int source, int tag, MPI_Comm comm, MPI_Status * status);
+   
+   /**
+    * @brief   MPI_Sendrecv.
+    * @details MPI_Sendrecv.
+    * @param [in]  sendbuf Pointer to the send data. 
+    * @param [in]  sendcount Number of send/recv elements. 
+    * @param [in]  dest Rank of the dest MPI rank. 
+    * @param [in]  sendtag Tag of the send message. 
+    * @param [in]  recvbuf Pointer to the recv data. 
+    * @param [in]  recvcount Number of send/recv elements. 
+    * @param [in]  source Rank of the source MPI rank. 
+    * @param [in]  recvtag Tag of the recv message. 
+    * @param [in]  comm MPI_Comm.  
+    * @param [out] status MPI_Status.  
+    * @return      Return error message.                                                         
+    */
+   template <typename T1, typename T2>
+   typename std::enable_if<!PargemslrIsComplex<T1>::value&&!PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   
+   /**
+    * @brief   MPI_Sendrecv.
+    * @details MPI_Sendrecv.
+    * @param [in]  sendbuf Pointer to the send data. 
+    * @param [in]  sendcount Number of send/recv elements. 
+    * @param [in]  dest Rank of the dest MPI rank. 
+    * @param [in]  sendtag Tag of the send message. 
+    * @param [in]  recvbuf Pointer to the recv data. 
+    * @param [in]  recvcount Number of send/recv elements. 
+    * @param [in]  source Rank of the source MPI rank. 
+    * @param [in]  recvtag Tag of the recv message. 
+    * @param [in]  comm MPI_Comm.  
+    * @param [out] status MPI_Status.  
+    * @return      Return error message.                                                         
+    */
+   template <typename T1, typename T2>
+   typename std::enable_if<!PargemslrIsComplex<T1>::value&&PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   
+   /**
+    * @brief   MPI_Sendrecv.
+    * @details MPI_Sendrecv.
+    * @param [in]  sendbuf Pointer to the send data. 
+    * @param [in]  sendcount Number of send/recv elements. 
+    * @param [in]  dest Rank of the dest MPI rank. 
+    * @param [in]  sendtag Tag of the send message. 
+    * @param [in]  recvbuf Pointer to the recv data. 
+    * @param [in]  recvcount Number of send/recv elements. 
+    * @param [in]  source Rank of the source MPI rank. 
+    * @param [in]  recvtag Tag of the recv message. 
+    * @param [in]  comm MPI_Comm.  
+    * @param [out] status MPI_Status.  
+    * @return      Return error message.                                                         
+    */
+   template <typename T1, typename T2>
+   typename std::enable_if<PargemslrIsComplex<T1>::value&&!PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   
+   /**
+    * @brief   MPI_Sendrecv.
+    * @details MPI_Sendrecv.
+    * @param [in]  sendbuf Pointer to the send data. 
+    * @param [in]  sendcount Number of send/recv elements. 
+    * @param [in]  dest Rank of the dest MPI rank. 
+    * @param [in]  sendtag Tag of the send message. 
+    * @param [in]  recvbuf Pointer to the recv data. 
+    * @param [in]  recvcount Number of send/recv elements. 
+    * @param [in]  source Rank of the source MPI rank. 
+    * @param [in]  recvtag Tag of the recv message. 
+    * @param [in]  comm MPI_Comm.  
+    * @param [out] status MPI_Status.  
+    * @return      Return error message.                                                         
+    */
+   template <typename T1, typename T2>
+   typename std::enable_if<PargemslrIsComplex<T1>::value&&PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
    
 #endif
 

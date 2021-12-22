@@ -47,7 +47,7 @@ endif
 
 LIBPARGEMSLR = libpargemslr.a
 
-LIB := -L$(METIS_PATH)/libmetis -lmetis -L$(METIS_PATH)/libparmetis -lparmetis -L$(LAPACK_PATH) $(LIBLAPACK) $(LIBOPENMP) $(LIBMKL) -lgfortran $(LIBCUDA)
+LIB := -L$(METIS_PATH)/libmetis -lmetis -L$(METIS_PATH)/libparmetis -lparmetis -L$(LAPACK_PATH) $(LIBLAPACK) -L$(PARPACK_PATH) $(LIBPARPACK) $(LIBOPENMP) $(LIBMKL) -lgfortran $(LIBCUDA)
 
 #LIB += -L$(CSPARSE_PATH)/Lib -lcsparse
 LIB += -L$(AMD_PATH)/Lib -lamd

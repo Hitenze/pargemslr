@@ -238,13 +238,13 @@ namespace pargemslr
    
 #endif
 
-   int PargemslrNLocalToNGlobal( int n_local, long int &n_start, long int &n_global, MPI_Comm &comm)
+   int PargemslrNLocalToNGlobal( int n_local, pargemslr_long &n_start, pargemslr_long &n_global, MPI_Comm &comm)
    {
       
       int      np;
       PARGEMSLR_MPI_CALL(MPI_Comm_size(comm, &np));
       
-      long int n_local_long = (long int) n_local;
+      pargemslr_long n_local_long = (pargemslr_long) n_local;
       
       /* after scan, n_start is the exact n_start plus n_local */
       PargemslrMpiScan( &n_local_long, &n_start, 1, MPI_SUM, comm);
@@ -259,17 +259,17 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
    }
    
-   int PargemslrNLocalToNGlobal( int nrow_local, int ncol_local, long int &nrow_start, long int &ncol_start, long int &nrow_global, long int &ncol_global, MPI_Comm &comm)
+   int PargemslrNLocalToNGlobal( int nrow_local, int ncol_local, pargemslr_long &nrow_start, pargemslr_long &ncol_start, pargemslr_long &nrow_global, pargemslr_long &ncol_global, MPI_Comm &comm)
    {
       
       int      np;
       PARGEMSLR_MPI_CALL(MPI_Comm_size(comm, &np));
       
-      int long *pbuffer;
-      PARGEMSLR_MALLOC( pbuffer, 6, kMemoryHost, long int);
+      pargemslr_long *pbuffer;
+      PARGEMSLR_MALLOC( pbuffer, 6, kMemoryHost, pargemslr_long);
       
-      pbuffer[0] = (long int) nrow_local;
-      pbuffer[1] = (long int) ncol_local;
+      pbuffer[0] = (pargemslr_long) nrow_local;
+      pbuffer[1] = (pargemslr_long) ncol_local;
       
       /* after scan, n_start is the exact n_start plus n_local */
       PargemslrMpiScan( pbuffer, pbuffer+2, 2, MPI_SUM, comm);
@@ -643,6 +643,19 @@ namespace pargemslr
    template int PargemslrMpiRecv(complexs *buf, int count, int source, int tag, MPI_Comm comm, MPI_Status *status);
    template int PargemslrMpiRecv(complexd *buf, int count, int source, int tag, MPI_Comm comm, MPI_Status *status);
    
+   template <typename T1, typename T2>
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status)
+   {
+      PARGEMSLR_MPI_CALL( MPI_Sendrecv( sendbuf, sendcount, PargemslrMpiDataType<T1>(), dest, sendtag, recvbuf, recvcount, PargemslrMpiDataType<T2>(), source, recvtag, comm, status) );
+      return PARGEMSLR_SUCCESS;
+   }
+   template int PargemslrMpiSendRecv(int *sendbuf, int sendcount, int dest, int sendtag, int *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(long int *sendbuf, int sendcount, int dest, int sendtag, long int *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(float *sendbuf, int sendcount, int dest, int sendtag, float *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(double *sendbuf, int sendcount, int dest, int sendtag, double *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(complexs *sendbuf, int sendcount, int dest, int sendtag, complexs *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(complexd *sendbuf, int sendcount, int dest, int sendtag, complexd *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   
 #else
    
    template <typename T>
@@ -732,6 +745,44 @@ namespace pargemslr
    }
    template int PargemslrMpiRecv(complexs *buf, int count, int source, int tag, MPI_Comm comm, MPI_Status * status);
    template int PargemslrMpiRecv(complexd *buf, int count, int source, int tag, MPI_Comm comm, MPI_Status * status);
+   
+   template <typename T1, typename T2>
+   typename std::enable_if<!PargemslrIsComplex<T1>::value&&!PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status)
+   {
+      PARGEMSLR_MPI_CALL( MPI_Sendrecv( sendbuf, sendcount, PargemslrMpiDataType<T1>(), dest, sendtag, recvbuf, recvcount, PargemslrMpiDataType<T2>(), source, recvtag, comm, status) );
+      return PARGEMSLR_SUCCESS;
+   }
+   template int PargemslrMpiSendRecv(int *sendbuf, int sendcount, int dest, int sendtag, int *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(long int *sendbuf, int sendcount, int dest, int sendtag, long int *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(float *sendbuf, int sendcount, int dest, int sendtag, float *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(double *sendbuf, int sendcount, int dest, int sendtag, double *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   
+   template <typename T1, typename T2>
+   typename std::enable_if<!PargemslrIsComplex<T1>::value&&PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status)
+   {
+      PARGEMSLR_MPI_CALL( MPI_Sendrecv( sendbuf, sendcount, PargemslrMpiDataType<T1>(), dest, sendtag, recvbuf, 2*recvcount, PargemslrMpiDataType<T2>(), source, recvtag, comm, status) );
+      return PARGEMSLR_SUCCESS;
+   }
+   
+   template <typename T1, typename T2>
+   typename std::enable_if<PargemslrIsComplex<T1>::value&&!PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status)
+   {
+      PARGEMSLR_MPI_CALL( MPI_Sendrecv( sendbuf, 2*sendcount, PargemslrMpiDataType<T1>(), dest, sendtag, recvbuf, recvcount, PargemslrMpiDataType<T2>(), source, recvtag, comm, status) );
+      return PARGEMSLR_SUCCESS;
+   }
+   
+   template <typename T1, typename T2>
+   typename std::enable_if<PargemslrIsComplex<T1>::value&&PargemslrIsComplex<T2>::value, int>::type
+   int PargemslrMpiSendRecv(T1 *sendbuf, int sendcount, int dest, int sendtag, T2 *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status)
+   {
+      PARGEMSLR_MPI_CALL( MPI_Sendrecv( sendbuf, 2*sendcount, PargemslrMpiDataType<T1>(), dest, sendtag, recvbuf, 2*recvcount, PargemslrMpiDataType<T2>(), source, recvtag, comm, status) );
+      return PARGEMSLR_SUCCESS;
+   }
+   template int PargemslrMpiSendRecv(complexs *sendbuf, int sendcount, int dest, int sendtag, complexs *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+   template int PargemslrMpiSendRecv(complexd *sendbuf, int sendcount, int dest, int sendtag, complexd *recvbuf, int recvcount, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
    
 #endif
 

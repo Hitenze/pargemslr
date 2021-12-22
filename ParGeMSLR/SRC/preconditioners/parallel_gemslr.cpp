@@ -1609,15 +1609,15 @@ namespace pargemslr
       {
          ParallelGemslrLevelClass< MatrixType, VectorType, DataType> &level_str = this->_levs_v[i];
          
-         long int n_level_local = (long int)this->_lev_ptr_v[this->_nlev_used] - (long int)this->_lev_ptr_v[i];
-         long int n_level_b = (long int)this->_lev_ptr_v[i+1] - (long int)this->_lev_ptr_v[i];
-         long int n_level_global, n_level_min, n_level_max;
+         pargemslr_long n_level_local = (long int)this->_lev_ptr_v[this->_nlev_used] - (long int)this->_lev_ptr_v[i];
+         pargemslr_long n_level_b = (long int)this->_lev_ptr_v[i+1] - (long int)this->_lev_ptr_v[i];
+         pargemslr_long n_level_global, n_level_min, n_level_max;
          
          PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_local, &n_level_global, 1, MPI_SUM, 0, comm));
          PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_b, &n_level_min, 1, MPI_MIN, 0, comm));
          PARGEMSLR_MPI_CALL(PargemslrMpiReduce( &n_level_b, &n_level_max, 1, MPI_MAX, 0, comm));
          
-         //long int nnz_level_local = level_str._E_mat.GetNumNonzeros() + level_str._F_mat.GetNumNonzeros();
+         //pargemslr_long nnz_level_local = level_str._E_mat.GetNumNonzeros() + level_str._F_mat.GetNumNonzeros();
          long int nnz_level_local = 0;
          
          ncomp = level_str._B_mat_v.size();
@@ -1645,7 +1645,11 @@ namespace pargemslr
          /* Level Size Nnz rk nnzLU nnzLR */
          if(myid == 0)
          {
+#ifdef PARGEMSLR_INT32
+            PARGEMSLR_PRINT("%5d | %5d | %12d | %10d | %10d | %12ld | %5d | %5d | %10e | %10e\n", i, ncomp_global, n_level_global, n_level_min, n_level_max, nnz_level_global, level_str._lrc, level_str._nmvs, (float)nnz_bsolver, (float)nnz_lr);
+#else
             PARGEMSLR_PRINT("%5d | %5d | %12ld | %10ld | %10ld | %12ld | %5d | %5d | %10e | %10e\n", i, ncomp_global, n_level_global, n_level_min, n_level_max, nnz_level_global, level_str._lrc, level_str._nmvs, (float)nnz_bsolver, (float)nnz_lr);
+#endif
          }
       }
       long int nnzA, nnz, nnzLU, nnzLR;
@@ -2922,18 +2926,18 @@ perm_gemslr_global:
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupPermutationRKway(MatrixType &A, int nlev_setup, int &nlev_max, int &nlev_used, vector_int &map_v, vector_int &mapptr_v)
    {
       /* Recursive KWay partition */
-      int         err = 0, tlvl;
-      long int    n, num_dom, minsep, kmin, kfactor;
-      bool        bj_last = false;
+      int            err = 0, tlvl;
+      pargemslr_long n, num_dom, minsep, kmin, kfactor;
+      bool           bj_last = false;
       
       /* prepare the level structure */
       
       n        = A.GetNumRowsGlobal();
       //num_dom  = 2;
-      num_dom  = (int)(PargemslrMin((long int)(this->_gemslr_setups._ncomp_setup), n));
+      num_dom  = (int)(PargemslrMin((pargemslr_long)(this->_gemslr_setups._ncomp_setup), n));
       
       //minsep   = 2;
-      minsep   = (int)(PargemslrMin((long int)(pargemslr_global::_minsep), n));
+      minsep   = (int)(PargemslrMin((pargemslr_long)(pargemslr_global::_minsep), n));
       kmin     = this->_gemslr_setups._kmin_setup;
       kfactor  = this->_gemslr_setups._kfactor_setup;
       tlvl     = nlev_setup;
@@ -2995,13 +2999,13 @@ perm_gemslr_global:
    int ParallelGemslrClass<MatrixType, VectorType, DataType>::SetupPermutationND(MatrixType &A, int nlev_setup, int &nlev_max, int &nlev_used, vector_int &map_v, vector_int &mapptr_v)
    {
       /* ND partition */
-      int         err = 0, tlvl;
-      long int    n, minsep;
+      int            err = 0, tlvl;
+      pargemslr_long n, minsep;
 
       /* prepare the level structure */
       
       n        = A.GetNumRowsGlobal();
-      minsep   = (int)(PargemslrMin((long int)(pargemslr_global::_minsep), n));
+      minsep   = (int)(PargemslrMin((pargemslr_long)(pargemslr_global::_minsep), n));
       tlvl     = nlev_setup;
       
       /* apply ND order, obtain map vector */
@@ -3054,65 +3058,65 @@ perm_gemslr_global:
       /* define the data type */
       typedef DataType T;
       
-      int                                    levi, levi2, i, ii, i1, i2, j, j1, j2, k, k1, k2;
-      int                                    nlev_used, nlev_max, nblocks, ncomp, dom, dom1, dom2, dom3, idx, sends, recvs;
-      int                                    n_local, n_in, n_out, nI, nE, nmax;
-      long int                               n_start, c_start, col;
-      vector_int                             n_locals;
-      vector_long                            n_disps, e_starts, c_starts, e_starts2, f_starts, f_starts2;
-      vector_int                             marker, dom_marker, node_proc;
-      vector_long                            mpi_sendsizes, mpi_recvsizes;
-      std::vector<vector_int>                dom_ptr;
-      CsrMatrixClass<T>                      A_diag_new;
-      vector_int                             rcm_order;
-      vector_int                             order, order2, rcm_order_vec, lev_ptr_vec;
-      vector_long                            perm_vec_sorted, perm_vec_sorted2;
-      std::vector<vector_int>                perm_vec_idx;
+      int                                                   levi, levi2, i, ii, i1, i2, j, j1, j2, k, k1, k2;
+      int                                                   nlev_used, nlev_max, nblocks, ncomp, dom, dom1, dom2, dom3, idx, sends, recvs;
+      int                                                   n_local, n_in, n_out, nI, nE, nmax;
+      pargemslr_long                                        n_start, c_start, col;
+      vector_int                                            n_locals;
+      vector_pargemslr_long                                 n_disps, e_starts, c_starts, e_starts2, f_starts, f_starts2;
+      vector_int                                            marker, dom_marker, node_proc;
+      vector_pargemslr_long                                 mpi_sendsizes, mpi_recvsizes;
+      std::vector<vector_int>                               dom_ptr;
+      CsrMatrixClass<T>                                     A_diag_new;
+      vector_int                                            rcm_order;
+      vector_int                                            order, order2, rcm_order_vec, lev_ptr_vec;
+      vector_pargemslr_long                                 perm_vec_sorted, perm_vec_sorted2;
+      std::vector<vector_int>                               perm_vec_idx;
       
-      std::vector<vector_long>               i_v, j_v, perm_v, dom_v;
-      std::vector<SequentialVectorClass<T> > a_v;
+      std::vector<vector_pargemslr_long>                    i_v, j_v, perm_v, dom_v;
+      std::vector<SequentialVectorClass<T> >                a_v;
       
-      std::vector<vector_long>               i2_v, j2_v, j3_v, perm2_v, dom2_v;
-      std::vector<SequentialVectorClass<T> > a2_v;
+      std::vector<vector_pargemslr_long>                    i2_v, j2_v, j3_v, perm2_v, dom2_v;
+      std::vector<SequentialVectorClass<T> >                a2_v;
       
-      int                                    n_colors, colors, colore, colorc, cmark, cmarks, cmarke;
-      vector_int                             n_colori_loc_vec, n_colori_global_vec, n_color_levi_vec, n_color_order_vec, color_map_vec, color_imap_vec;
+      int                                                   n_colors, colors, colore, colorc, cmark, cmarks, cmarke;
+      vector_int                                            n_colori_loc_vec, n_colori_global_vec, n_color_levi_vec, n_color_order_vec, color_map_vec, color_imap_vec;
       
-      int                                    new_offd_idx;
-      long int                               A_nstart;
-      vector_long                            new_offds;
-      vector_int                             offd_original_proc;
-      vector_int                             offd_new_proc;
-      vector_int                             offd_new_idx;
-      vector_int                             offd_new_idx2;
-      vector_int                             offd_new_dom;
-      vector_long                            A_vtxdist;
-      vector_int                             col_sendsize, col_recvsize;
-      std::vector<vector_long>               col_send_v, col_recv_v;
-      std::vector<vector_int>                col_send_v2, col_recv_v2;
+      int                                                   new_offd_idx;
+      pargemslr_long                                        A_nstart;
+      vector_pargemslr_long                                 new_offds;
+      vector_int                                            offd_original_proc;
+      vector_int                                            offd_new_proc;
+      vector_int                                            offd_new_idx;
+      vector_int                                            offd_new_idx2;
+      vector_int                                            offd_new_dom;
+      vector_pargemslr_long                                 A_vtxdist;
+      vector_int                                            col_sendsize, col_recvsize;
+      std::vector<vector_pargemslr_long>                    col_send_v, col_recv_v;
+      std::vector<vector_int>                               col_send_v2, col_recv_v2;
       
-      std::unordered_map<long int, int>      col_map_hash; /* col_map_hash[i] is the MPI process node i belongs to */
+      std::unordered_map<pargemslr_long, int>               col_map_hash; /* col_map_hash[i] is the MPI process node i belongs to */
       
-      std::vector<vector_long>               col_new_insert_col;
+      std::vector<vector_pargemslr_long>                    col_new_insert_col;
       
-      std::vector<std::unordered_map<long int, int> > F_markers_hash;
-      std::vector<std::unordered_map<long int, int> > E_markers_hash;
-      std::unordered_map<long int, int>      C_markers_hash;
+      std::vector<std::unordered_map<pargemslr_long, int> > F_markers_hash;
+      std::vector<std::unordered_map<pargemslr_long, int> > E_markers_hash;
+      std::unordered_map<pargemslr_long, int>               C_markers_hash;
       
-      CooMatrixClass<T>                      C_offd;
-      std::vector<CooMatrixClass<T> >        B_diags, E_diags, E_offds, F_diags, F_offds;
+      CooMatrixClass<T>                                     C_offd;
+      std::vector<CooMatrixClass<T> >                       B_diags, E_diags, E_offds, F_diags, F_offds;
       
-      MPI_Comm                               comm;
-      int                                    myid, np, pid, reqid, upid, downid, idshift;
-      std::vector<MPI_Request>               requests;
-      std::vector<MPI_Status>                status;
+      MPI_Comm                                              comm;
+      int                                                   myid, np, pid, reqid, upid, downid, idshift;
+      std::vector<MPI_Request>                              requests;
+      std::vector<MPI_Status>                               status;
       
       //MatrixType &A = *(this->_matrix);
       A.GetMpiInfo(np, myid, comm);
       
       CsrMatrixClass<T> &A_diag   = A.GetDiagMat();
       CsrMatrixClass<T> &A_offd   = A.GetOffdMat();
-      vector_long &A_offd_map    = A.GetOffdMap();
+      vector_pargemslr_long &A_offd_map    = A.GetOffdMap();
       
       int   *A_diag_i = A_diag.GetI();
       int   *A_diag_j = A_diag.GetJ();
@@ -3361,8 +3365,15 @@ perm_gemslr_global:
       }
       
       MPI_Barrier(comm);
-      /* know the size of each communication */
+      
+      /* know the size of each communication 
+       * TODO: write the general interface for MPI_Alltoall
+       */
+#ifdef PARGEMSLR_INT32
+      PARGEMSLR_MPI_CALL( MPI_Alltoall( mpi_sendsizes.GetData(), 2, MPI_INT, mpi_recvsizes.GetData(), 2, MPI_INT, comm) );
+#else
       PARGEMSLR_MPI_CALL( MPI_Alltoall( mpi_sendsizes.GetData(), 2, MPI_LONG, mpi_recvsizes.GetData(), 2, MPI_LONG, comm) );
+#endif
       
       MPI_Barrier(comm);
       
@@ -3982,7 +3993,7 @@ perm_gemslr_global:
       
       /* local first, sort local information */
       perm_vec_sorted.Setup( n_local);
-      PARGEMSLR_MEMCPY( perm_vec_sorted.GetData(), this->_pperm.GetData(), n_local, kMemoryHost, kMemoryHost, long int);
+      PARGEMSLR_MEMCPY( perm_vec_sorted.GetData(), this->_pperm.GetData(), n_local, kMemoryHost, kMemoryHost, pargemslr_long);
       
       perm_vec_sorted.Sort(order, true, false);
       
@@ -4019,25 +4030,25 @@ perm_gemslr_global:
          perm_vec_sorted2.Setup(n_locals[downid]);
          order2.Setup(n_locals[downid]);
          
-         MPI_Sendrecv( perm_vec_sorted.GetData(), n_locals[myid], MPI_LONG, upid, myid*upid,
-                        perm_vec_sorted2.GetData(), n_locals[downid], MPI_LONG, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
+         PargemslrMpiSendRecv( perm_vec_sorted.GetData(), n_locals[myid], upid, myid*upid,
+                           perm_vec_sorted2.GetData(), n_locals[downid], downid, downid*myid,
+                           comm, MPI_STATUS_IGNORE);
          
-         MPI_Sendrecv( order.GetData(), n_locals[myid], MPI_INT, upid, myid*upid,
-                        order2.GetData(), n_locals[downid], MPI_INT, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
+         PargemslrMpiSendRecv( order.GetData(), n_locals[myid], upid, myid*upid,
+                           order2.GetData(), n_locals[downid], downid, downid*myid,
+                           comm, MPI_STATUS_IGNORE);
          
-         MPI_Sendrecv( this->_lev_ptr_v.GetData()+level_start, nlev_used + 1, MPI_INT, upid, myid*upid,
-                        lev_ptr_vec.GetData(), nlev_used + 1, MPI_INT, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
+         PargemslrMpiSendRecv( this->_lev_ptr_v.GetData()+level_start, nlev_used + 1, upid, myid*upid,
+                           lev_ptr_vec.GetData(), nlev_used + 1, downid, downid*myid,
+                           comm, MPI_STATUS_IGNORE);
                         
-         MPI_Sendrecv( e_starts.GetData(), nlev_used - 1, MPI_LONG, upid, myid*upid,
-                        e_starts2.GetData(), nlev_used - 1, MPI_LONG, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
+         PargemslrMpiSendRecv( e_starts.GetData(), nlev_used - 1, upid, myid*upid,
+                           e_starts2.GetData(), nlev_used - 1, downid, downid*myid,
+                           comm, MPI_STATUS_IGNORE);
          
-         MPI_Sendrecv( f_starts.GetData(), nlev_used - 1, MPI_LONG, upid, myid*upid,
-                        f_starts2.GetData(), nlev_used - 1, MPI_LONG, downid, downid*myid,
-                        comm, MPI_STATUS_IGNORE);
+         PargemslrMpiSendRecv( f_starts.GetData(), nlev_used - 1, upid, myid*upid,
+                           f_starts2.GetData(), nlev_used - 1, downid, downid*myid,
+                           comm, MPI_STATUS_IGNORE);
          
             
          /* first update offd_new_idx */
@@ -4398,27 +4409,27 @@ perm_gemslr_global:
          col_new_insert_col[i].Clear();
       }
       
-      std::vector<vector_long>().swap(i_v);
-      std::vector<vector_long>().swap(j_v);
-      std::vector<vector_long>().swap(perm_v);
-      std::vector<vector_long>().swap(dom_v);
+      std::vector<vector_pargemslr_long>().swap(i_v);
+      std::vector<vector_pargemslr_long>().swap(j_v);
+      std::vector<vector_pargemslr_long>().swap(perm_v);
+      std::vector<vector_pargemslr_long>().swap(dom_v);
       std::vector<SequentialVectorClass<T> >().swap(a_v);
       
-      std::vector<vector_long>().swap(i2_v);
-      std::vector<vector_long>().swap(j2_v);
-      std::vector<vector_long>().swap(j3_v);
-      std::vector<vector_long>().swap(perm2_v);
-      std::vector<vector_long>().swap(dom2_v);
+      std::vector<vector_pargemslr_long>().swap(i2_v);
+      std::vector<vector_pargemslr_long>().swap(j2_v);
+      std::vector<vector_pargemslr_long>().swap(j3_v);
+      std::vector<vector_pargemslr_long>().swap(perm2_v);
+      std::vector<vector_pargemslr_long>().swap(dom2_v);
       std::vector<SequentialVectorClass<T> >().swap(a2_v);
       
-      std::vector<vector_long>().swap(col_send_v);
-      std::vector<vector_long>().swap(col_recv_v);
+      std::vector<vector_pargemslr_long>().swap(col_send_v);
+      std::vector<vector_pargemslr_long>().swap(col_recv_v);
       std::vector<vector_int>().swap(col_send_v2);
       std::vector<vector_int>().swap(col_recv_v2);
       
-      std::vector<vector_long>().swap(col_new_insert_col);
-      std::vector<std::unordered_map<long int, int> >().swap(F_markers_hash);
-      std::vector<std::unordered_map<long int, int> >().swap(E_markers_hash);
+      std::vector<vector_pargemslr_long>().swap(col_new_insert_col);
+      std::vector<std::unordered_map<pargemslr_long, int> >().swap(F_markers_hash);
+      std::vector<std::unordered_map<pargemslr_long, int> >().swap(E_markers_hash);
       
       std::vector<MPI_Request>().swap(requests);
       std::vector<MPI_Status>().swap(status);
@@ -5697,7 +5708,7 @@ perm_gemslr_global:
       
       /* Set up parameters */
       int                                    neig_c, neig_k, maxits, err;
-      long int                               n_global;
+      pargemslr_long                         n_global;
       RealDataType                           lr_fact;
       DenseMatrixClass<T>                    V, H;
    
@@ -5735,7 +5746,7 @@ perm_gemslr_global:
          neig_k      = this->_gemslr_setups._level_setups._lr_rank1_setup;
          neig_c      = int(neig_k * lr_fact);
          
-         neig_c      = (int)PargemslrMin((long int)neig_c, n_global);
+         neig_c      = (int)PargemslrMin((pargemslr_long)neig_c, n_global);
          neig_k      = PargemslrMin(neig_c, neig_k);
       }
       else if(level == -1)
@@ -5746,7 +5757,7 @@ perm_gemslr_global:
          neig_k      = this->_gemslr_setups._level_setups._lr_rankA_setup;
          neig_c      = int(neig_k * lr_fact);
          
-         neig_c      = (int)PargemslrMin((long int)neig_c, n_global);
+         neig_c      = (int)PargemslrMin((pargemslr_long)neig_c, n_global);
          neig_k      = PargemslrMin(neig_c, neig_k);
       }
       else
@@ -5757,7 +5768,7 @@ perm_gemslr_global:
          neig_k      = this->_gemslr_setups._level_setups._lr_rank2_setup;
          neig_c      = int(neig_k * lr_fact);
          
-         neig_c      = (int)PargemslrMin((long int)neig_c, n_global);
+         neig_c      = (int)PargemslrMin((pargemslr_long)neig_c, n_global);
          neig_k      = PargemslrMin(neig_c, neig_k);
       }
       
@@ -5791,7 +5802,7 @@ perm_gemslr_global:
       
       /* Set up parameters */
       int                                    n, neig_c, neig_k, m, err;
-      long int                               n_global;
+      pargemslr_long                         n_global;
       bool                                   rand_init;
       RealDataType                           normv, lr_fact, ar_fact, tol_orth, tol_reorth;
       DenseMatrixClass<T>                    V, H;
@@ -5836,7 +5847,7 @@ perm_gemslr_global:
          neig_k      = this->_gemslr_setups._level_setups._lr_rank1_setup;
          neig_c      = int(neig_k * ar_fact * lr_fact);
          
-         neig_c      = (int)PargemslrMin((long int)neig_c, n_global);
+         neig_c      = (int)PargemslrMin((pargemslr_long)neig_c, n_global);
          neig_k      = PargemslrMin(neig_c, neig_k);
       }
       else if(level == -1)
@@ -5847,7 +5858,7 @@ perm_gemslr_global:
          neig_k      = this->_gemslr_setups._level_setups._lr_rankA_setup;
          neig_c      = int(neig_k * ar_fact * lr_fact);
          
-         neig_c      = (int)PargemslrMin((long int)neig_c, n_global);
+         neig_c      = (int)PargemslrMin((pargemslr_long)neig_c, n_global);
          neig_k      = PargemslrMin(neig_c, neig_k);
       }
       else
@@ -5858,7 +5869,7 @@ perm_gemslr_global:
          neig_k      = this->_gemslr_setups._level_setups._lr_rank2_setup;
          neig_c      = int(neig_k * ar_fact * lr_fact);
          
-         neig_c      = (int)PargemslrMin((long int)neig_c, n_global);
+         neig_c      = (int)PargemslrMin((pargemslr_long)neig_c, n_global);
          neig_k      = PargemslrMin(neig_c, neig_k);
       }
       
@@ -5947,7 +5958,7 @@ perm_gemslr_global:
       typedef typename std::conditional<PargemslrIsDoublePrecision<DataType>::value, double, float>::type RealDataType;
       
       int                                                      n_local, rank, rank2, lr_m, m, maxsteps, maxits, err;
-      long int                                                 n_global;
+      pargemslr_long                                           n_global;
       bool                                                     rand_init;
       RealDataType                                             normv;
       DataType                                                 one;
@@ -6023,9 +6034,9 @@ perm_gemslr_global:
       /* we don't want to do more steps than the size of the matrix 
        * maxsteps is the maximun size of steps we can have,
        */
-      rank        = (int)PargemslrMin((long int)rank, n_global);
-      rank2       = (int)PargemslrMin((long int)rank2, n_global);
-      maxsteps    = PargemslrMin( (long int)( 2 * rank2 + lr_m + (lr_m * tr_fact)), n_global);
+      rank        = (int)PargemslrMin((pargemslr_long)rank, n_global);
+      rank2       = (int)PargemslrMin((pargemslr_long)rank2, n_global);
+      maxsteps    = PargemslrMin( (pargemslr_long)( 2 * rank2 + lr_m + (lr_m * tr_fact)), n_global);
       
       /* create matrix V and H used in Arnoldi 
        * Note that V can be on the device.
@@ -9454,11 +9465,11 @@ perm_gemslr_global:
       int *diag_j;
       int *offd_i;
       int *offd_j;
-      long int *offd_map;
-      long int n_level;
+      pargemslr_long *offd_map;
+      pargemslr_long n_level;
       
       int level, n_local, ncomp, i, j, k, j1, j2, layout;
-      long int n_start, nshift, nE_start, nB_global;
+      pargemslr_long n_start, nshift, nE_start, nB_global;
       
       FILE *pgnuplot = NULL;
       
@@ -9517,7 +9528,11 @@ perm_gemslr_global:
                j2 = diag_i[i+1];
                for(j = j1 ; j < j2 ; j ++)
                {
+#ifdef PARGEMSLR_INT32
+                  fprintf(fdata, "%d %d \n", n_start+diag_j[j]+1+nshift, n_level-n_start-i+1-nshift);
+#else
                   fprintf(fdata, "%ld %ld \n", n_start+diag_j[j]+1+nshift, n_level-n_start-i+1-nshift);
+#endif
                }
             }
             
@@ -9538,13 +9553,21 @@ perm_gemslr_global:
             j2 = diag_i[i+1];
             for(j = j1 ; j < j2 ; j ++)
             {
+#ifdef PARGEMSLR_INT32
+               fprintf(fdata, "%d %d \n", n_start+diag_j[j]+1, n_level-nE_start-nB_global-i+1);
+#else
                fprintf(fdata, "%ld %ld \n", n_start+diag_j[j]+1, n_level-nE_start-nB_global-i+1);
+#endif
             }
             j1 = offd_i[i];
             j2 = offd_i[i+1];
             for(j = j1 ; j < j2 ; j ++)
             {
+#ifdef PARGEMSLR_INT32
+               fprintf(fdata, "%d %d \n", offd_map[offd_j[j]]+1, n_level-nB_global-nE_start-i+1);
+#else
                fprintf(fdata, "%ld %ld \n", offd_map[offd_j[j]]+1, n_level-nB_global-nE_start-i+1);
+#endif
             }
          }
          
@@ -9562,13 +9585,21 @@ perm_gemslr_global:
             j2 = diag_i[i+1];
             for(j = j1 ; j < j2 ; j ++)
             {
+#ifdef PARGEMSLR_INT32
+               fprintf(fdata, "%d %d \n", nB_global+nE_start+diag_j[j]+1, n_level-n_start-i+1);
+#else
                fprintf(fdata, "%ld %ld \n", nB_global+nE_start+diag_j[j]+1, n_level-n_start-i+1);
+#endif
             }
             j1 = offd_i[i];
             j2 = offd_i[i+1];
             for(j = j1 ; j < j2 ; j ++)
             {
+#ifdef PARGEMSLR_INT32
+               fprintf(fdata, "%d %d \n", nB_global+offd_map[offd_j[j]]+1, n_level-n_start-i+1);
+#else
                fprintf(fdata, "%ld %ld \n", nB_global+offd_map[offd_j[j]]+1, n_level-n_start-i+1);
+#endif
             }
          }
          
@@ -9579,8 +9610,13 @@ perm_gemslr_global:
          if(myid == 0)
          {
             fprintf(pgnuplot, "set title \"level = %d\"\n", level);
+#ifdef PARGEMSLR_INT32
+            fprintf(pgnuplot, "set xrange [0:%d]\n", n_level+1);
+            fprintf(pgnuplot, "set yrange [0:%d]\n", n_level+1);
+#else
             fprintf(pgnuplot, "set xrange [0:%ld]\n", n_level+1);
             fprintf(pgnuplot, "set yrange [0:%ld]\n", n_level+1);
+#endif
             if(n_level < 200)
             {
                fprintf(pgnuplot, "plot '%s' pt 1 title \"p%d\"", filename, myid);
@@ -9642,13 +9678,21 @@ perm_gemslr_global:
             j2 = diag_i[i+1];
             for(j = j1 ; j < j2 ; j ++)
             {
+#ifdef PARGEMSLR_INT32
+               fprintf(fdata, "%d %d \n", n_start+diag_j[j]+1, nB_global-n_start-i);
+#else
                fprintf(fdata, "%ld %ld \n", n_start+diag_j[j]+1, nB_global-n_start-i);
+#endif
             }
             j1 = offd_i[i];
             j2 = offd_i[i+1];
             for(j = j1 ; j < j2 ; j ++)
             {
+#ifdef PARGEMSLR_INT32
+               fprintf(fdata, "%d %d \n", offd_map[offd_j[j]]+1, nB_global-n_start-i);
+#else
                fprintf(fdata, "%ld %ld \n", offd_map[offd_j[j]]+1, nB_global-n_start-i);
+#endif
             }
          }
          
@@ -9659,8 +9703,13 @@ perm_gemslr_global:
          if(myid == 0)
          {
             fprintf(pgnuplot, "set title \"level = %d\"\n", level);
+#ifdef PARGEMSLR_INT32
+            fprintf(pgnuplot, "set xrange [0:%d]\n", nB_global+1);
+            fprintf(pgnuplot, "set yrange [0:%d]\n", nB_global+1);
+#else
             fprintf(pgnuplot, "set xrange [0:%ld]\n", nB_global+1);
             fprintf(pgnuplot, "set yrange [0:%ld]\n", nB_global+1);
+#endif
             if(n_local < 200)
             {
                fprintf(pgnuplot, "plot '%s' pt 1 title \"p%d\"", filename, myid);
@@ -9891,7 +9940,7 @@ perm_gemslr_global:
       
       A.GetMpiInfo(np, myid, comm);
       
-      long int total_rows;
+      pargemslr_long total_rows;
       int n, nLU, m;
       SequentialVectorClass<T> dummyx, dummyrhs;
       

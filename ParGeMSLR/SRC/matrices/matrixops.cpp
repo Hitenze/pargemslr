@@ -34,6 +34,9 @@
 
 using namespace std;
 
+/* Arnoldi using PARPACK-NG */
+
+
 namespace pargemslr
 {
    
@@ -5135,6 +5138,42 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
    }
    
+   template <typename T>
+   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<T> &A, DenseMatrixClass<T> &AT)
+   {
+      int i, j, nrowsA, ncolsA;
+      
+      nrowsA = A.GetNumRowsLocal();
+      ncolsA = A.GetNumColsLocal();
+      
+      if(AT.GetNumRowsLocal() != ncolsA || AT.GetNumColsLocal() != nrowsA)
+      {
+         /* in this case we need to create AT */
+         AT.Setup(ncolsA, nrowsA, kMemoryHost);
+      }
+      else
+      {
+         /* only design for host memory! */
+         PARGEMSLR_CHKERR(AT.GetDataLocation() == kMemoryDevice);
+      }
+      
+      for(i = 0 ; i < ncolsA ; i ++)
+      {
+         for(j = 0 ; j < nrowsA ; j ++)
+         {
+            /* copy */
+            AT(i, j) = A(j, i);
+         }
+      }
+      
+      return PARGEMSLR_SUCCESS;
+      
+   }
+   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<float> &A, DenseMatrixClass<float> &AT);
+   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<double> &A, DenseMatrixClass<double> &AT);
+   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<complexs> &A, DenseMatrixClass<complexs> &AT);
+   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<complexd> &A, DenseMatrixClass<complexd> &AT);
+   
    template<typename T>
    int CsrMatrixPMatVecHostTemplate( const int *ia, const int *ja, const T *aa, int nrows, int ncols, char trans, const T &alpha, const T *x, const T &beta, T *y)
    {
@@ -6501,7 +6540,7 @@ namespace pargemslr
       /* setup the diagonal first */
       AT.GetDiagMat() = std::move(AT_diag);
       
-      vector_long &offd_map_v = AT.GetOffdMap();
+      vector_pargemslr_long &offd_map_v = AT.GetOffdMap();
       
       /* now, we need to send data to targer processor 
        * A._comm_helper._recv_from_v: list of nodes recv data from
@@ -6511,8 +6550,8 @@ namespace pargemslr
       int nsends, nsendi, nsendi2, nrecvs, nrecvi, nrecvi2, i, j, j1, j2, k, idx, idx2, n_local, n_offd;
       vector_int marker;
       std::vector<vector_int> send_size_v2, recv_size_v2;
-      vector_long send_se_v;
-      std::vector<vector_long> recv_se_v2;
+      vector_pargemslr_long send_se_v;
+      std::vector<vector_pargemslr_long> recv_se_v2;
       std::vector<vector_int> send_j_v2, recv_j_v2;
       std::vector<SequentialVectorClass<T> > send_data_v2, recv_data_v2;
       vector<MPI_Request> requests_v;
@@ -6763,7 +6802,7 @@ namespace pargemslr
          recv_data_v2[i].Clear();
       }
       std::vector<vector_int>().swap(recv_size_v2);
-      std::vector<vector_long>().swap(recv_se_v2);
+      std::vector<vector_pargemslr_long>().swap(recv_se_v2);
       std::vector<vector_int>().swap(recv_j_v2);
       std::vector<SequentialVectorClass<T> >().swap(recv_data_v2);
       
@@ -6825,7 +6864,7 @@ namespace pargemslr
        */
       int i, j, j1, j2, idx, nnzA, nnzB, nnzC, n_local, col, pos;
       vector_int order, B_map, iw;
-      vector_long A_offd_map_v_sorted;
+      vector_pargemslr_long A_offd_map_v_sorted;
       
       n_local = A.GetNumRowsLocal();
       
@@ -6833,9 +6872,9 @@ namespace pargemslr
       CsrMatrixClass<T> &B_offd = B.GetOffdMat();
       CsrMatrixClass<T> &C_offd = C.GetOffdMat();
       
-      vector_long &A_offd_map_v = A.GetOffdMap();
-      vector_long &B_offd_map_v = B.GetOffdMap();
-      vector_long &C_offd_map_v = C.GetOffdMap();
+      vector_pargemslr_long &A_offd_map_v = A.GetOffdMap();
+      vector_pargemslr_long &B_offd_map_v = B.GetOffdMap();
+      vector_pargemslr_long &C_offd_map_v = C.GetOffdMap();
       
       A_n_offd = A_offd_map_v.GetLengthLocal();
       B_n_offd = B_offd_map_v.GetLengthLocal();
@@ -7111,12 +7150,12 @@ namespace pargemslr
       //A_data = A.GetData();
       
       // Prepare data structures used by METIS
-      //long int lone = 1;
-      IntVectorClass<long int> xadj;
-      IntVectorClass<long int> adjncy;
-      IntVectorClass<long int> vwgt;
-      IntVectorClass<long int> adjwgt;
-      IntVectorClass<long int> lmap;
+      //pargemslr_long lone = 1;
+      IntVectorClass<pargemslr_long> xadj;
+      IntVectorClass<pargemslr_long> adjncy;
+      IntVectorClass<pargemslr_long> vwgt;
+      IntVectorClass<pargemslr_long> adjwgt;
+      IntVectorClass<pargemslr_long> lmap;
 
       lmap.Setup(nrows);
       xadj.Setup(nrows+1);
@@ -7145,13 +7184,13 @@ namespace pargemslr
                adjncy[jj] = col;
                /* at least should be 1 */
                //adjwgt[jj] = PargemslrMax(adjwgt[jj], lone);
-               //adjwgt[jj] = (long int) PargemslrAbs(A_data[j]);
+               //adjwgt[jj] = (pargemslr_long) PargemslrAbs(A_data[j]);
                adjwgt[jj] = 1;
                jj++;
             } 
             else 
             {
-               //vwgt[i] = (long int) PargemslrAbs(A_data[j]);
+               //vwgt[i] = (pargemslr_long) PargemslrAbs(A_data[j]);
                //vwgt[i] = PargemslrMax(vwgt[i], lone);
                vwgt[i] = 6;
             }
@@ -7164,12 +7203,12 @@ namespace pargemslr
          xadj[i+1] = jj;
       }
       
-      /* METIS parameters, note that long int is used */
+      /* METIS parameters, note that  is probably used */
       
-      long int lnrows = (long int)nrows;
-      long int lnum_dom = (long int)num_dom;
-      long int ledgecut;
-      long int ncon = 1;        //no weight in use
+      pargemslr_long lnrows = (pargemslr_long)nrows;
+      pargemslr_long lnum_dom = (pargemslr_long)num_dom;
+      pargemslr_long ledgecut;
+      pargemslr_long ncon = 1;        //no weight in use
       
       /* call METIS */
       
@@ -7187,7 +7226,7 @@ namespace pargemslr
          METIS_PartGraphRecursive(&lnrows, &ncon, xadj.GetData(), adjncy.GetData(), vwgt.GetData(), NULL, adjwgt.GetData(), &lnum_dom, NULL, NULL, NULL, &ledgecut, lmap.GetData());
       }
       
-      /* transfer from long int to int */
+      /* transfer from  to int */
       num_dom = (int) lnum_dom;
       for ( i = 0; i < nrows; i++) 
       {
@@ -7628,14 +7667,14 @@ namespace pargemslr
       return true;
    }
    
-   int ParmetisKwayHost(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, long int &num_dom, vector_long &map, parallel_log &parlog)
+   int ParmetisKwayHost(vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy, pargemslr_long &num_dom, vector_pargemslr_long &map, parallel_log &parlog)
    {
       /* Declare variables */
-      long int          i, j, j1, j2, k, nrow, refs;
-      long int          wtflag, numflag, edgecut, num_dom2, ncon, idx, idx2, idx3;
+      pargemslr_long    i, j, j1, j2, k, nrow, refs;
+      pargemslr_long    wtflag, numflag, edgecut, num_dom2, ncon, idx, idx2, idx3;
       
       int               nI, nC;
-      long int          nI_l, nC_l, nI_global, nC_global;
+      pargemslr_long    nI_l, nC_l, nI_global, nC_global;
       vector_int        isolate;
       
       /* first we mark those isolated nodes, that is, those nodes that has no connection with other nodes */
@@ -7716,8 +7755,8 @@ namespace pargemslr
          /* fits the loading balance, no need to re-assign */
          
          /* partition */
-         vector_long       marker, marker2;
-         vector_seq_double tpwgts, ubvec;
+         vector_pargemslr_long   marker, marker2;
+         vector_seq_float        tpwgts, ubvec;
          
          /* setup helper arrays and parameters */
          map.Setup(nrow);
@@ -7728,10 +7767,10 @@ namespace pargemslr
          ubvec.Setup(1);
          ubvec.Fill(1.05);
          
-         long int option[40]     = {0};
-         wtflag                  = 0;      //  2: Weights on the vertices only (adjwgt is NULL).
-         numflag                 = 0;      //  C-style
-         ncon                    = 1;      //  no weight in use
+         pargemslr_long option[40]  = {0};
+         wtflag                     = 0;      //  2: Weights on the vertices only (adjwgt is NULL).
+         numflag                    = 0;      //  C-style
+         ncon                       = 1;      //  no weight in use
          
          ParMETIS_V3_PartKway(vtxdist.GetData(), xadj.GetData(), adjncy.GetData(), NULL, NULL, &wtflag, &numflag,
                                     &ncon, &num_dom, tpwgts.GetData(), ubvec.GetData(), &option[0], &edgecut, map.GetData(), &comm);
@@ -7802,12 +7841,12 @@ namespace pargemslr
          /* number of local nodes on some processors is too small, redistribute */
          //PARGEMSLR_WARNING("Redistribute.");
          
-         int               pid;
-         vector_long       vtxdistc, vtxdisteven;
-         vector_long       vtxdist2, xadj2, adjncy2;
+         int                     pid;
+         vector_pargemslr_long   vtxdistc, vtxdisteven;
+         vector_pargemslr_long   vtxdist2, xadj2, adjncy2;
          
          /* we redistribute those connected nodes to each processor */
-         long int          nC1, nC2;
+         pargemslr_long    nC1, nC2;
          
          nC1      = nC_global/np;
          nC2      = nC_global%np;
@@ -8055,8 +8094,8 @@ namespace pargemslr
          PARGEMSLR_MPI_CALL( MPI_Waitall( nsendrecv, request_v.data(), MPI_STATUSES_IGNORE) );
          
          /* partition of the redistributed graph */
-         vector_long       marker, marker2, map2;
-         vector_seq_double tpwgts, ubvec;
+         vector_pargemslr_long   marker, marker2, map2;
+         vector_seq_float        tpwgts, ubvec;
          
          /* setup helper arrays and parameters */
          map.Setup(nrow);
@@ -8068,10 +8107,10 @@ namespace pargemslr
          ubvec.Setup(1);
          ubvec.Fill(1.05);
          
-         long int option[40]     = {0};
-         wtflag                  = 0;      //  2: Weights on the vertices only (adjwgt is NULL).
-         numflag                 = 0;      //  C-style
-         ncon                    = 1;      //  no weight in use
+         pargemslr_long option[40]  = {0};
+         wtflag                     = 0;      //  2: Weights on the vertices only (adjwgt is NULL).
+         numflag                    = 0;      //  C-style
+         ncon                       = 1;      //  no weight in use
          
          ParMETIS_V3_PartKway(vtxdist2.GetData(), xadj2.GetData(), adjncy2.GetData(), NULL, NULL, &wtflag, &numflag,
                                     &ncon, &num_dom, tpwgts.GetData(), ubvec.GetData(), &option[0], &edgecut, map2.GetData(), &comm);
@@ -8108,7 +8147,7 @@ namespace pargemslr
          }
          
          /* check for empty domain */
-         PARGEMSLR_MPI_CALL( MPI_Allreduce(MPI_IN_PLACE, marker.GetData(), num_dom, MPI_LONG, MPI_MAX, comm) );
+         PargemslrMpiAllreduceInplace( marker.GetData(), num_dom, MPI_MAX, comm);
 
          num_dom2 = 0;
          for (i = 0; i < num_dom; i++)
@@ -8182,14 +8221,14 @@ namespace pargemslr
       }
    }
    
-   int ParmetisNodeND(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, long int &num_dom, vector_long &map, parallel_log &parlog)
+   int ParmetisNodeND(vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy, pargemslr_long &num_dom, vector_pargemslr_long &map, parallel_log &parlog)
    {
       /* Declare variables */
-      vector_long       order, sizes;
+      vector_pargemslr_long   order, sizes;
       
-      long int          i, nrow;
-      long int          numflag;
-      int               idx;
+      pargemslr_long          i, nrow;
+      pargemslr_long          numflag;
+      int                     idx;
       
       /* MPI */
       MPI_Comm    comm;
@@ -8204,8 +8243,8 @@ namespace pargemslr
       order.Setup(nrow);
       sizes.Setup(2*np+1, true);
       
-      long int option[40]     = {0};
-      numflag                 = 0;      //  C-style
+      pargemslr_long option[40]  = {0};
+      numflag                    = 0;      //  C-style
       
       /* parMetis ND partition into log(p) comp
        * order[i]: now global number of i-th local vertex.
@@ -8431,11 +8470,11 @@ namespace pargemslr
       A_data = A.GetData();
       
       // Prepare data structures used by METIS
-      IntVectorClass<long int> xadj;
-      IntVectorClass<long int> adjncy;
-      IntVectorClass<long int> vwgt;
-      IntVectorClass<long int> perml;
-      IntVectorClass<long int> iperml;
+      IntVectorClass<pargemslr_long> xadj;
+      IntVectorClass<pargemslr_long> adjncy;
+      IntVectorClass<pargemslr_long> vwgt;
+      IntVectorClass<pargemslr_long> perml;
+      IntVectorClass<pargemslr_long> iperml;
       
       adjncy.Setup(nnz);
       xadj.Setup(nrows+1);
@@ -8463,7 +8502,7 @@ namespace pargemslr
             } 
             else 
             {
-               vwgt[i] = (long int) PargemslrAbs(A_data[j]);
+               vwgt[i] = (pargemslr_long) PargemslrAbs(A_data[j]);
             }
          }
          if(vwgt[i] == 0)
@@ -8474,9 +8513,9 @@ namespace pargemslr
          xadj[i+1] = jj;
       }
       
-      // METIS parameters, note that long int is used
+      // METIS parameters, note that  is used
       
-      long int lnrows = (long int)nrows;
+      pargemslr_long lnrows = (pargemslr_long)nrows;
       
       // call METIS
       
@@ -9441,6 +9480,954 @@ namespace pargemslr
    template int PargemslrArnoldiNoRestart2<ParallelVectorClass<double> >( matrix_csr_par_double &A, int mstart, int msteps, DenseMatrixClass<double> &V, DenseMatrixClass<double> &H, double tol_orth, double tol_reorth, double shift, int &nmvs);
    template int PargemslrArnoldiNoRestart2<ParallelVectorClass<complexs> >( matrix_csr_par_complexs &A, int mstart, int msteps, DenseMatrixClass<complexs> &V, DenseMatrixClass<complexs> &H, float tol_orth, float tol_reorth, complexs shift, int &nmvs);
    template int PargemslrArnoldiNoRestart2<ParallelVectorClass<complexd> >( matrix_csr_par_complexd &A, int mstart, int msteps, DenseMatrixClass<complexd> &V, DenseMatrixClass<complexd> &H, double tol_orth, double tol_reorth, complexd shift, int &nmvs);
+   
+#ifdef PARGEMSLR_PARPACK
+   
+   template <class VectorType, class MatrixType>
+   int ArnoldiImplicitRestartHost( MatrixType &A, int msteps, int maxits, int nev, char *which,
+                     float tol_eig, matrix_dense_float &V,
+                     matrix_dense_float &H, int &nmvs)
+   {
+      
+      /* first call NAUPD to apply Arnoldi
+       * then use NEUPD to generate the final result
+       */
+      int i, j;
+      float* H_temp;
+      matrix_dense_float V_temp;
+      
+      /* NAUPD only */
+      
+      VectorType v, w; /* helping vectors for MatVec */
+      A.SetupVectorPtrStr(v);
+      A.SetupVectorPtrStr(w);
+      
+      /* Now get the problem size */
+      int n = v.GetLengthLocal();
+      int n_global = v.GetLengthGlobal();
+      
+      int ido = 0; /* must be 0 for the first call */
+      char bmat = 'I'; /* B = I */
+      
+      int np, myid;
+      MPI_Comm comm;
+      A.GetMpiInfo(np, myid, comm);
+      int fcomm = MPI_Comm_c2f(comm); /* convert to Fortran MPI_Comm */
+      
+      nmvs = 0; /* count mvs */
+      
+      vector_seq_float resid; /* array of length n, final residual vector */
+      resid.Setup(n, true);
+      
+      if(n_global < nev + 2)
+      {
+         PARGEMSLR_ERROR("nev can't be larger than n-2.");
+         return PARGEMSLR_ERROR_INVALED_PARAM;
+      }
+      
+      msteps = PargemslrMax( msteps, nev + 2);
+      int ncv = PargemslrMin( msteps, n_global); // number of columns of the matrix V
+      // 2 <= ncv - nev && ncv <= n
+      
+      /* create buffer */
+      V_temp.Setup(n, ncv, true);
+      int ldv = V_temp.GetLeadingDimension();
+      
+      vector_int iparam;
+      iparam.Setup(11, true);
+      
+      iparam[0] = 1; // equv to restart with linear combination of approximateed Schur vectors
+      iparam[2] = maxits; // max iter
+      iparam[3] = 1;
+      //iparam[6] = 3; //mode, M semi-spd, inverse-mode
+      iparam[6] = 1; //mode, M is I
+      /* on return iparam[4] holds the # of converged Ritz values */
+      
+      vector_int ipntr;
+      ipntr.Setup(14, true);
+      /* ipntr[0] and [1] are used for matvec (v and w in workd)
+       * ipntr[4] is the ncv by ncv upper Hessenberg matrix H in workl 
+       * ipntr[11] is the ncv by ncv upper quasi-triangular Schur matrix in workl
+       */
+      
+      vector_seq_float workd; /* working array of length 3*n */
+      workd.Setup(3*n, true);
+      
+      int lworkl = 3*ncv*ncv +  6*ncv; /* second work array */
+      vector_seq_float workl;
+      workl.Setup(lworkl, true);
+      
+      int info = 0; /* random init guess is used */
+      
+      /* NEUPD */
+      
+      int rvec = 1; /* Compute Ritz/Schur vectors */
+      char howmny = 'P'; /* Compute nev Schur vectors, set to 'A' to compute Ritz vectors */
+      vector_int select; /* length nev, since howmny = 'A' or 'P', this is the workspace */
+      select.Setup(ncv, true);
+      
+      vector_seq_float dr, di; /* Ritz value or Ritz vector */
+      dr.Setup(nev+1, true);
+      di.Setup(nev+1, true);
+      
+      /* Since we use the 'P' option Z is not referenced */
+      //int ldz = 1;
+      //matrix_dense_double Z; // n by nev+1 matrix, Ritz vectors
+      //Z.Setup(n, nev+1, true);
+      //int ldz = n; // the leading dimension of Z
+      
+      /* not referenced */
+      float sigmar = 0.0; /* represents the real part of the shift */
+      float sigmai = 0.0; /* represents the imag part of the shift */
+      
+      vector_seq_float workev; /* working vector */
+      workev.Setup(3*ncv);
+      
+      float one = 1.0;
+      float zero = 0.0;
+      
+      while(ido != 99)
+      {
+         PARGEMSLR_PARPACK_PSNAUPD( &fcomm,
+                  &ido, 
+                  &bmat,
+                  &n, 
+                  which, 
+                  &nev, 
+                  &tol_eig, 
+                  resid.GetData(), 
+                  &ncv, 
+                  V_temp.GetData(), 
+                  &ldv, 
+                  iparam.GetData(),
+                  ipntr.GetData(), 
+                  workd.GetData(), 
+                  workl.GetData(), 
+                  &lworkl, 
+                  &info);
+         
+         if(info != 0)
+         {
+            break;
+         }
+         
+         switch(ido)
+         {
+            case -1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+            case 1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+         }         
+      }
+      
+      if(info >= 0)
+      {
+         PARGEMSLR_PARPACK_PSNEUPD ( &fcomm,
+                     &rvec, 
+                     &howmny, 
+                     select.GetData(), 
+                     dr.GetData(), 
+                     di.GetData(), 
+                     V_temp.GetData(), 
+                     &ldv, 
+                     &sigmar,
+                     &sigmai,
+                     workev.GetData(),
+                     &bmat, &n, which, &nev, &tol_eig, resid.GetData(), &ncv, V_temp.GetData(), &ldv,
+                     iparam.GetData(), ipntr.GetData(), workd.GetData(), workl.GetData(), &lworkl, &info );
+         if(info < 0)
+         {
+            printf("Error: xneupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+            return -1;
+         }
+      }
+      else
+      {
+         printf("Error: xnaupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+         return -1;
+      }
+      
+      if(V.GetNumRowsLocal() != n || V.GetNumColsLocal() != nev)
+      {
+         /* create buffer */
+         V.Setup(n, nev, true);
+      }
+      if(n > 0)
+      {
+         for(i = 0 ; i < nev ; i ++)
+         {
+            PARGEMSLR_MEMCPY( &(V(0,i)), &(V_temp(0,i)), n, V.GetDataLocation(), V_temp.GetDataLocation(), float);
+         }
+      }
+      
+      /* now setup H */
+      nev = iparam[4];
+      
+      H.Setup(nev, nev, false);
+      for(i = 0 ; i < nev ; i ++)
+      {
+         H_temp = workl.GetData()+ipntr[11]-1+i*ncv;
+         for(j = 0 ; j < nev ; j ++)
+         {
+            H(j, i) = *(H_temp++);
+         }
+      }
+      
+      V_temp.Clear();
+      dr.Clear();
+      di.Clear();
+      workl.Clear();
+      workd.Clear();
+      workev.Clear();
+      resid.Clear();
+      iparam.Clear();
+      ipntr.Clear();
+      select.Clear();
+      
+      return nev;
+   }
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<float> >( arnoldimatrix_seq_float &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_float &V, matrix_dense_float &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<float> >( arnoldimatrix_par_float &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_float &V, matrix_dense_float &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<float> >( matrix_csr_float &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_float &V, matrix_dense_float &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<float> >( matrix_csr_par_float &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_float &V, matrix_dense_float &H, int &nmvs);
+
+   template <class VectorType, class MatrixType>
+   int ArnoldiImplicitRestartHost( MatrixType &A, int msteps, int maxits, int nev, char *which,
+                     double tol_eig, matrix_dense_double &V,
+                     matrix_dense_double &H, int &nmvs)
+   {
+      
+      /* first call NAUPD to apply Arnoldi
+       * then use NEUPD to generate the final result
+       */
+      int i, j;
+      double* H_temp;
+      matrix_dense_double V_temp;
+      
+      /* NAUPD only */
+      
+      VectorType v, w; /* helping vectors for MatVec */
+      A.SetupVectorPtrStr(v);
+      A.SetupVectorPtrStr(w);
+      
+      /* Now get the problem size */
+      int n = v.GetLengthLocal();
+      int n_global = v.GetLengthGlobal();
+      
+      int ido = 0; /* must be 0 for the first call */
+      char bmat = 'I'; /* B = I */
+      
+      int np, myid;
+      MPI_Comm comm;
+      A.GetMpiInfo(np, myid, comm);
+      int fcomm = MPI_Comm_c2f(comm); /* convert to Fortran MPI_Comm */
+      
+      nmvs = 0; /* count mvs */
+      
+      vector_seq_double resid; /* array of length n, final residual vector */
+      resid.Setup(n, true);
+      
+      if(n_global < nev + 2)
+      {
+         PARGEMSLR_ERROR("nev can't be larger than n-2.");
+         return PARGEMSLR_ERROR_INVALED_PARAM;
+      }
+      
+      msteps = PargemslrMax( msteps, nev + 2);
+      int ncv = PargemslrMin( msteps, n_global); // number of columns of the matrix V
+      // 2 <= ncv - nev && ncv <= n
+      
+      /* create buffer */
+      V_temp.Setup(n, ncv, true);
+      int ldv = V_temp.GetLeadingDimension();
+      
+      vector_int iparam;
+      iparam.Setup(11, true);
+      
+      iparam[0] = 1; // equv to restart with linear combination of approximateed Schur vectors
+      iparam[2] = maxits; // max iter
+      iparam[3] = 1;
+      //iparam[6] = 3; //mode, M semi-spd, inverse-mode
+      iparam[6] = 1; //mode, M is I
+      /* on return iparam[4] holds the # of converged Ritz values */
+      
+      vector_int ipntr;
+      ipntr.Setup(14, true);
+      /* ipntr[0] and [1] are used for matvec (v and w in workd)
+       * ipntr[4] is the ncv by ncv upper Hessenberg matrix H in workl 
+       * ipntr[11] is the ncv by ncv upper quasi-triangular Schur matrix in workl
+       */
+      
+      vector_seq_double workd; /* working array of length 3*n */
+      workd.Setup(3*n, true);
+      
+      int lworkl = 3*ncv*ncv +  6*ncv; /* second work array */
+      vector_seq_double workl;
+      workl.Setup(lworkl, true);
+      
+      int info = 0; /* random init guess is used */
+      
+      /* NEUPD */
+      
+      int rvec = 1; /* Compute Ritz/Schur vectors */
+      char howmny = 'P'; /* Compute nev Schur vectors, set to 'A' to compute Ritz vectors */
+      vector_int select; /* length nev, since howmny = 'A' or 'P', this is the workspace */
+      select.Setup(ncv, true);
+      
+      vector_seq_double dr, di; /* Ritz value or Ritz vector */
+      dr.Setup(nev+1, true);
+      di.Setup(nev+1, true);
+      
+      /* Since we use the 'P' option Z is not referenced */
+      //int ldz = 1;
+      //matrix_dense_double Z; // n by nev+1 matrix, Ritz vectors
+      //Z.Setup(n, nev+1, true);
+      //int ldz = n; // the leading dimension of Z
+      
+      /* not referenced */
+      double sigmar = 0.0; /* represents the real part of the shift */
+      double sigmai = 0.0; /* represents the imag part of the shift */
+      
+      vector_seq_double workev; /* working vector */
+      workev.Setup(3*ncv);
+      
+      double one = 1.0;
+      double zero = 0.0;
+      
+      while(ido != 99)
+      {
+         PARGEMSLR_PARPACK_PDNAUPD( &fcomm,
+                  &ido, 
+                  &bmat,
+                  &n, 
+                  which, 
+                  &nev, 
+                  &tol_eig, 
+                  resid.GetData(), 
+                  &ncv, 
+                  V_temp.GetData(), 
+                  &ldv, 
+                  iparam.GetData(),
+                  ipntr.GetData(), 
+                  workd.GetData(), 
+                  workl.GetData(), 
+                  &lworkl, 
+                  &info);
+         
+         if(info != 0)
+         {
+            break;
+         }
+         
+         switch(ido)
+         {
+            case -1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+            case 1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+         }         
+      }
+      
+      if(info >= 0)
+      {
+         PARGEMSLR_PARPACK_PDNEUPD ( &fcomm,
+                     &rvec, 
+                     &howmny, 
+                     select.GetData(), 
+                     dr.GetData(), 
+                     di.GetData(), 
+                     V_temp.GetData(), 
+                     &ldv, 
+                     &sigmar,
+                     &sigmai,
+                     workev.GetData(),
+                     &bmat, &n, which, &nev, &tol_eig, resid.GetData(), &ncv, V_temp.GetData(), &ldv,
+                     iparam.GetData(), ipntr.GetData(), workd.GetData(), workl.GetData(), &lworkl, &info );
+         if(info < 0)
+         {
+            printf("Error: xneupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+            return -1;
+         }
+      }
+      else
+      {
+         printf("Error: xnaupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+         return -1;
+      }
+      
+      if(V.GetNumRowsLocal() != n || V.GetNumColsLocal() != nev)
+      {
+         /* create buffer */
+         V.Setup(n, nev, true);
+      }
+      if(n > 0)
+      {
+         for(i = 0 ; i < nev ; i ++)
+         {
+            PARGEMSLR_MEMCPY( &(V(0,i)), &(V_temp(0,i)), n, V.GetDataLocation(), V_temp.GetDataLocation(), double);
+         }
+      }
+      
+      /* now setup H */
+      nev = iparam[4];
+      
+      H.Setup(nev, nev, false);
+      for(i = 0 ; i < nev ; i ++)
+      {
+         H_temp = workl.GetData()+ipntr[11]-1+i*ncv;
+         for(j = 0 ; j < nev ; j ++)
+         {
+            H(j, i) = *(H_temp++);
+         }
+      }
+      
+      V_temp.Clear();
+      dr.Clear();
+      di.Clear();
+      workl.Clear();
+      workd.Clear();
+      workev.Clear();
+      resid.Clear();
+      iparam.Clear();
+      ipntr.Clear();
+      select.Clear();
+      
+      return nev;
+   }
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<double> >( arnoldimatrix_seq_double &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_double &V, matrix_dense_double &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<double> >( arnoldimatrix_par_double &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_double &V, matrix_dense_double &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<double> >( matrix_csr_double &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_double &V, matrix_dense_double &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<double> >( matrix_csr_par_double &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_double &V, matrix_dense_double &H, int &nmvs);
+
+   template <class VectorType, class MatrixType>
+   int ArnoldiImplicitRestartHost( MatrixType &A, int msteps, int maxits, int nev, char *which,
+                     float tol_eig, matrix_dense_complexs &V,
+                     matrix_dense_complexs &H, int &nmvs)
+   {
+      
+      /* first call NAUPD to apply Arnoldi
+       * then use NEUPD to generate the final result
+       */
+      int i, j;
+      complexs* H_temp;
+      matrix_dense_complexs V_temp;
+      
+      /* NAUPD only */
+      
+      VectorType v, w; /* helping vectors for MatVec */
+      A.SetupVectorPtrStr(v);
+      A.SetupVectorPtrStr(w);
+      
+      /* Now get the problem size */
+      int n = v.GetLengthLocal();
+      int n_global = v.GetLengthGlobal();
+      
+      int ido = 0; /* must be 0 for the first call */
+      char bmat = 'I'; /* B = I */
+      
+      int np, myid;
+      MPI_Comm comm;
+      A.GetMpiInfo(np, myid, comm);
+      int fcomm = MPI_Comm_c2f(comm); /* convert to Fortran MPI_Comm */
+      
+      nmvs = 0; /* count mvs */
+      
+      vector_seq_complexs resid; /* array of length n, final residual vector */
+      resid.Setup(n, true);
+      
+      if(n_global < nev + 2)
+      {
+         PARGEMSLR_ERROR("nev can't be larger than n-2.");
+         return PARGEMSLR_ERROR_INVALED_PARAM;
+      }
+      
+      msteps = PargemslrMax( msteps, nev + 2);
+      int ncv = PargemslrMin( msteps, n_global); // number of columns of the matrix V
+      // 2 <= ncv - nev && ncv <= n
+      
+      /* create buffer */
+      V_temp.Setup(n, ncv, true);
+      int ldv = V_temp.GetLeadingDimension();
+      
+      vector_int iparam;
+      iparam.Setup(11, true);
+      
+      iparam[0] = 1; // equv to restart with linear combination of approximateed Schur vectors
+      iparam[2] = maxits; // max iter
+      iparam[3] = 1;
+      //iparam[6] = 3; //mode, M semi-spd, inverse-mode
+      iparam[6] = 1; //mode, M is I
+      /* on return iparam[4] holds the # of converged Ritz values */
+      
+      vector_int ipntr;
+      ipntr.Setup(14, true);
+      /* ipntr[0] and [1] are used for matvec (v and w in workd)
+       * ipntr[4] is the ncv by ncv upper Hessenberg matrix H in workl 
+       * ipntr[11] is the ncv by ncv upper quasi-triangular Schur matrix in workl
+       */
+      
+      vector_seq_complexs workd; /* working array of length 3*n */
+      workd.Setup(3*n, true);
+      
+      int lworkl = 3*ncv*ncv +  6*ncv; /* second work array */
+      vector_seq_complexs workl;
+      workl.Setup(lworkl, true);
+      
+      vector_seq_float rwork;
+      rwork.Setup(ncv, true);
+      
+      int info = 0; /* random init guess is used */
+      
+      /* NEUPD */
+      
+      int rvec = 1; /* Compute Ritz/Schur vectors */
+      char howmny = 'P'; /* Compute nev Schur vectors, set to 'A' to compute Ritz vectors */
+      vector_int select; /* length nev, since howmny = 'A' or 'P', this is the workspace */
+      select.Setup(ncv, true);
+      
+      vector_seq_complexs d; /* Ritz value or Ritz vector */
+      d.Setup(nev+1, true);
+      
+      /* Since we use the 'P' option Z is not referenced */
+      //int ldz = 1;
+      //matrix_dense_double Z; // n by nev+1 matrix, Ritz vectors
+      //Z.Setup(n, nev+1, true);
+      //int ldz = n; // the leading dimension of Z
+      
+      /* not referenced */
+      complexs sigma = 0.0; /* represents the shift */
+      
+      vector_seq_complexs workev; /* working vector */
+      workev.Setup(3*ncv);
+      
+      complexs one = 1.0;
+      complexs zero = 0.0;
+      
+      while(ido != 99)
+      {
+         PARGEMSLR_PARPACK_PCNAUPD( &fcomm,
+                  &ido, 
+                  &bmat,
+                  &n, 
+                  which, 
+                  &nev, 
+                  &tol_eig, 
+                  PARGEMSLR_CAST( ccomplexs*, resid.GetData()), 
+                  &ncv, 
+                  PARGEMSLR_CAST( ccomplexs*, V_temp.GetData()), 
+                  &ldv, 
+                  iparam.GetData(),
+                  ipntr.GetData(), 
+                  PARGEMSLR_CAST( ccomplexs*, workd.GetData()), 
+                  PARGEMSLR_CAST( ccomplexs*, workl.GetData()), 
+                  &lworkl, 
+                  rwork.GetData(),
+                  &info);
+         
+         if(info != 0)
+         {
+            break;
+         }
+         
+         switch(ido)
+         {
+            case -1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+            case 1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+         }         
+      }
+      
+      if(info >= 0)
+      {
+         PARGEMSLR_PARPACK_PCNEUPD ( &fcomm,
+                     &rvec, 
+                     &howmny, 
+                     select.GetData(), 
+                     PARGEMSLR_CAST( ccomplexs*, d.GetData()), 
+                     PARGEMSLR_CAST( ccomplexs*, V_temp.GetData()), 
+                     &ldv, 
+                     PARGEMSLR_CAST( ccomplexs*, &sigma),
+                     PARGEMSLR_CAST( ccomplexs*, workev.GetData()),
+                     &bmat, &n, which, &nev, &tol_eig, PARGEMSLR_CAST( ccomplexs*, resid.GetData()), &ncv, PARGEMSLR_CAST( ccomplexs*, V_temp.GetData()), &ldv,
+                     iparam.GetData(), ipntr.GetData(), PARGEMSLR_CAST( ccomplexs*, workd.GetData()), PARGEMSLR_CAST( ccomplexs*, workl.GetData()), &lworkl, rwork.GetData(), &info );
+         if(info < 0)
+         {
+            printf("Error: xneupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+            return -1;
+         }
+      }
+      else
+      {
+         printf("Error: xnaupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+         return -1;
+      }
+      
+      if(V.GetNumRowsLocal() != n || V.GetNumColsLocal() != nev)
+      {
+         /* create buffer */
+         V.Setup(n, nev, true);
+      }
+      if(n > 0)
+      {
+         for(i = 0 ; i < nev ; i ++)
+         {
+            PARGEMSLR_MEMCPY( &(V(0,i)), &(V_temp(0,i)), n, V.GetDataLocation(), V_temp.GetDataLocation(), complexs);
+         }
+      }
+      
+      /* now setup H */
+      nev = iparam[4];
+      
+      H.Setup(nev, nev, false);
+      for(i = 0 ; i < nev ; i ++)
+      {
+         H_temp = workl.GetData()+ipntr[11]-1+i*ncv;
+         for(j = 0 ; j < nev ; j ++)
+         {
+            H(j, i) = *(H_temp++);
+         }
+      }
+      
+      V_temp.Clear();
+      d.Clear();
+      workl.Clear();
+      workd.Clear();
+      rwork.Clear();
+      workev.Clear();
+      resid.Clear();
+      iparam.Clear();
+      ipntr.Clear();
+      select.Clear();
+      
+      return nev;
+   }
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<complexs> >( arnoldimatrix_seq_complexs &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_complexs &V, matrix_dense_complexs &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<complexs> >( arnoldimatrix_par_complexs &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_complexs &V, matrix_dense_complexs &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<complexs> >( matrix_csr_complexs &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_complexs &V, matrix_dense_complexs &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<complexs> >( matrix_csr_par_complexs &A, int msteps, int maxits, int nev, char *which, float tol_eig, matrix_dense_complexs &V, matrix_dense_complexs &H, int &nmvs);
+
+   template <class VectorType, class MatrixType>
+   int ArnoldiImplicitRestartHost( MatrixType &A, int msteps, int maxits, int nev, char *which,
+                     double tol_eig, matrix_dense_complexd &V,
+                     matrix_dense_complexd &H, int &nmvs)
+   {
+      
+      /* first call NAUPD to apply Arnoldi
+       * then use NEUPD to generate the final result
+       */
+      int i, j;
+      complexd* H_temp;
+      matrix_dense_complexd V_temp;
+      
+      /* NAUPD only */
+      
+      VectorType v, w; /* helping vectors for MatVec */
+      A.SetupVectorPtrStr(v);
+      A.SetupVectorPtrStr(w);
+      
+      /* Now get the problem size */
+      int n = v.GetLengthLocal();
+      int n_global = v.GetLengthGlobal();
+      
+      int ido = 0; /* must be 0 for the first call */
+      char bmat = 'I'; /* B = I */
+      
+      int np, myid;
+      MPI_Comm comm;
+      A.GetMpiInfo(np, myid, comm);
+      int fcomm = MPI_Comm_c2f(comm); /* convert to Fortran MPI_Comm */
+      
+      nmvs = 0; /* count mvs */
+      
+      vector_seq_complexd resid; /* array of length n, final residual vector */
+      resid.Setup(n, true);
+      
+      if(n_global < nev + 2)
+      {
+         PARGEMSLR_ERROR("nev can't be larger than n-2.");
+         return PARGEMSLR_ERROR_INVALED_PARAM;
+      }
+      
+      msteps = PargemslrMax( msteps, nev + 2);
+      int ncv = PargemslrMin( msteps, n_global); // number of columns of the matrix V
+      // 2 <= ncv - nev && ncv <= n
+      
+      /* create buffer */
+      V_temp.Setup(n, ncv, true);
+      int ldv = V_temp.GetLeadingDimension();
+      
+      vector_int iparam;
+      iparam.Setup(11, true);
+      
+      iparam[0] = 1; // equv to restart with linear combination of approximateed Schur vectors
+      iparam[2] = maxits; // max iter
+      iparam[3] = 1;
+      //iparam[6] = 3; //mode, M semi-spd, inverse-mode
+      iparam[6] = 1; //mode, M is I
+      /* on return iparam[4] holds the # of converged Ritz values */
+      
+      vector_int ipntr;
+      ipntr.Setup(14, true);
+      /* ipntr[0] and [1] are used for matvec (v and w in workd)
+       * ipntr[4] is the ncv by ncv upper Hessenberg matrix H in workl 
+       * ipntr[11] is the ncv by ncv upper quasi-triangular Schur matrix in workl
+       */
+      
+      vector_seq_complexd workd; /* working array of length 3*n */
+      workd.Setup(3*n, true);
+      
+      int lworkl = 3*ncv*ncv +  6*ncv; /* second work array */
+      vector_seq_complexd workl;
+      workl.Setup(lworkl, true);
+      
+      vector_seq_double rwork;
+      rwork.Setup(ncv, true);
+      
+      int info = 0; /* random init guess is used */
+      
+      /* NEUPD */
+      
+      int rvec = 1; /* Compute Ritz/Schur vectors */
+      char howmny = 'P'; /* Compute nev Schur vectors, set to 'A' to compute Ritz vectors */
+      vector_int select; /* length nev, since howmny = 'A' or 'P', this is the workspace */
+      select.Setup(ncv, true);
+      
+      vector_seq_complexd d; /* Ritz value or Ritz vector */
+      d.Setup(nev+1, true);
+      
+      /* Since we use the 'P' option Z is not referenced */
+      //int ldz = 1;
+      //matrix_dense_double Z; // n by nev+1 matrix, Ritz vectors
+      //Z.Setup(n, nev+1, true);
+      //int ldz = n; // the leading dimension of Z
+      
+      /* not referenced */
+      complexd sigma = 0.0; /* represents the shift */
+      
+      vector_seq_complexd workev; /* working vector */
+      workev.Setup(3*ncv);
+      
+      complexd one = 1.0;
+      complexd zero = 0.0;
+      
+      while(ido != 99)
+      {
+         PARGEMSLR_PARPACK_PZNAUPD( &fcomm,
+                  &ido, 
+                  &bmat,
+                  &n, 
+                  which, 
+                  &nev, 
+                  &tol_eig, 
+                  PARGEMSLR_CAST( ccomplexd*, resid.GetData()), 
+                  &ncv, 
+                  PARGEMSLR_CAST( ccomplexd*, V_temp.GetData()), 
+                  &ldv, 
+                  iparam.GetData(),
+                  ipntr.GetData(), 
+                  PARGEMSLR_CAST( ccomplexd*, workd.GetData()), 
+                  PARGEMSLR_CAST( ccomplexd*, workl.GetData()), 
+                  &lworkl, 
+                  rwork.GetData(),
+                  &info);
+         
+         if(info != 0)
+         {
+            break;
+         }
+         
+         switch(ido)
+         {
+            case -1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+            case 1:
+            {
+               /* compute Y = op*X where 
+                * workd[ipntr[0]] is the X
+                * world[ipntr[1]] is the Y
+                */
+               
+               v.UpdatePtr(workd.GetData()+ipntr[0]-1, kMemoryHost);
+               w.UpdatePtr(workd.GetData()+ipntr[1]-1, kMemoryHost);
+               
+               w.Fill(zero);
+               A.MatVec( 'N', one, v, zero, w);
+               nmvs++;
+               
+               break;
+            }
+         }         
+      }
+      
+      if(info >= 0)
+      {
+         PARGEMSLR_PARPACK_PZNEUPD ( &fcomm,
+                     &rvec, 
+                     &howmny, 
+                     select.GetData(), 
+                     PARGEMSLR_CAST( ccomplexd*, d.GetData()), 
+                     PARGEMSLR_CAST( ccomplexd*, V_temp.GetData()), 
+                     &ldv, 
+                     PARGEMSLR_CAST( ccomplexd*, &sigma),
+                     PARGEMSLR_CAST( ccomplexd*, workev.GetData()),
+                     &bmat, &n, which, &nev, &tol_eig, PARGEMSLR_CAST( ccomplexd*, resid.GetData()), &ncv, PARGEMSLR_CAST( ccomplexd*, V_temp.GetData()), &ldv,
+                     iparam.GetData(), ipntr.GetData(), PARGEMSLR_CAST( ccomplexd*, workd.GetData()), PARGEMSLR_CAST( ccomplexd*, workl.GetData()), &lworkl, rwork.GetData(), &info );
+         if(info < 0)
+         {
+            printf("Error: xneupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+            return -1;
+         }
+      }
+      else
+      {
+         printf("Error: xnaupd error code %d on MPI rank %d\n", info, parallel_log::_grank);
+         return -1;
+      }
+      
+      if(V.GetNumRowsLocal() != n || V.GetNumColsLocal() != nev)
+      {
+         /* create buffer */
+         V.Setup(n, nev, true);
+      }
+      if(n > 0)
+      {
+         for(i = 0 ; i < nev ; i ++)
+         {
+            PARGEMSLR_MEMCPY( &(V(0,i)), &(V_temp(0,i)), n, V.GetDataLocation(), V_temp.GetDataLocation(), complexd);
+         }
+      }
+      
+      /* now setup H */
+      nev = iparam[4];
+      
+      H.Setup(nev, nev, false);
+      for(i = 0 ; i < nev ; i ++)
+      {
+         H_temp = workl.GetData()+ipntr[11]-1+i*ncv;
+         for(j = 0 ; j < nev ; j ++)
+         {
+            H(j, i) = *(H_temp++);
+         }
+      }
+      
+      V_temp.Clear();
+      d.Clear();
+      workl.Clear();
+      workd.Clear();
+      rwork.Clear();
+      workev.Clear();
+      resid.Clear();
+      iparam.Clear();
+      ipntr.Clear();
+      select.Clear();
+      
+      return nev;
+   }
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<complexd> >( arnoldimatrix_seq_complexd &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_complexd &V, matrix_dense_complexd &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<complexd> >( arnoldimatrix_par_complexd &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_complexd &V, matrix_dense_complexd &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<SequentialVectorClass<complexd> >( matrix_csr_complexd &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_complexd &V, matrix_dense_complexd &H, int &nmvs);
+   template int ArnoldiImplicitRestartHost<ParallelVectorClass<complexd> >( matrix_csr_par_complexd &A, int msteps, int maxits, int nev, char *which, double tol_eig, matrix_dense_complexd &V, matrix_dense_complexd &H, int &nmvs);
+
+#endif
    
    template <class VectorType, typename DataType, typename RealDataType>
    int PargemslrArnoldiThickRestartBuildThickRestartNewVector( DenseMatrixClass<DataType> &V, DenseMatrixClass<DataType> &H, int m, RealDataType tol_orth, RealDataType tol_reorth, VectorType &v)
@@ -10573,7 +11560,7 @@ namespace pargemslr
       typedef ComplexValueClass<RealDataType> ComplexDataType;
       
       int                                                      n_local, i, j, m, mstepsi, expand, maxsteps, maxsteps_new, trlen, npick, its, nmvs_loc;
-      long int                                                 n_global;
+      pargemslr_long                                           n_global;
       int                                                      location;
       int                                                      ncov, nicov, nsatis;
       bool                                                     cut;
@@ -10685,7 +11672,7 @@ namespace pargemslr
                maxsteps_new += expand;
             }
             
-            maxsteps_new = (int)PargemslrMin((long int)maxsteps_new, n_global);
+            maxsteps_new = (int)PargemslrMin((pargemslr_long)maxsteps_new, n_global);
          
             /* update V_data, H_data, and work_int when needed */
             if(maxsteps_new > maxsteps)
@@ -12315,7 +13302,7 @@ namespace pargemslr
    template int SetupPermutationNDRecursive( CsrMatrixClass<complexd> &A, bool vertexsep, int clvl, int &tlvl, int minsep, std::vector<std::vector<vector_int> > &level_str);
    
    template <typename T>
-   int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<T> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last)
+   int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<T> &A, bool vertexsep, int &nlev, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last)
    {
       if(A.GetDataLocation() == kMemoryDevice)
       {
@@ -12325,7 +13312,7 @@ namespace pargemslr
       
       int                              err = 0;
       int                              clvl;
-      vector_long                      vtxdist, xadj, adjncy;
+      vector_pargemslr_long            vtxdist, xadj, adjncy;
       
       A.GetGraphArrays(vtxdist, xadj, adjncy);
       
@@ -12336,10 +13323,10 @@ namespace pargemslr
          {
             int                           i, j;
             int                           n_local; 
-            long int                      col;
+            pargemslr_long                col;
             vector_int                    map, vtxsep, map2_v;
             int                           err = 0;
-            vector_long                   vtxdist_s, xadj_s, adjncy_s;
+            vector_pargemslr_long         vtxdist_s, xadj_s, adjncy_s;
             
             n_local = A.GetNumRowsLocal();
             map = A.GetSeparatorDomi();
@@ -12420,11 +13407,11 @@ namespace pargemslr
          {
             int                           i, j;
             int                           n_local; 
-            long int                      col;
+            pargemslr_long                col;
             vector_int                    map2, vtxsep, map2_v;
-            vector_long                   map;
+            vector_pargemslr_long         map;
             int                           err = 0;
-            vector_long                   vtxdist_s, xadj_s, adjncy_s;
+            vector_pargemslr_long         vtxdist_s, xadj_s, adjncy_s;
             
             n_local = A.GetNumRowsLocal();
             map2 = A.GetSeparatorDomi();
@@ -12529,19 +13516,19 @@ namespace pargemslr
       
       return err;
    }
-   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<float> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
-   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<double> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
-   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<complexs> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
-   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<complexd> &A, bool vertexsep, int &nlev, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
+   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<float> &A, bool vertexsep, int &nlev, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
+   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<double> &A, bool vertexsep, int &nlev, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
+   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<complexs> &A, bool vertexsep, int &nlev, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
+   template int ParallelCsrMatrixSetupPermutationParallelRKway( ParallelCsrMatrixClass<complexd> &A, bool vertexsep, int &nlev, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last);
    
-   int SetupPermutationParallelRKwayRecursive(vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog)
+   int SetupPermutationParallelRKwayRecursive(vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy, bool vertexsep, int clvl, int &tlvl, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog)
    {
-      long int          i, j, n_local, nA, col, ncomp2;
-      int               err = 0;
-      vector_long       map;
-      vector_int        map2_v;
-      vector_int        vtxsep;
-      vector_long       vtxdist_s, xadj_s, adjncy_s;
+      pargemslr_long          i, j, n_local, nA, col, ncomp2;
+      int                     err = 0;
+      vector_pargemslr_long   map;
+      vector_int              map2_v;
+      vector_int              vtxsep;
+      vector_pargemslr_long   vtxdist_s, xadj_s, adjncy_s;
       
       MPI_Comm          comm;
       int               myid, np;
@@ -12569,11 +13556,11 @@ namespace pargemslr
                 * we assign ncomp subdomains to the last level evenly
                 */
                
-               long int       bjdom1, bjdom2, k;
-               vector_long    bjdisps, bjns;
+               pargemslr_long          bjdom1, bjdom2, k;
+               vector_pargemslr_long   bjdisps, bjns;
                
                /* if we have enough nodes, assign ncomp, otherwise np */
-               long int       ncomp3 = nA >= ncomp ? ncomp : np;
+               pargemslr_long ncomp3 = nA >= ncomp ? ncomp : np;
                
                bjdom1 = nA / ncomp3;
                bjdom2 = nA % ncomp3;
@@ -12716,8 +13703,8 @@ namespace pargemslr
                       * we assign ncomp subdomains to the last level evenly
                       */
                      
-                     long int       bjdom1, bjdom2, k;
-                     vector_long    bjdisps, bjns;
+                     pargemslr_long          bjdom1, bjdom2, k;
+                     vector_pargemslr_long   bjdisps, bjns;
                      
                      bjdom1 = nA / ncomp;
                      bjdom2 = nA % ncomp;
@@ -12779,8 +13766,8 @@ namespace pargemslr
                    * we assign ncomp subdomains to the last level evenly
                    */
                   
-                  long int       bjdom1, bjdom2, k;
-                  vector_long    bjdisps, bjns;
+                  pargemslr_long          bjdom1, bjdom2, k;
+                  vector_pargemslr_long   bjdisps, bjns;
                   
                   bjdom1 = nA / np;
                   bjdom2 = nA % np;
@@ -12845,23 +13832,23 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
    }
    
-   int ParallelRKwayGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
+   int ParallelRKwayGetSeparator( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy, bool vertexsep, vector_pargemslr_long &vtxdist_s,  vector_pargemslr_long &xadj_s,  vector_pargemslr_long &adjncy_s, vector_pargemslr_long &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
    {
-      long int                   i, ii, j, j1, j2;
-      long int                   n_local, n_start, n_end, dom, col, nnz, n_local_s, local_diff, global_diff;
-      int                        id, idx;
-      vector_int                 ids, marker2;
-      vector_long                n_local_ss;
+      pargemslr_long                            i, ii, j, j1, j2;
+      pargemslr_long                            n_local, n_start, n_end, dom, col, nnz, n_local_s, local_diff, global_diff;
+      int                                       id, idx;
+      vector_int                                ids, marker2;
+      vector_pargemslr_long                     n_local_ss;
       
-      std::unordered_map<long int, int> col_map_hash;
-      int                        ncols;
-      vector_long                cols;
-      vector_int                 col_ids;
+      std::unordered_map<pargemslr_long, int>   col_map_hash;
+      int                                       ncols;
+      vector_pargemslr_long                     cols;
+      vector_int                                col_ids;
       
-      std::unordered_map<long int, int> col_map_uncertain_hash;
-      vector_int                 sendsize, recvsize;
-      std::vector<vector_long>   send_v2, recv_v2;
-      std::vector<vector_int>    send2_v2, recv2_v2;
+      std::unordered_map<pargemslr_long, int>   col_map_uncertain_hash;
+      vector_int                                sendsize, recvsize;
+      std::vector<vector_pargemslr_long>        send_v2, recv_v2;
+      std::vector<vector_int>                   send2_v2, recv2_v2;
       
       MPI_Comm                comm;
       int                     myid, np, numwaits;
@@ -13146,10 +14133,10 @@ namespace pargemslr
           * 0 o1 n1 o2 m o3 n2 o4 ndom  8+1
           * 2^{n + 1) + n - 2
           */
-         vector_long tree;
+         vector_pargemslr_long tree;
          
          int k, ts, te, tlen, idxi, leveli, tree_size, tree_level;
-         long int ns[4], nsg[4], domi;
+         pargemslr_long ns[4], nsg[4], domi;
          
          bool marker, even;
          
@@ -13200,8 +14187,8 @@ namespace pargemslr
             ns[2] = 0;
             ns[3] = 0;
             
-            vector_long treei;
-            std::unordered_map<long int, int> tree_idx_hash;
+            vector_pargemslr_long treei;
+            std::unordered_map<pargemslr_long, int> tree_idx_hash;
             
             treei.SetupPtr( tree, tlen, ts);
             
@@ -13512,7 +14499,7 @@ namespace pargemslr
       /* global displacement */
       n_local_ss.Setup(np);
       
-      PARGEMSLR_MPI_CALL( MPI_Allgather( &n_local_s, 1, MPI_LONG, n_local_ss.GetData(), 1, MPI_LONG, comm) );
+      PargemslrMpiAllgather(&n_local_s, 1, n_local_ss.GetData(), comm);
       
       vtxdist_s.Setup(np+1);
       vtxdist_s[0] = 0;
@@ -13708,8 +14695,8 @@ namespace pargemslr
          recv2_v2[i].Clear();
       }
       
-      std::vector<vector_long>().swap(send_v2);
-      std::vector<vector_long>().swap(recv_v2);
+      std::vector<vector_pargemslr_long>().swap(send_v2);
+      std::vector<vector_pargemslr_long>().swap(recv_v2);
       std::vector<vector_int>().swap(send2_v2);
       std::vector<vector_int>().swap(recv2_v2);
       
@@ -13719,23 +14706,23 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
    }
    
-   int ParallelRKwayGetSeparator2( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, bool vertexsep, vector_long &vtxdist_s,  vector_long &xadj_s,  vector_long &adjncy_s, vector_int &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
+   int ParallelRKwayGetSeparator2( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy, bool vertexsep, vector_pargemslr_long &vtxdist_s,  vector_pargemslr_long &xadj_s,  vector_pargemslr_long &adjncy_s, vector_int &map, int num_dom, vector_int &vtxsep, parallel_log &parlog)
    {
-      long int                   i, ii, j, j1, j2;
-      long int                   n_local, n_start, n_end, col, nnz, n_local_s, local_diff, global_diff;
-      int                        id, idx;
-      vector_int                 ids, marker2;
-      vector_long                n_local_ss;
+      pargemslr_long                            i, ii, j, j1, j2;
+      pargemslr_long                            n_local, n_start, n_end, col, nnz, n_local_s, local_diff, global_diff;
+      int                                       id, idx;
+      vector_int                                ids, marker2;
+      vector_pargemslr_long                     n_local_ss;
       
-      std::unordered_map<long int, int> col_map_hash;
-      int                        ncols;
-      vector_long                cols;
-      vector_int                 col_ids;
+      std::unordered_map<pargemslr_long, int>   col_map_hash;
+      int                                       ncols;
+      vector_pargemslr_long                     cols;
+      vector_int                                col_ids;
       
-      std::unordered_map<long int, int> col_map_uncertain_hash;
-      vector_int                 sendsize, recvsize;
-      std::vector<vector_long>   send_v2, recv_v2;
-      std::vector<vector_int>    send2_v2, recv2_v2;
+      std::unordered_map<pargemslr_long, int>   col_map_uncertain_hash;
+      vector_int                                sendsize, recvsize;
+      std::vector<vector_pargemslr_long>        send_v2, recv_v2;
+      std::vector<vector_int>                   send2_v2, recv2_v2;
       
       MPI_Comm                comm;
       int                     myid, np, numwaits;
@@ -13884,7 +14871,7 @@ namespace pargemslr
       /* global displacement */
       n_local_ss.Setup(np);
       
-      PARGEMSLR_MPI_CALL( MPI_Allgather( &n_local_s, 1, MPI_LONG, n_local_ss.GetData(), 1, MPI_LONG, comm) );
+      PargemslrMpiAllgather(&n_local_s, 1, n_local_ss.GetData(), comm);
       
       vtxdist_s.Setup(np+1);
       vtxdist_s[0] = 0;
@@ -14080,8 +15067,8 @@ namespace pargemslr
          recv2_v2[i].Clear();
       }
       
-      std::vector<vector_long>().swap(send_v2);
-      std::vector<vector_long>().swap(recv_v2);
+      std::vector<vector_pargemslr_long>().swap(send_v2);
+      std::vector<vector_pargemslr_long>().swap(recv_v2);
       std::vector<vector_int>().swap(send2_v2);
       std::vector<vector_int>().swap(recv2_v2);
       
@@ -14092,15 +15079,15 @@ namespace pargemslr
    }
    
    template <typename T>
-   int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<T> &A, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog)
+   int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<T> &A, int clvl, int &tlvl, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog)
    {
-      long int          i, j, n_local, n_start, nA, col, ncomp2;
-      int               err = 0;
-      vector_int        map;
-      vector_long       perm_sep;
-      vector_int        map2_v;
-      vector_int        vtxsep;
-      ParallelCsrMatrixClass<T> S;
+      pargemslr_long             i, j, n_local, n_start, nA, col, ncomp2;
+      int                        err = 0;
+      vector_int                 map;
+      vector_pargemslr_long      perm_sep;
+      vector_int                 map2_v;
+      vector_int                 vtxsep;
+      ParallelCsrMatrixClass<T>  S;
       
       MPI_Comm          comm;
       int               myid, np;
@@ -14129,7 +15116,7 @@ namespace pargemslr
                if(map[i] < 0)
                {
                   map[i] = ncomp;
-                  perm_sep.PushBack((long int)(n_start + i));
+                  perm_sep.PushBack((pargemslr_long)(n_start + i));
                }
             }
          }
@@ -14147,8 +15134,8 @@ namespace pargemslr
                 * we assign np subdomains to the last level
                 */
                
-               long int       bjdom1, bjdom2, k;
-               vector_long    bjdisps, bjns;
+               pargemslr_long          bjdom1, bjdom2, k;
+               vector_pargemslr_long   bjdisps, bjns;
                
                bjdom1 = nA / np;
                bjdom2 = nA % np;
@@ -14255,8 +15242,8 @@ namespace pargemslr
                 * we assign np subdomains to the last level
                 */
                
-               long int       bjdom1, bjdom2, k;
-               vector_long    bjdisps, bjns;
+               pargemslr_long          bjdom1, bjdom2, k;
+               vector_pargemslr_long   bjdisps, bjns;
                
                bjdom1 = nA / np;
                bjdom2 = nA % np;
@@ -14318,17 +15305,17 @@ namespace pargemslr
       
       return err;
    }
-   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<float> &A, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
-   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<double> &A, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
-   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<complexs> &A, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
-   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<complexd> &A, int clvl, int &tlvl, long int ncomp, long int minsep, long int kmin, long int kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
+   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<float> &A, int clvl, int &tlvl, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
+   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<double> &A, int clvl, int &tlvl, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
+   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<complexs> &A, int clvl, int &tlvl, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
+   template int SetupPermutationParallelRKwayRecursive2(ParallelCsrMatrixClass<complexd> &A, int clvl, int &tlvl, pargemslr_long ncomp, pargemslr_long minsep, pargemslr_long kmin, pargemslr_long kfactor, vector_int &map_v, vector_int &mapptr_v, bool bj_last, parallel_log &parlog);
    
    template <typename T>
-   int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<T> &A, long int &ncomp, vector_int &map_v, vector_long &perm_sep, parallel_log &parlog)
+   int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<T> &A, pargemslr_long &ncomp, vector_int &map_v, vector_pargemslr_long &perm_sep, parallel_log &parlog)
    {
-      int         n_local, i, nd_tlvl, nd_clvl, ncomp_temp;
-      long int    n_start;
-      bool        succeed;
+      int            n_local, i, nd_tlvl, nd_clvl, ncomp_temp;
+      pargemslr_long n_start;
+      bool           succeed;
       
       /* now find 2^k = num_dom */
       ncomp_temp = ncomp;
@@ -14362,17 +15349,17 @@ namespace pargemslr
             if(map_v[i] == ncomp)
             {
                /* this is an edge cut */
-               perm_sep.PushBack((long int)(n_start + i));
+               perm_sep.PushBack((pargemslr_long)(n_start + i));
             }
          }
       }
       
       return PARGEMSLR_SUCCESS;
    }
-   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<float> &A, long int &ncomp, vector_int &map_v, vector_long &perm_sep, parallel_log &parlog);
-   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<double> &A, long int &ncomp, vector_int &map_v, vector_long &perm_sep, parallel_log &parlog);
-   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<complexs> &A, long int &ncomp, vector_int &map_v, vector_long &perm_sep, parallel_log &parlog);
-   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<complexd> &A, long int &ncomp, vector_int &map_v, vector_long &perm_sep, parallel_log &parlog);
+   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<float> &A, pargemslr_long &ncomp, vector_int &map_v, vector_pargemslr_long &perm_sep, parallel_log &parlog);
+   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<double> &A, pargemslr_long &ncomp, vector_int &map_v, vector_pargemslr_long &perm_sep, parallel_log &parlog);
+   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<complexs> &A, pargemslr_long &ncomp, vector_int &map_v, vector_pargemslr_long &perm_sep, parallel_log &parlog);
+   template int SetupPermutationParallelKwayVertexSep( ParallelCsrMatrixClass<complexd> &A, pargemslr_long &ncomp, vector_int &map_v, vector_pargemslr_long &perm_sep, parallel_log &parlog);
    
    template <typename T>
    int SetupPermutationParallelKwayVertexSepRecursive(ParallelCsrMatrixClass<T> &A, int clvl, int tlvl, bool &succeed, vector_int &map_v, parallel_log &parlog)
@@ -14394,8 +15381,8 @@ namespace pargemslr
       
       int                              i, j, j1, j2, err = 0, idx;
       int                              n_local, nnz_local, ncomp, lev_shift;
-      long int                         n_start, two, ndom1, ndom2, edge_cut;
-      vector_long                      vtxdist, xadj, adjncy, dom1, dom2, map;
+      pargemslr_long                   n_start, two, ndom1, ndom2, edge_cut;
+      vector_pargemslr_long            vtxdist, xadj, adjncy, dom1, dom2, map;
       vector_int                       vtxsep, map1_v, map2_v, idx_v;
       ParallelCsrMatrixClass<T>        A1, A2;
       
@@ -14404,19 +15391,19 @@ namespace pargemslr
       
       A.GetMpiInfo(np, myid, comm);
       
-      CsrMatrixClass<T> &A_diag        = A.GetDiagMat();
-      CsrMatrixClass<T> &A_offd        = A.GetOffdMat();
-      vector_long &offd_map_v          = A.GetOffdMap();
+      CsrMatrixClass<T> &A_diag           = A.GetDiagMat();
+      CsrMatrixClass<T> &A_offd           = A.GetOffdMat();
+      vector_pargemslr_long &offd_map_v   = A.GetOffdMap();
       
-      n_start                          = A.GetRowStartGlobal();
-      n_local                          = A.GetNumRowsLocal();           
-      nnz_local                        = A_diag.GetNumNonzeros() + A_offd.GetNumNonzeros();
+      n_start                             = A.GetRowStartGlobal();
+      n_local                             = A.GetNumRowsLocal();           
+      nnz_local                           = A_diag.GetNumNonzeros() + A_offd.GetNumNonzeros();
       
       /* set vtxdist */
       vtxdist.Setup(np+1);
       vtxdist[np] = A.GetNumRowsGlobal();
-
-      PARGEMSLR_MPI_CALL( MPI_Allgather(&n_start, 1, MPI_LONG, vtxdist.GetData(), 1, MPI_LONG, comm) );
+      
+      PargemslrMpiAllgather(&n_start, 1, vtxdist.GetData(), comm);
       
       /* xadj and adjncy */
       xadj.Setup(n_local+1);
@@ -14428,7 +15415,7 @@ namespace pargemslr
       int *A_diag_j = A_diag.GetJ();
       int *A_offd_i = A_offd.GetI();
       int *A_offd_j = A_offd.GetJ();
-      long int *offd_map = offd_map_v.GetData();
+      pargemslr_long *offd_map = offd_map_v.GetData();
       
       xadj[0] = 0;
       for (i = 0; i < n_local; i++)
@@ -14652,22 +15639,22 @@ namespace pargemslr
    template int SetupPermutationParallelKwayVertexSepRecursive(ParallelCsrMatrixClass<complexs> &A, int clvl, int tlvl, bool &succeed, vector_int &map_v, parallel_log &parlog);
    template int SetupPermutationParallelKwayVertexSepRecursive(ParallelCsrMatrixClass<complexd> &A, int clvl, int tlvl, bool &succeed, vector_int &map_v, parallel_log &parlog);
    
-   int ParallelNDGetSeparator( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_long &map, long int &ndom1, long int &ndom2, long int &edge_cut, parallel_log &parlog)
+   int ParallelNDGetSeparator( vector_pargemslr_long &vtxdist, vector_pargemslr_long &xadj, vector_pargemslr_long &adjncy, vector_pargemslr_long &map, pargemslr_long &ndom1, pargemslr_long &ndom2, pargemslr_long &edge_cut, parallel_log &parlog)
    {
-      long int                   i, j, j1, j2;
-      long int                   n_local, n_start, n_end, dom, col, nnz;
-      int                        id;
-      vector_int                 ids, vtxsep;
+      pargemslr_long                            i, j, j1, j2;
+      pargemslr_long                            n_local, n_start, n_end, dom, col, nnz;
+      int                                       id;
+      vector_int                                ids, vtxsep;
       
-      std::unordered_map<long int, int> col_map_hash;
-      int                        ncols;
-      vector_long                cols;
-      vector_int                 col_ids;
+      std::unordered_map<pargemslr_long, int>   col_map_hash;
+      int                                       ncols;
+      vector_pargemslr_long                     cols;
+      vector_int                                col_ids;
       
-      std::unordered_map<long int, int> col_map_uncertain_hash;
-      vector_int                 sendsize, recvsize;
-      std::vector<vector_long>   send_v2, recv_v2;
-      std::vector<vector_int>    send2_v2, recv2_v2;
+      std::unordered_map<pargemslr_long, int>   col_map_uncertain_hash;
+      vector_int                                sendsize, recvsize;
+      std::vector<vector_pargemslr_long>        send_v2, recv_v2;
+      std::vector<vector_int>                   send2_v2, recv2_v2;
       
       MPI_Comm                   comm;
       int                        myid, np, numwaits;
@@ -14931,7 +15918,7 @@ namespace pargemslr
       }
       
       /* now form the reduced system */
-      long int ndom1_local = 0, ndom2_local = 0, ec1_local = 0, ec2_local = 0, ec1, ec2;
+      pargemslr_long ndom1_local = 0, ndom2_local = 0, ec1_local = 0, ec2_local = 0, ec1, ec2;
       for(i = 0 ; i < n_local ; i ++)
       {
          if(vtxsep[i] > 0)
@@ -15010,8 +15997,8 @@ namespace pargemslr
          recv2_v2[i].Clear();
       }
       
-      std::vector<vector_long>().swap(send_v2);
-      std::vector<vector_long>().swap(recv_v2);
+      std::vector<vector_pargemslr_long>().swap(send_v2);
+      std::vector<vector_pargemslr_long>().swap(recv_v2);
       std::vector<vector_int>().swap(send2_v2);
       std::vector<vector_int>().swap(recv2_v2);
       
@@ -15022,7 +16009,7 @@ namespace pargemslr
    }
    
    template <typename T>
-   int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<T> &A, bool vertexsep, int &nlev, long int minsep, vector_int &map_v, vector_int &mapptr_v)
+   int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<T> &A, bool vertexsep, int &nlev, pargemslr_long minsep, vector_int &map_v, vector_int &mapptr_v)
    {
       if(A.GetDataLocation() == kMemoryDevice)
       {
@@ -15032,21 +16019,21 @@ namespace pargemslr
       
       int                              i, j, k, j1, j2, err = 0;
       int                              n_local, nnz_local, clvl, tlvl, domi, size1, size2, ndom_temp;
-      long int                         n_start, ndom;
-      vector_long                      vtxdist, xadj, adjncy, map_long;
+      pargemslr_long                   n_start, ndom;
+      vector_pargemslr_long            vtxdist, xadj, adjncy, map_long;
       
       MPI_Comm                         comm;
       int                              myid, np;
       
       A.GetMpiInfo(np, myid, comm);
       
-      CsrMatrixClass<T> &A_diag        = A.GetDiagMat();
-      CsrMatrixClass<T> &A_offd        = A.GetOffdMat();
-      vector_long &offd_map_v          = A.GetOffdMap();
+      CsrMatrixClass<T> &A_diag           = A.GetDiagMat();
+      CsrMatrixClass<T> &A_offd           = A.GetOffdMat();
+      vector_pargemslr_long &offd_map_v   = A.GetOffdMap();
       
-      n_start                          = A.GetRowStartGlobal();
-      n_local                          = A.GetNumRowsLocal();           
-      nnz_local                        = A_diag.GetNumNonzeros() + A_offd.GetNumNonzeros();
+      n_start                             = A.GetRowStartGlobal();
+      n_local                             = A.GetNumRowsLocal();           
+      nnz_local                           = A_diag.GetNumNonzeros() + A_offd.GetNumNonzeros();
       
       if(np > 1)
       {
@@ -15055,7 +16042,7 @@ namespace pargemslr
          vtxdist.Setup(np+1);
          vtxdist[np] = A.GetNumRowsGlobal();
 
-         PARGEMSLR_MPI_CALL( MPI_Allgather(&n_start, 1, MPI_LONG, vtxdist.GetData(), 1, MPI_LONG, comm) );
+         PargemslrMpiAllgather(&n_start, 1, vtxdist.GetData(), comm);
          
          /* xadj and adjncy */
          xadj.Setup(n_local+1);
@@ -15067,7 +16054,7 @@ namespace pargemslr
          int *A_diag_j = A_diag.GetJ();
          int *A_offd_i = A_offd.GetI();
          int *A_offd_j = A_offd.GetJ();
-         long int *offd_map = offd_map_v.GetData();
+         pargemslr_long *offd_map = offd_map_v.GetData();
          
          xadj[0] = 0;
          for (i = 0; i < n_local; i++)
@@ -15171,19 +16158,19 @@ namespace pargemslr
       
       return err;
    }
-   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<float> &A, bool vertexsep, int &nlev, long int minsep, vector_int &map_v, vector_int &mapptr_v);
-   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<double> &A, bool vertexsep, int &nlev, long int minsep, vector_int &map_v, vector_int &mapptr_v);
-   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<complexs> &A, bool vertexsep, int &nlev, long int minsep, vector_int &map_v, vector_int &mapptr_v);
-   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<complexd> &A, bool vertexsep, int &nlev, long int minsep, vector_int &map_v, vector_int &mapptr_v);
+   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<float> &A, bool vertexsep, int &nlev, pargemslr_long minsep, vector_int &map_v, vector_int &mapptr_v);
+   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<double> &A, bool vertexsep, int &nlev, pargemslr_long minsep, vector_int &map_v, vector_int &mapptr_v);
+   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<complexs> &A, bool vertexsep, int &nlev, pargemslr_long minsep, vector_int &map_v, vector_int &mapptr_v);
+   template int ParallelCsrMatrixSetupPermutationParallelND( ParallelCsrMatrixClass<complexd> &A, bool vertexsep, int &nlev, pargemslr_long minsep, vector_int &map_v, vector_int &mapptr_v);
    
    template <typename T>
    int ParallelCsrMatrixSetupIOOrder(ParallelCsrMatrixClass<T> &parcsr_in, vector_int &local_perm, int &nI, CsrMatrixClass<T> &B_mat, CsrMatrixClass<T> &E_mat, CsrMatrixClass<T> &F_mat, ParallelCsrMatrixClass<T> &C_mat, int perm_option, bool perm_c)
    {
       
-      int i, j, n_local, nE, nsends, nsendsi, s, e;
-      long int n_start;
-      vector_int marker;
-      vector_long exterior_row;
+      int                     i, j, n_local, nE, nsends, nsendsi, s, e;
+      pargemslr_long          n_start;
+      vector_int              marker;
+      vector_pargemslr_long   exterior_row;
       
       MPI_Comm comm;
       int np, myid;
@@ -15377,7 +16364,7 @@ namespace pargemslr
       
       for(i = 0 ; i < nE ; i ++)
       {
-         exterior_row[i] = (long int)local_perm[++e] + n_start;
+         exterior_row[i] = (pargemslr_long)local_perm[++e] + n_start;
       }
       
       parcsr_in.SubMatrix( exterior_row, exterior_row, kMemoryHost, C_mat);

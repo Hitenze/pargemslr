@@ -881,14 +881,14 @@ namespace pargemslr
        * @brief   The local row permutation vector.
        * @details The local row permutation vector.
        */
-      IntVectorClass<long int>            _pperm;
+      IntVectorClass<pargemslr_long>      _pperm;
       
       /** 
        * @brief   The local column permutation vector.
        * @details The local column permutation vector.
        * @note    For non-symmetric reordering.
        */
-      IntVectorClass<long int>            _qperm;
+      IntVectorClass<pargemslr_long>      _qperm;
       
       /**
        * @brief   The location this preconditioner applied to.

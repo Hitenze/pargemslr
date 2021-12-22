@@ -661,24 +661,24 @@ namespace pargemslr
    template int SequentialVectorClass<complexd>::GetLengthLocal() const;
    
    template <typename T>
-   long int SequentialVectorClass<T>::GetLengthGlobal() const
+   pargemslr_long SequentialVectorClass<T>::GetLengthGlobal() const
    {
-      return (int long)(this->_length);
+      return (pargemslr_long)(this->_length);
    }
-   template long int SequentialVectorClass<float>::GetLengthGlobal() const;
-   template long int SequentialVectorClass<double>::GetLengthGlobal() const;
-   template long int SequentialVectorClass<complexs>::GetLengthGlobal() const;
-   template long int SequentialVectorClass<complexd>::GetLengthGlobal() const;
+   template pargemslr_long SequentialVectorClass<float>::GetLengthGlobal() const;
+   template pargemslr_long SequentialVectorClass<double>::GetLengthGlobal() const;
+   template pargemslr_long SequentialVectorClass<complexs>::GetLengthGlobal() const;
+   template pargemslr_long SequentialVectorClass<complexd>::GetLengthGlobal() const;
    
    template <typename T>
-   long int SequentialVectorClass<T>::GetStartGlobal() const
+   pargemslr_long SequentialVectorClass<T>::GetStartGlobal() const
    {
       return 0;
    }
-   template long int SequentialVectorClass<float>::GetStartGlobal() const;
-   template long int SequentialVectorClass<double>::GetStartGlobal() const;
-   template long int SequentialVectorClass<complexs>::GetStartGlobal() const;
-   template long int SequentialVectorClass<complexd>::GetStartGlobal() const;
+   template pargemslr_long SequentialVectorClass<float>::GetStartGlobal() const;
+   template pargemslr_long SequentialVectorClass<double>::GetStartGlobal() const;
+   template pargemslr_long SequentialVectorClass<complexs>::GetStartGlobal() const;
+   template pargemslr_long SequentialVectorClass<complexd>::GetStartGlobal() const;
    
    template <typename T>
    bool SequentialVectorClass<T>::IsHoldingData() const
