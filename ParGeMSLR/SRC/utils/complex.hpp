@@ -659,6 +659,10 @@ __host__ __device__
 
 #endif
 
+#ifdef PARGEMSLR_MKL
+   #define ccomplexs MKL_Complex8
+   #define ccomplexd MKL_Complex16
+#else
    /**
     * @brief   The c style struct of single complex.
     * @details The c style struct of single complex.
@@ -676,7 +680,8 @@ __host__ __device__
    {
       double real, imag;
    }ccomplexd;
-   
+#endif   
+
    /**
     * @brief   Tell if a value is a complex value.
     * @details Tell if a value is a complex value.

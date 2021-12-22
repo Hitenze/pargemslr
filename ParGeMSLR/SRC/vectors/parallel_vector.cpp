@@ -100,7 +100,19 @@ namespace pargemslr
    template <typename T>
    int ParallelVectorClass<T>::Setup(int n_local, parallel_log &parlog)
    {
-      return Setup( n_local, n_local, this->GetDataLocation(), false, parlog);
+      PARGEMSLR_CHKERR(n_local < 0);
+      
+      MPI_Comm comm;
+      int      np, myid;
+      
+      parlog.GetMpiInfo(np, myid, comm);
+      
+      /* get the global start/end */
+      pargemslr_long n_start, n_global;
+      PargemslrNLocalToNGlobal( n_local, n_start, n_global, comm);
+      
+      /* now build the parallel vector */
+      return this->Setup( n_local, n_start, n_global, n_local, this->GetDataLocation(), false, parlog);
    }
    template int ParallelVectorClass<float>::Setup(int n_local, parallel_log &parlog);
    template int ParallelVectorClass<double>::Setup(int n_local, parallel_log &parlog);
@@ -120,7 +132,19 @@ namespace pargemslr
    template <typename T>
    int ParallelVectorClass<T>::Setup(int n_local, bool setzero, parallel_log &parlog)
    {
-      return Setup( n_local, n_local, this->GetDataLocation(), setzero, parlog);
+      PARGEMSLR_CHKERR(n_local < 0);
+      
+      MPI_Comm comm;
+      int      np, myid;
+      
+      parlog.GetMpiInfo(np, myid, comm);
+      
+      /* get the global start/end */
+      pargemslr_long n_start, n_global;
+      PargemslrNLocalToNGlobal( n_local, n_start, n_global, comm);
+      
+      /* now build the parallel vector */
+      return this->Setup( n_local, n_start, n_global, n_local, this->GetDataLocation(), setzero, parlog);
    }
    template int ParallelVectorClass<float>::Setup(int n_local, bool setzero, parallel_log &parlog);
    template int ParallelVectorClass<double>::Setup(int n_local, bool setzero, parallel_log &parlog);
@@ -140,7 +164,19 @@ namespace pargemslr
    template <typename T>
    int ParallelVectorClass<T>::Setup(int n_local, int location, bool setzero, parallel_log &parlog)
    {
-      return Setup( n_local, n_local, location, setzero, parlog);
+      PARGEMSLR_CHKERR(n_local < 0);
+      
+      MPI_Comm comm;
+      int      np, myid;
+      
+      parlog.GetMpiInfo(np, myid, comm);
+      
+      /* get the global start/end */
+      pargemslr_long n_start, n_global;
+      PargemslrNLocalToNGlobal( n_local, n_start, n_global, comm);
+      
+      /* now build the parallel vector */
+      return this->Setup( n_local, n_start, n_global, n_local, location, setzero, parlog);
    }
    template int ParallelVectorClass<float>::Setup(int n_local, int location, bool setzero, parallel_log &parlog);
    template int ParallelVectorClass<double>::Setup(int n_local, int location, bool setzero, parallel_log &parlog);
@@ -650,6 +686,7 @@ namespace pargemslr
       {
          /* read the global vector */
          err = global_vec.ReadFromMMFile( vecfile, idxin); PARGEMSLR_CHKERR(err);
+         
          PARGEMSLR_CHKERR( this->_n_global != (pargemslr_long)(global_vec.GetLengthLocal()));
          nstarts.Setup(np+1);
       }

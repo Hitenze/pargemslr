@@ -65,6 +65,8 @@ ifneq ($(USING_PARPACK),0)
 PARPACK_PATH = .
 FLAGS += -DPARGEMSLR_PARPACK
 LIBPARPACK = -larpack -lparpack
+else
+PARPACK_PATH = .
 endif
 
 ifeq ($(USING_CUDA),0)
@@ -104,7 +106,7 @@ ifneq ($(USING_MKL),0)
 FLAGS += -DPARGEMSLR_MKL -qopenmp
 LINK += -qopenmp
 # MKLROOT is the path to MKL
-LIBMKL =  -Wl, --start-group  $(MKL_PATH)/lib/intel64/libmkl_intel_lp64.a $(MKL_PATH)/lib/intel64/libmkl_intel_thread.a $(MKL_PATH)/lib/intel64/libmkl_core.a -Wl, --end-group -lpthread -lm
+LIBMKL =  -L$(MKL_PATH)/lib/intel64/ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm
 endif
 
 ifneq ($(USING_OPENBLAS),0)
