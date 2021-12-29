@@ -5169,10 +5169,10 @@ namespace pargemslr
       return PARGEMSLR_SUCCESS;
       
    }
-   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<float> &A, DenseMatrixClass<float> &AT);
-   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<double> &A, DenseMatrixClass<double> &AT);
-   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<complexs> &A, DenseMatrixClass<complexs> &AT);
-   int DenseMatrixTransposeHostTemplate( DenseMatrixClass<complexd> &A, DenseMatrixClass<complexd> &AT);
+   template int DenseMatrixTransposeHostTemplate( DenseMatrixClass<float> &A, DenseMatrixClass<float> &AT);
+   template int DenseMatrixTransposeHostTemplate( DenseMatrixClass<double> &A, DenseMatrixClass<double> &AT);
+   template int DenseMatrixTransposeHostTemplate( DenseMatrixClass<complexs> &A, DenseMatrixClass<complexs> &AT);
+   template int DenseMatrixTransposeHostTemplate( DenseMatrixClass<complexd> &A, DenseMatrixClass<complexd> &AT);
    
    template<typename T>
    int CsrMatrixPMatVecHostTemplate( const int *ia, const int *ja, const T *aa, int nrows, int ncols, char trans, const T &alpha, const T *x, const T &beta, T *y)
