@@ -1,0 +1,20 @@
+# Object files
+*.o
+*.obj
+
+# Libraries
+*.lib
+*.a
+
+# Shared objects
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.ex
+
+# Vi swp files
+*.swp
+*.swo
+

@@ -1,6 +1,8 @@
 #ifndef PARGEMSLR_MEMORY_H
 #define PARGEMSLR_MEMORY_H
 
+#include <cstddef>
+#include <string>
 #include <vector>
 #include <unordered_map>
 
