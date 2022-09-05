@@ -1626,6 +1626,9 @@ namespace pargemslr
          return PARGEMSLR_ERROR_INVALED_PARAM;
       }
       
+      /* insert ghost diagonal if not exist */
+      this->_matrix->InsertGhostDiagonal();
+      
       int np, myid;
       MPI_Comm comm;
       this->_matrix->GetMpiInfo(np, myid, comm);

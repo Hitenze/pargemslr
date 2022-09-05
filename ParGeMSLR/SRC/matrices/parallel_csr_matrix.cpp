@@ -5381,6 +5381,373 @@ namespace pargemslr
    template int ParallelCsrMatrixClass<complexd>::ReadFromSingleMMFile(const char *matfile, int idxin, parallel_log &parlog);
 
    template <typename T>
+   int ParallelCsrMatrixClass<T>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, T *A_data, parallel_log &parlog)
+   {
+      /* TODO: this is a sequential read and not support long int */
+      
+      int                     err = 0, i, j1, j2, j, row, col;
+      T                       val;
+      int                     nrow_global = 0, ncol_global = 0, nnz_global = 0, nrow_local = 0, nrow_extra, ncol_local;
+      int                     init_guess, offd_init_guess, domr, domc;
+      vector_int              nrow_locals, nrow_disps, ncol_locals, ncol_disps;
+      
+      MPI_Comm comm;
+      int np, myid;
+      parlog.GetMpiInfo(np, myid, comm);
+      
+      CooMatrixClass<T>                global_coo_mat;
+      CooMatrixClass<T>                local_diag_coo_mat;
+      CooMatrixClass<T>                local_offd_coo_mat;
+      std::vector<CooMatrixClass<T> >  diag_coo_mats;
+      std::vector<CooMatrixClass<T> >  offd_coo_mats;
+      std::vector<vector_long>         offd_maps;
+      vector_int                       info;
+      std::vector<vector_int>          offd_markers;
+      
+      /* conver into COO */
+      global_coo_mat.Setup( n, n, nnz_global, kMemoryHost);
+      for(i = 0 ; i < n ; i ++)
+      {
+         j1 = A_i[i];
+         j2 = A_i[i+1];
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            global_coo_mat.PushBack( i, A_j[j]-idxin, A_data[j]);
+         }
+      }
+      
+      if(np == 1)
+      {
+         nrow_global = global_coo_mat.GetNumRowsLocal();
+         ncol_global = global_coo_mat.GetNumColsLocal();
+         
+         this->Setup(nrow_global, 0, nrow_global, ncol_global, 0, ncol_global, parlog);
+         
+         global_coo_mat.ToCsr(this->GetDataLocation(), this->_diag_mat);
+         this->_offd_mat.Setup(global_coo_mat.GetNumRowsLocal(), 0, 0);
+         this->_offd_mat.GetIVector().Fill(0);
+         
+         return PARGEMSLR_SUCCESS;
+      }
+      
+      if(myid == 0)
+      {
+         nrow_locals.Setup(np);
+         ncol_locals.Setup(np);
+         nrow_disps.Setup(np+1);
+         ncol_disps.Setup(np+1);
+         
+         /* now we need to assign rows to different processors */
+         nrow_global = global_coo_mat.GetNumRowsLocal();
+         ncol_global = global_coo_mat.GetNumColsLocal();
+         nnz_global = global_coo_mat.GetNumNonzeros();
+         int *COO_i = global_coo_mat.GetI();
+         int *COO_j = global_coo_mat.GetJ();
+         T *COO_data = global_coo_mat.GetData();
+         
+         nrow_local = nrow_global / np;
+         nrow_extra = nrow_global % np;
+         ncol_local = ncol_global / np;
+         
+         nrow_disps[0] = 0;
+         ncol_disps[0] = 0;
+         for(i = 0 ; i < nrow_extra ; i ++)
+         {
+            nrow_locals[i] = nrow_local + 1;
+            ncol_locals[i] = ncol_local + 1;
+         }
+         for(i = nrow_extra ; i < np ; i ++)
+         {
+            nrow_locals[i] = nrow_local;
+            ncol_locals[i] = ncol_local;
+         }
+         for(i = 0 ; i < np ; i ++)
+         {
+            nrow_disps[i+1] = nrow_disps[i] + nrow_locals[i];
+            ncol_disps[i+1] = ncol_disps[i] + ncol_locals[i];
+         }
+         
+         diag_coo_mats.resize(np);
+         offd_coo_mats.resize(np);
+         offd_markers.resize(np);
+         offd_maps.resize(np);
+         
+         init_guess = nnz_global/np;
+         
+         for(i = 0 ; i < np ; i ++)
+         {
+            offd_markers[i].Setup(ncol_global);
+            offd_markers[i].Fill(-1);
+            diag_coo_mats[i].Setup(nrow_locals[i], ncol_locals[i], init_guess);
+            offd_init_guess = PargemslrMax(nrow_locals[i], ncol_locals[i]);
+            offd_coo_mats[i].Setup(nrow_locals[i], INT_MAX, offd_init_guess);
+            offd_maps[i].Setup( 0, offd_init_guess, kMemoryHost, false);
+         }
+         
+         for(i = 0 ; i < nnz_global ; i ++)
+         {
+            row = COO_i[i];
+            col = COO_j[i];
+            val = COO_data[i];
+            
+            if( nrow_disps.BinarySearch(row, domr, true) < 0 )
+            {
+               /* if not found, is the location we insert, thus, we need to -1 for the domain */
+               domr--;
+            }
+            
+            if( ncol_disps.BinarySearch(col, domc, true) < 0 )
+            {
+               /* if not found, is the location we insert, thus, we need to -1 for the domain */
+               domc--;
+            }
+            
+            if(domr == domc)
+            {
+               /* diagonal */
+               diag_coo_mats[domr].PushBack( row - nrow_disps[domr], col - ncol_disps[domc], val);
+            }
+            else
+            {
+               /* offdiagonal */
+               if(offd_markers[domr][col] >= 0)
+               {
+                  /* already have this */
+                  offd_coo_mats[domr].PushBack( row - nrow_disps[domr], offd_markers[domr][col], val);
+               }
+               else
+               {
+                  offd_markers[domr][col] = offd_maps[domr].GetLengthLocal();
+                  offd_coo_mats[domr].PushBack( row - nrow_disps[domr], offd_markers[domr][col], val);
+                  offd_maps[domr].PushBack(col);
+               }
+            }
+         }
+         
+         for(i = 0 ; i < np ; i ++)
+         {
+            diag_coo_mats[i].SetNumNonzeros();
+            offd_coo_mats[i].SetNumNonzeros();
+            offd_coo_mats[i].SetNumCols(offd_maps[i].GetLengthLocal());
+         }
+         
+      }
+      
+      /* now, info ready on rank 0, prepare to send */
+      info.Setup(9);
+      if(myid == 0)
+      {
+         info[4] = nrow_global;
+         info[5] = ncol_global;
+         for(i = 1 ; i < np ; i ++)
+         {
+            info[0] = nrow_locals[i];
+            info[1] = ncol_locals[i];
+            info[2] = nrow_disps[i];
+            info[3] = ncol_disps[i];
+            info[6] = diag_coo_mats[i].GetNumNonzeros();
+            info[7] = offd_coo_mats[i].GetNumNonzeros();
+            info[8] = offd_maps[i].GetLengthLocal();
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( info.GetData(), 9, i, 0, comm) );
+         }
+         
+         /* MPI_Comm_dup will block! */
+         this->Setup( nrow_locals[0], nrow_disps[0], nrow_global, ncol_locals[0], ncol_disps[0], ncol_global, parlog);
+         
+         for(i = 1 ; i < np ; i ++)
+         {
+            info[0] = nrow_locals[i];
+            info[1] = ncol_locals[i];
+            info[2] = nrow_disps[i];
+            info[3] = ncol_disps[i];
+            info[6] = diag_coo_mats[i].GetNumNonzeros();
+            info[7] = offd_coo_mats[i].GetNumNonzeros();
+            info[8] = offd_maps[i].GetLengthLocal();
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( diag_coo_mats[i].GetI(), info[6], i, 0, comm) );
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( diag_coo_mats[i].GetJ(), info[6], i, 0, comm) );
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( diag_coo_mats[i].GetData(), info[6], i, 0, comm) );
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( offd_coo_mats[i].GetI(), info[7], i, 0, comm) );
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( offd_coo_mats[i].GetJ(), info[7], i, 0, comm) );
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( offd_coo_mats[i].GetData(), info[7], i, 0, comm) );
+            PARGEMSLR_MPI_CALL( PargemslrMpiSend( offd_maps[i].GetData(), info[8], i, 0, comm) );
+         }
+         
+         this->_offd_map_v.Setup(offd_maps[0].GetLengthLocal());
+         
+         PARGEMSLR_MEMCPY( this->_offd_map_v.GetData(), offd_maps[0].GetData(), offd_maps[0].GetLengthLocal(), kMemoryHost, kMemoryHost, long int);
+         
+         diag_coo_mats[0].ToCsr(this->GetDataLocation(), this->_diag_mat);
+         offd_coo_mats[0].ToCsr(this->GetDataLocation(), this->_offd_mat);
+         this->SortOffdMap();
+         
+         for(i = 0 ; i < np ; i ++)
+         {
+            offd_markers[i].Clear();
+            diag_coo_mats[i].Clear();
+            offd_coo_mats[i].Clear();
+            offd_maps[i].Clear();
+         }
+         
+         std::vector<CooMatrixClass<T> >().swap(diag_coo_mats);
+         std::vector<CooMatrixClass<T> >().swap(offd_coo_mats);
+         std::vector<vector_long>().swap(offd_maps);
+         std::vector<vector_int>().swap(offd_markers);
+      }
+      else
+      {
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( info.GetData(), 9, 0, 0, comm, MPI_STATUS_IGNORE) );
+         
+         this->Setup( info[0], info[2], info[4], info[1], info[3], info[5], parlog);
+         local_diag_coo_mat.Setup( info[0], info[1], info[6], kMemoryHost);
+         local_offd_coo_mat.Setup( info[0], info[8], info[7], kMemoryHost);
+         this->_offd_map_v.Setup(info[8]);
+         
+         local_diag_coo_mat.GetIVector().Resize( info[6], false, false);
+         local_diag_coo_mat.GetJVector().Resize( info[6], false, false);
+         local_diag_coo_mat.GetDataVector().Resize( info[6], false, false);
+         local_offd_coo_mat.GetIVector().Resize( info[7], false, false);
+         local_offd_coo_mat.GetJVector().Resize( info[7], false, false);
+         local_offd_coo_mat.GetDataVector().Resize( info[7], false, false);
+         
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( local_diag_coo_mat.GetI(), info[6], 0, 0, comm, MPI_STATUS_IGNORE) );
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( local_diag_coo_mat.GetJ(), info[6], 0, 0, comm, MPI_STATUS_IGNORE) );
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( local_diag_coo_mat.GetData(), info[6], 0, 0, comm, MPI_STATUS_IGNORE) );
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( local_offd_coo_mat.GetI(), info[7], 0, 0, comm, MPI_STATUS_IGNORE) );
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( local_offd_coo_mat.GetJ(), info[7], 0, 0, comm, MPI_STATUS_IGNORE) );
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( local_offd_coo_mat.GetData(), info[7], 0, 0, comm, MPI_STATUS_IGNORE) );
+         PARGEMSLR_MPI_CALL( PargemslrMpiRecv( this->_offd_map_v.GetData(), info[8], 0, 0, comm, MPI_STATUS_IGNORE) );
+         
+         local_diag_coo_mat.SetNumNonzeros();
+         local_diag_coo_mat.ToCsr(this->GetDataLocation(), this->_diag_mat);
+         local_offd_coo_mat.SetNumNonzeros();
+         local_offd_coo_mat.ToCsr(this->GetDataLocation(), this->_offd_mat);
+         this->SortOffdMap();
+         
+         local_diag_coo_mat.Clear();
+         local_offd_coo_mat.Clear();
+      }
+      
+      info.Clear();
+      
+      return err;
+   }
+   template int ParallelCsrMatrixClass<float>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, float *A_data, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<double>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, double *A_data,  parallel_log &parlog);
+   template int ParallelCsrMatrixClass<complexs>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, complexs *A_data, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<complexd>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, complexd *A_data, parallel_log &parlog);
+
+   template <typename T>
+   int ParallelCsrMatrixClass<T>::InsertGhostDiagonal()
+   {
+      int i, j1, j2, j, n_local, nnz_local, idx, missing, marker;
+      int location = this->_diag_mat.GetDataLocation();
+      
+      if(location == kMemoryDevice)
+      {
+         this->_diag_mat.MoveData(kMemoryHost);
+      }
+      
+      int *diag_i = this->_diag_mat.GetI();
+      int *diag_j = this->_diag_mat.GetJ();
+      T *diag_data = this->_diag_mat.GetData();
+      
+      n_local = this->_diag_mat.GetNumRowsLocal();
+      nnz_local = this->_diag_mat.GetNumNonzeros();
+      
+      if(n_local == 0)
+      {
+         // nothing to do
+         this->_diag_mat.MoveData(location);
+         return PARGEMSLR_SUCCESS;
+      }
+      
+      // check if any missing
+      missing = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         j1 = diag_i[i];
+         j2 = diag_i[i+1];
+         marker = 0;
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            if(diag_j[j] == i)
+            {
+               marker = 1;
+            }
+         }
+         if(marker == 0)
+         {
+            missing = 1;
+            break;
+         }
+      }
+      
+      if(!missing)
+      {
+         this->_diag_mat.MoveData(location);
+         return PARGEMSLR_SUCCESS;
+      }
+      
+      // Count missing amount
+      missing = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         j1 = diag_i[i];
+         j2 = diag_i[i+1];
+         marker = 0;
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            if(diag_j[j] == i)
+            {
+               marker = 1;
+            }
+         }
+         if(marker == 0)
+         {
+            missing ++;
+         }
+      }
+      
+      // now create a new CSR matrix
+      CsrMatrixClass<T> new_diag;
+      new_diag.Setup( n_local, n_local, nnz_local + missing, true);
+      
+      idx = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         j1 = diag_i[i];
+         j2 = diag_i[i+1];
+         marker = 0;
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            if(diag_j[j] == i)
+            {
+               marker = 1;
+            }
+            new_diag.PushBack( diag_j[j], diag_data[j]);
+            idx++;
+         }
+         if(marker == 0)
+         {
+            new_diag.PushBack( i, T());
+            idx++;
+         }
+         new_diag.GetI()[i+1] = idx;
+      }
+      
+      this->_diag_mat.Clear();
+      this->_diag_mat = std::move(new_diag);
+      
+      this->_diag_mat.MoveData(location);
+      return PARGEMSLR_SUCCESS;
+      
+   }
+   template int ParallelCsrMatrixClass<float>::InsertGhostDiagonal();
+   template int ParallelCsrMatrixClass<double>::InsertGhostDiagonal();
+   template int ParallelCsrMatrixClass<complexs>::InsertGhostDiagonal();
+   template int ParallelCsrMatrixClass<complexd>::InsertGhostDiagonal();
+   
+   template <typename T>
    int ParallelCsrMatrixClass<T>::PlotPatternGnuPlot( const char *datafilename, int pttype)
    {
       if(this->GetDataLocation() == kMemoryDevice)

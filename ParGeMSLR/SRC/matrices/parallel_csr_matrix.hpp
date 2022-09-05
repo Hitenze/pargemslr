@@ -879,6 +879,28 @@ namespace pargemslr
       int            ReadFromSingleMMFile(const char *matfile, int idxin, parallel_log &parlog);
       
       /**
+       * @brief   Convert CSR formt into ParCSR format.
+       * @details Convert CSR formt into ParCSR format.
+       * @note    We use the C style array, the first element is A_i[0].
+       * @param   [in]    n The size, n == nrow == ncol.
+       * @param   [in]    idxin The index base of the column indices. 0-based or 1-based.
+       * @param   [in]    A_i.
+       * @param   [in]    A_j.
+       * @param   [in]    A_data The row pointer, column index (0-based or 1-based), and Data vector.
+       * @param   [in]    parlog The parallel_log data structure.
+       * @return     Return error message.
+       */
+      int            ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, T *A_data, parallel_log &parlog);
+      
+      /**
+       * @brief   Insert diagonal entry if missing.
+       * @details Insert diagonal entry if missing.
+       * @note    This helper function will be removed in future release after having nonsymmetric reordering.
+       * @return     Return error message.
+       */
+      int            InsertGhostDiagonal();
+      
+      /**
        * @brief   Plot the pattern of the parallel csr matrix using gnuplot. Similar to spy in the MATLAB. Function for testing purpose.
        * @details Plot the pattern of the parallel csr matrix using gnuplot. Similar to spy in the MATLAB. Function for testing purpose.
        * @param [in]   datafilename The filename of the temp file holding the data.

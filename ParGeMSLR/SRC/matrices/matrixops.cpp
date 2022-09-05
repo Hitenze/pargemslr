@@ -11704,7 +11704,8 @@ namespace pargemslr
     */
    int SetupPermutationNDCombineLevels(std::vector<vector_int> &level_stri, int &ndom)
    {
-      int i, n, ndom_in;
+      //int i, n, ndom_in;
+      int i, ndom_in;
       vector_int size, marker;
       
       ndom_in = level_stri.size();
@@ -11718,11 +11719,11 @@ namespace pargemslr
       size.Setup(ndom_in);
       marker.Setup(ndom_in, true);
       
-      n = 0;
+      //n = 0;
       for(i = 0 ; i < ndom_in ; i ++)
       {
          size[i] = level_stri[i].GetLengthLocal();
-         n += size[i];
+         //n += size[i];
       }
       
       /* TODO: some dynamic programming algorithms */
