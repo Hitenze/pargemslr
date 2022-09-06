@@ -1486,6 +1486,62 @@ namespace pargemslr
    template int ParallelCsrMatrixClass<complexd>::GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
    
    template <typename T>
+   int ParallelCsrMatrixClass<T>::GetDistCSRArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, SequentialVectorClass<T> &value)
+   {
+      int i, j, j1, j2;
+      int np, myid;
+      MPI_Comm comm;
+      
+      int *diag_i = this->_diag_mat.GetI();
+      int *offd_i = this->_offd_mat.GetI();
+      int *diag_j = this->_diag_mat.GetJ();
+      int *offd_j = this->_offd_mat.GetJ();
+      T *diag_data = this->_diag_mat.GetData();
+      T *offd_data = this->_offd_mat.GetData();
+      
+      this->GetMpiInfo(np, myid, comm);
+      
+      vtxdist.Setup(np+1);
+      vtxdist[np] = this->_nrow_global;
+
+      PARGEMSLR_MPI_CALL( PargemslrMpiAllgather( &this->_nrow_start, 1, vtxdist.GetData(), comm) );
+      
+      /* diagonal removed */
+      xadj.Setup(this->_nrow_local+1);
+      adjncy.Setup(this->_diag_mat.GetNumNonzeros()+this->_offd_mat.GetNumNonzeros());
+      value.Setup(this->_diag_mat.GetNumNonzeros()+this->_offd_mat.GetNumNonzeros());
+      
+      xadj[0] = 0;
+      for (i = 0; i < this->_nrow_local; i++)
+      {
+         xadj[i+1] = xadj[i];
+         j1 = diag_i[i];
+         j2 = diag_i[i+1];
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            /* only add non-diagonal entry */
+            adjncy[xadj[i+1]] = diag_j[j] + this->_nrow_start;
+            value[xadj[i+1]] = diag_data[j];
+            xadj[i+1]++;
+         }
+         
+         j1 = offd_i[i];
+         j2 = offd_i[i+1];
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            adjncy[xadj[i+1]] = this->_offd_map_v[offd_j[j]];
+            value[xadj[i+1]] = offd_data[j];
+            xadj[i+1]++;
+         }
+      }
+      return PARGEMSLR_SUCCESS;
+   }
+   template int ParallelCsrMatrixClass<float>::GetDistCSRArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_seq_float &value);
+   template int ParallelCsrMatrixClass<double>::GetDistCSRArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_seq_double &value);
+   template int ParallelCsrMatrixClass<complexs>::GetDistCSRArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_seq_complexs &value);
+   template int ParallelCsrMatrixClass<complexd>::GetDistCSRArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, vector_seq_complexd &value);
+   
+   template <typename T>
    CsrMatrixClass<T>& ParallelCsrMatrixClass<T>::GetDiagMat()
    {
       return this->_diag_mat;
@@ -5636,6 +5692,136 @@ namespace pargemslr
    template int ParallelCsrMatrixClass<complexs>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, complexs *A_data, parallel_log &parlog);
    template int ParallelCsrMatrixClass<complexd>::ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, complexd *A_data, parallel_log &parlog);
 
+   template <typename T>
+   int ParallelCsrMatrixClass<T>::ReadFromDistributedCSR( long int *row_starts, int idxin, long int *dist_i, long int *dist_j, T *dist_data, parallel_log &parlog)
+   {
+      int                     err = 0, i, j1, j2, j;
+      
+      MPI_Comm comm;
+      int np, myid;
+      parlog.GetMpiInfo(np, myid, comm);
+      
+      if(np == 1)
+      {
+         // in this case the matrix is distributed CSR
+         // we assume that the size is not larger INT_MAX so use int instead of long int
+         int                     n, nrow_global, ncol_global, nnz_global;
+         
+         n = (int)row_starts[1] - idxin;
+         nnz_global = (int)dist_i[n];
+         
+         CooMatrixClass<T>                global_coo_mat;
+         
+         /* conver into COO */
+         global_coo_mat.Setup( n, n, nnz_global, kMemoryHost);
+         
+         for(i = 0 ; i < n ; i ++)
+         {
+            j1 = (int)dist_i[i];
+            j2 = (int)dist_i[i+1];
+            for(j = j1 ; j < j2 ; j ++)
+            {
+               global_coo_mat.PushBack( i, (int)dist_j[j]-idxin, dist_data[j]);
+            }
+         }
+         
+         nrow_global = global_coo_mat.GetNumRowsLocal();
+         ncol_global = global_coo_mat.GetNumColsLocal();
+         
+         this->Setup(nrow_global, 0, nrow_global, ncol_global, 0, ncol_global, parlog);
+         
+         global_coo_mat.ToCsr(this->GetDataLocation(), this->_diag_mat);
+         this->_offd_mat.Setup(global_coo_mat.GetNumRowsLocal(), 0, 0);
+         this->_offd_mat.GetIVector().Fill(0);
+         
+         return PARGEMSLR_SUCCESS;
+      }
+      
+      // if np > 1
+      long int                         n_global, row_start, row_end, col;
+      int                              n_local, nnz_local, ncols;
+      
+      CooMatrixClass<T>                diag_coo_mat;
+      CooMatrixClass<T>                offd_coo_mat;
+      vector_long                      offd_map;
+      
+      std::unordered_map<long int, int>      col_map_hash; /* col_map_hash[i] is the MPI process node i belongs to */
+      
+      // get useful info
+      n_global = row_starts[np]-idxin;
+      row_start = row_starts[myid]-idxin;
+      row_end = row_starts[myid+1]-idxin;
+      n_local = (int)(row_end-row_start);
+      nnz_local = (int)dist_i[n_local];
+      
+      diag_coo_mat.Setup(n_local, n_local, nnz_local);
+      offd_coo_mat.Setup(n_local, INT_MAX, n_local);
+      offd_map.Setup( 0, n_local, kMemoryHost, false);
+      
+      // start pushing values
+      ncols = 0;
+      for(i = 0 ; i < n_local ; i ++)
+      {
+         j1 = (int)dist_i[i];
+         j2 = (int)dist_i[i+1];
+         for(j = j1 ; j < j2 ; j ++)
+         {
+            col = dist_j[j]-idxin;
+            if(col >= row_start && col < row_end)
+            {
+               // diag
+               diag_coo_mat.PushBack( i, (int)(col - row_start), dist_data[j]);
+            }
+            else
+            {
+               // offd 
+               auto find_col =  col_map_hash.find(col);
+               if(find_col == col_map_hash.end())
+               {
+                  /* a new one */
+                  col_map_hash[col] = ncols;
+                  
+                  offd_coo_mat.PushBack( i, ncols, dist_data[j]);
+                  offd_map.PushBack(col);
+                  
+                  ncols++;
+               }
+               else
+               {
+                  /* already have */
+                  offd_coo_mat.PushBack( i, find_col->second, dist_data[j]);
+               }
+            }
+         }
+      }
+      
+      // done
+      diag_coo_mat.SetNumNonzeros();
+      offd_coo_mat.SetNumNonzeros();
+      offd_coo_mat.SetNumCols(offd_map.GetLengthLocal());
+      
+      this->Setup( n_local, row_start, n_global, n_local, row_start, n_global, parlog);
+   
+      this->_offd_map_v.Setup(offd_map.GetLengthLocal());
+      
+      PARGEMSLR_MEMCPY( this->_offd_map_v.GetData(), offd_map.GetData(), offd_map.GetLengthLocal(), kMemoryHost, kMemoryHost, long int);
+      
+      diag_coo_mat.ToCsr(this->GetDataLocation(), this->_diag_mat);
+      offd_coo_mat.ToCsr(this->GetDataLocation(), this->_offd_mat);
+      this->SortOffdMap();
+      
+      diag_coo_mat.Clear();
+      offd_coo_mat.Clear();
+      offd_map.Clear();
+      
+      
+      return err;
+   }
+   template int ParallelCsrMatrixClass<float>::ReadFromDistributedCSR( long int *row_starts, int idxin, long int *dist_i, long int *dist_j, float *dist_data, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<double>::ReadFromDistributedCSR( long int *row_starts, int idxin, long int *dist_i, long int *dist_j, double *dist_data, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<complexs>::ReadFromDistributedCSR( long int *row_starts, int idxin, long int *dist_i, long int *dist_j, complexs *dist_data, parallel_log &parlog);
+   template int ParallelCsrMatrixClass<complexd>::ReadFromDistributedCSR( long int *row_starts, int idxin, long int *dist_i, long int *dist_j, complexd *dist_data, parallel_log &parlog);
+   
    template <typename T>
    int ParallelCsrMatrixClass<T>::InsertGhostDiagonal()
    {

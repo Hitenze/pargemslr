@@ -602,6 +602,17 @@ namespace pargemslr
       int            GetGraphArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy);
       
       /**
+       * @brief   Get the vector arrays in distributed CSR format.
+       * @details Get the vector arrays in distributed CSR format.
+       * @param   [out] vtxdist The vertex distribution of size np+1.
+       * @param   [out] xadj The local I in CSR format.
+       * @param   [out] adjncy The local J in CSR format.
+       * @param   [out] value The local Data in CSR format.
+       * @return     Return error message.
+       */
+      int            GetDistCSRArrays( vector_long &vtxdist, vector_long &xadj, vector_long &adjncy, SequentialVectorClass<T> &value);
+      
+      /**
        * @brief   Get the diagonal matrix.
        * @details Get the diagonal matrix.
        * @return  Return the diagonal matrix.
@@ -891,6 +902,20 @@ namespace pargemslr
        * @return     Return error message.
        */
       int            ReadFromSingleCSR(int n, int idxin, int *A_i, int *A_j, T *A_data, parallel_log &parlog);
+      
+      /**
+       * @brief   Convert distributed CSR formt into ParCSR format.
+       * @details Convert distributed CSR formt into ParCSR format.
+       * @note    We use the C style array, the first element is A_i[0].
+       * @param   [in]    row_starts The first row on each MPI rank, the last entry is n + idxin. Length np+1.
+       * @param   [in]    idxin The index base of the column indices. 0-based or 1-based.
+       * @param   [in]    dist_i.
+       * @param   [in]    dist_j.
+       * @param   [in]    dist_data The row pointer, column index (0-based or 1-based), and Data vector.
+       * @param   [in]    parlog The parallel_log data structure.
+       * @return     Return error message.
+       */
+      int            ReadFromDistributedCSR( long int *row_starts, int idxin, long int *dist_i, long int *dist_j, T *dist_data, parallel_log &parlog);
       
       /**
        * @brief   Insert diagonal entry if missing.

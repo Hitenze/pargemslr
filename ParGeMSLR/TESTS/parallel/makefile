@@ -18,11 +18,13 @@ OBJ_PAR_LAPZ = driver_laplacian_gemslrz_par.o
 OBJ_PAR_GEN = driver_gen_gemslr_par.o
 OBJ_PAR_GENZ = driver_gen_gemslrz_par.o
 OBJ_PAR_CSR = driver_laplacian_gemslr_csr.o
+OBJ_PAR_DISTCSRZ = driver_laplacian_gemslrz_distcsr.o
 OBJ_ALLTESTS = driver_laplacian_gemslr_par.o\
 	driver_laplacian_gemslrz_par.o\
 	driver_gen_gemslr_par.o\
 	driver_gen_gemslrz_par.o\
-	driver_laplacian_gemslr_csr.o
+	driver_laplacian_gemslr_csr.o\
+	driver_laplacian_gemslrz_distcsr.o
 
 LIB := -L../../ -lpargemslr -L../../$(METIS_PATH)/libparmetis -lparmetis -L../../$(METIS_PATH)/libmetis -lmetis -L../../$(LAPACK_PATH) $(LIBLAPACK) $(LIBOPENMP) $(LIBMKL) -lgfortran $(LIBCUDA)
 
@@ -30,14 +32,16 @@ ALLEXE = driver_laplacian_gemslr_par.ex\
 	driver_laplacian_gemslrz_par.ex\
 	driver_gen_gemslr_par.ex\
 	driver_gen_gemslrz_par.ex\
-	driver_laplacian_gemslr_csr.ex
+	driver_laplacian_gemslr_csr.ex\
+	driver_laplacian_gemslrz_distcsr.ex
 
 # Rules
 default: driver_laplacian_gemslr_par.ex\
 	driver_laplacian_gemslrz_par.ex\
 	driver_gen_gemslr_par.ex\
 	driver_gen_gemslrz_par.ex\
-	driver_laplacian_gemslr_csr.ex
+	driver_laplacian_gemslr_csr.ex\
+	driver_laplacian_gemslrz_distcsr.ex
 
 all: $(ALLEXE)
 %.o : %.f
@@ -67,6 +71,9 @@ driver_gen_gemslrz_par.ex: $(OBJ_PAR_GENZ) $(EXTRA)
 
 driver_laplacian_gemslr_csr.ex: $(OBJ_PAR_CSR) $(EXTRA)
 	$(LINK) $(FLAGS) -o driver_laplacian_gemslr_csr.ex $(INCLUDES) $(OBJ_PAR_CSR) $(EXTRA) $(LIB)
+
+driver_laplacian_gemslrz_distcsr.ex: $(OBJ_PAR_DISTCSRZ) $(EXTRA)
+	$(LINK) $(FLAGS) -o driver_laplacian_gemslrz_distcsr.ex $(INCLUDES) $(OBJ_PAR_DISTCSRZ) $(EXTRA) $(LIB)
 
 clean:
 	rm -f $(OBJ_ALLTESTS) *.ex *.o
