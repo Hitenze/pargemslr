@@ -18,3 +18,74 @@
 *.swp
 *.swo
 
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+_deps/
+Makefile.cmake
+*Config.cmake
+*ConfigVersion.cmake
+
+# CMake build directories
+build/
+Build/
+build-*/
+cmake-build-*/
+out/
+
+# Compilation database (for IDE integration)
+compile_commands.json
+
+# CPack packaging
+CPack*.cmake
+_CPack_Packages/
+*.tar.gz
+*.zip
+
+# Testing output
+Testing/
+CTestResults.xml
+test_results/
+
+# Ninja build files
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+
+# CUDA intermediate files
+*.cubin
+*.fatbin
+*.ptx
+*.cudafe*
+
+# IDE configuration files
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+.cursor
+.claude
+CLAUDE.md
+GEMINI.md
+
+# Generated documentation
+html/
+latex/
+Doxyfile.bak
+
+# Temporary and backup files
+*.bak
+*.tmp
+*~
+\#*\#
+
+# ParMETIS
+parmetis-*.tar.gz
+ParGeMSLR/parmetis/
+
+# Log files
+*.log
+*.out
