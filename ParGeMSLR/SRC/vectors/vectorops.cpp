@@ -376,7 +376,7 @@ namespace pargemslr
          ccomplexs t1;
          t1.real = 0.0;
          t1.imag = 0.0;
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(PARGEMSLR_MKL)
          PARGEMSLR_BLASLAPACK_CDOTC( &t1, &n, PARGEMSLR_CAST( ccomplexs*, x_data), &one, PARGEMSLR_CAST( ccomplexs*, y_data), &one);
 #else
          t1 = PARGEMSLR_BLASLAPACK_CDOTC( &n, PARGEMSLR_CAST( ccomplexs*, x_data), &one, PARGEMSLR_CAST( ccomplexs*, y_data), &one);
@@ -464,7 +464,7 @@ namespace pargemslr
          ccomplexd t1;
          t1.real = 0.0;
          t1.imag = 0.0;
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(PARGEMSLR_MKL)
          PARGEMSLR_BLASLAPACK_ZDOTC( &t1, &n, PARGEMSLR_CAST( ccomplexd*, x_data), &one, PARGEMSLR_CAST( ccomplexd*, y_data), &one);
 #else
          t1 = PARGEMSLR_BLASLAPACK_ZDOTC( &n, PARGEMSLR_CAST( ccomplexd*, x_data), &one, PARGEMSLR_CAST( ccomplexd*, y_data), &one);

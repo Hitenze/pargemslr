@@ -17,17 +17,19 @@ namespace pargemslr
    cudaStream_t parallel_log::_stream = 0;
    cusparseIndexBase_t parallel_log::_cusparse_idx_base = CUSPARSE_INDEX_BASE_ZERO;
    cusparseMatDescr_t parallel_log::_mat_des = NULL;
+#if !PARGEMSLR_CUSPARSE_GENERIC_API
    cusparseMatDescr_t parallel_log::_matL_des = NULL;
    cusparseMatDescr_t parallel_log::_matU_des = NULL;
    //cusparseSolvePolicy_t parallel_log::_ilu_solve_policy = CUSPARSE_SOLVE_POLICY_NO_LEVEL;
    cusparseSolvePolicy_t parallel_log::_ilu_solve_policy = CUSPARSE_SOLVE_POLICY_USE_LEVEL;
+#endif
    void* parallel_log::_cusparse_buffer = NULL;
    size_t parallel_log::_cusparse_buffer_length = 0;
 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
 
    cusparseIndexType_t parallel_log::_cusparse_idx_type = CUSPARSE_INDEX_32I;
-   cusparseSpMVAlg_t parallel_log::_cusparse_spmv_algorithm = CUSPARSE_CSRMV_ALG1;
+   cusparseSpMVAlg_t parallel_log::_cusparse_spmv_algorithm = CUSPARSE_SPMV_CSR_ALG1;
 
 #endif
 #endif
@@ -427,6 +429,7 @@ namespace pargemslr
       PARGEMSLR_CUSPARSE_CALL( (cusparseSetMatIndexBase(parallel_log::_mat_des, CUSPARSE_INDEX_BASE_ZERO)) );
       PARGEMSLR_CUSPARSE_CALL( (cusparseSetMatType(parallel_log::_mat_des, CUSPARSE_MATRIX_TYPE_GENERAL)) );
       
+#if !PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CUSPARSE_CALL( (cusparseCreateMatDescr(&(parallel_log::_matL_des)))  );
       PARGEMSLR_CUSPARSE_CALL( (cusparseSetMatIndexBase(parallel_log::_matL_des, CUSPARSE_INDEX_BASE_ZERO)) );
       PARGEMSLR_CUSPARSE_CALL( (cusparseSetMatType(parallel_log::_matL_des, CUSPARSE_MATRIX_TYPE_GENERAL)) );
@@ -441,10 +444,11 @@ namespace pargemslr
   
       /* ilu solving policy */
       parallel_log::_ilu_solve_policy        = CUSPARSE_SOLVE_POLICY_USE_LEVEL;
+#endif
       parallel_log::_cusparse_buffer_length  = 0;
       parallel_log::_cusparse_buffer         = NULL;
       
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
 
       /* cusparse general API */
       int size_of_int = sizeof(int);
@@ -468,7 +472,7 @@ namespace pargemslr
             break;
          }
       }
-      parallel_log::_cusparse_spmv_algorithm = CUSPARSE_CSRMV_ALG1;
+      parallel_log::_cusparse_spmv_algorithm = CUSPARSE_SPMV_CSR_ALG1;
       
 #endif
     
@@ -572,12 +576,14 @@ namespace pargemslr
       PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyMatDescr(parallel_log::_mat_des)) );
       parallel_log::_mat_des = NULL;
       
+#if !PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyMatDescr(parallel_log::_matL_des)) );
       parallel_log::_matL_des = NULL;
       
       PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyMatDescr(parallel_log::_matU_des)) );
       parallel_log::_matU_des = NULL;
       
+#endif
       PARGEMSLR_CUSPARSE_CALL( (cusparseDestroy(parallel_log::_cusparse_handle)) );
       parallel_log::_cusparse_handle = NULL;
       

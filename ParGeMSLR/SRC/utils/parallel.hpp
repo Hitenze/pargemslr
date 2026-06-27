@@ -254,6 +254,7 @@ namespace pargemslr
        * @brief   The cuSPARSE unit diagonal lower triangular matrix descriptor.
        * @details The cuSPARSE unit diagonal lower triangular matrix descriptor.
        */
+#if !PARGEMSLR_CUSPARSE_GENERIC_API
       static cusparseMatDescr_t           _matL_des;
       
       /**
@@ -267,6 +268,7 @@ namespace pargemslr
        * @details The ilu solving policy for cuSPARSE. (Enable/disable level structure)
        */
       static cusparseSolvePolicy_t        _ilu_solve_policy;
+#endif
       
       /**
        * @brief   Buffers for the cuSPARSE routines.
@@ -280,7 +282,7 @@ namespace pargemslr
        */
       static size_t                       _cusparse_buffer_length;
 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       /**
        * @brief   The cuSPARSE integer type, CUSPARSE_INDEX_32I or CUSPARSE_INDEX_64I.
        * @details The cuSPARSE integer type, CUSPARSE_INDEX_32I or CUSPARSE_INDEX_64I.

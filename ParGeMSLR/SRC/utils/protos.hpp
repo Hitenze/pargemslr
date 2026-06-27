@@ -199,6 +199,7 @@ namespace pargemslr
    extern "C" 
    {
       
+#ifndef PARGEMSLR_MKL
       void PARGEMSLR_BLASLAPACK_SAXPY(int *n, const float *alpha, const float *x, int *incx, float *y, int *incy);
       void PARGEMSLR_BLASLAPACK_DAXPY(int *n, const double *alpha, const double *x, int *incx, double *y, int *incy);
       void PARGEMSLR_BLASLAPACK_CAXPY(int *n, const ccomplexs *alpha, const ccomplexs *x, int *incx, ccomplexs *y, int *incy);
@@ -279,6 +280,7 @@ namespace pargemslr
       void PARGEMSLR_BLASLAPACK_DTREXC(char *compq, int *n, double *t, int *ldt, double *q, int *ldq, int *ifst, int *ilst, double *work, int *info);
       void PARGEMSLR_BLASLAPACK_CTREXC(char *compq, int *n, ccomplexs *t, int *ldt, ccomplexs *q, int *ldq, int *ifst, int *ilst, int *info);
       void PARGEMSLR_BLASLAPACK_ZTREXC(char *compq, int *n, ccomplexd *t, int *ldt, ccomplexd *q, int *ldq, int *ifst, int *ilst, int *info);
+#endif
       
       int METIS_PartGraphRecursive(long int *nvtxs, long int *ncon, long int *xadj, long int *adjncy, long int *vwgt, long int *vsize, long int *adjwgt, long int *nparts, double *tpwgts, double *ubvec, long int *options, long int *edgecut, long int *part);
       int METIS_PartGraphKway(long int *nvtxs, long int *ncon, long int *xadj, long int *adjncy, long int *vwgt, long int *vsize, long int *adjwgt, long int *nparts, double *tpwgts, double *ubvec, long int *options, long int *edgecut, long int *part);

@@ -10,6 +10,9 @@
 #ifdef PARGEMSLR_CUDA
 #include <cuda_runtime.h>
 #endif
+#ifdef PARGEMSLR_MKL
+#include "mkl_types.h"
+#endif
 //#include <iostream>
 
 namespace pargemslr
@@ -659,6 +662,10 @@ __host__ __device__
 
 #endif
 
+#ifdef PARGEMSLR_MKL
+   typedef MKL_Complex8 ccomplexs;
+   typedef MKL_Complex16 ccomplexd;
+#else
    /**
     * @brief   The c style struct of single complex.
     * @details The c style struct of single complex.
@@ -676,6 +683,7 @@ __host__ __device__
    {
       double real, imag;
    }ccomplexd;
+#endif
    
    /**
     * @brief   Tell if a value is a complex value.

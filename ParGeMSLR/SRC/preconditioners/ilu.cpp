@@ -21,16 +21,26 @@ namespace pargemslr
 #ifdef PARGEMSLR_CUDA
       this->_matL_info = NULL;
       this->_matU_info = NULL;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_spsv_info = NULL;
+      this->_matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = 0;
+#endif
 #endif
       this->_location = kMemoryHost;
       this->_n = 0;
       this->_modified = false;
       this->_complex_shift = 0;
+      this->_diag_shift_milu = 0;
       this->_nB = 0;
       this->_nnz = 0;
       this->_fill_level = 1;
       this->_droptol = 1e-02;
       this->_max_row_nnz = 100;
+      this->_max_row_nnz_s = 200;
       this->_option = kIluOptionILUT;
       this->_perm_option = kIluReorderingRcm;
       this->_omp_option = kIluOpenMPLevelScheduling;
@@ -44,16 +54,40 @@ namespace pargemslr
    template <class MatrixType, class VectorType, typename DataType>
    IluClass<MatrixType, VectorType, DataType>::IluClass(const IluClass<MatrixType, VectorType, DataType> &precond) : SolverClass<MatrixType, VectorType, DataType>(precond)
    {
-      this->Clear();
+#ifdef PARGEMSLR_CUDA
+      this->_matL_info = NULL;
+      this->_matU_info = NULL;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_spsv_info = NULL;
+      this->_matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = 0;
+#endif
+#endif
 #ifdef PARGEMSLR_CUDA
       this->_LDU = precond._LDU;
-      this->_matL_info = precond._matL_info;
-      this->_matU_info = precond._matU_info;
-      this->_cusparse_ready = precond._cusparse_ready;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_info = NULL;
+      this->_matU_info = NULL;
+      this->_matL_spsv_info = NULL;
+      this->_matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = 0;
+      this->_cusparse_ready = false;
+#else
+      this->_matL_info = NULL;
+      this->_matU_info = NULL;
+      this->_cusparse_ready = false;
+#endif
 #endif
       this->_location = precond._location;
       this->_n = precond._n;
       this->_complex_shift = precond._complex_shift;
+      this->_diag_shift_milu = precond._diag_shift_milu;
       this->_nnz = precond._nnz;
       this->_L = precond._L;
       this->_D = precond._D;
@@ -83,6 +117,7 @@ namespace pargemslr
       this->_droptol = precond._droptol;
       this->_fill_level = precond._fill_level;
       this->_max_row_nnz = precond._max_row_nnz;
+      this->_max_row_nnz_s = precond._max_row_nnz_s;
       this->_option = precond._option;
       this->_perm_option = precond._perm_option;
       this->_omp_option = precond._omp_option;
@@ -101,13 +136,38 @@ namespace pargemslr
    template <class MatrixType, class VectorType, typename DataType>
    IluClass<MatrixType, VectorType, DataType>::IluClass( IluClass<MatrixType, VectorType, DataType> &&precond) : SolverClass<MatrixType, VectorType, DataType>(std::move(precond))
    {
-      this->Clear();
+#ifdef PARGEMSLR_CUDA
+      this->_matL_info = NULL;
+      this->_matU_info = NULL;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_spsv_info = NULL;
+      this->_matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = 0;
+#endif
+#endif
 #ifdef PARGEMSLR_CUDA
       this->_LDU = std::move(precond._LDU);
       this->_matL_info = precond._matL_info;
       precond._matL_info = NULL;
       this->_matU_info = precond._matU_info;
       precond._matU_info = NULL;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_spsv_info = precond._matL_spsv_info;
+      precond._matL_spsv_info = NULL;
+      this->_matU_spsv_info = precond._matU_spsv_info;
+      precond._matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = precond._matL_spsv_buffer;
+      precond._matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = precond._matU_spsv_buffer;
+      precond._matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = precond._matL_spsv_buffer_length;
+      precond._matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = precond._matU_spsv_buffer_length;
+      precond._matU_spsv_buffer_length = 0;
+#endif
       this->_cusparse_ready = precond._cusparse_ready;
       precond._cusparse_ready = false;
 #endif
@@ -117,6 +177,8 @@ namespace pargemslr
       precond._n = 0;
       this->_complex_shift = precond._complex_shift;
       precond._complex_shift = 0;
+      this->_diag_shift_milu = precond._diag_shift_milu;
+      precond._diag_shift_milu = 0;
       this->_nnz = precond._nnz;
       precond._nnz = 0;
       this->_L = std::move(precond._L);
@@ -148,8 +210,6 @@ namespace pargemslr
       precond._levels_u_end = 0;
       this->_y_temp = std::move(precond._y_temp);
       this->_z_temp = std::move(precond._z_temp);
-      this->_modified = precond._modified;
-      precond._modified = false;
 #endif
       this->_droptol = precond._droptol;
       precond._droptol = 1e-02;
@@ -157,6 +217,8 @@ namespace pargemslr
       precond._fill_level = 1;
       this->_max_row_nnz = precond._max_row_nnz;
       precond._max_row_nnz = 100;
+      this->_max_row_nnz_s = precond._max_row_nnz_s;
+      precond._max_row_nnz_s = 200;
       this->_option = precond._option;
       precond._option = kIluOptionILUT;
       this->_perm_option = precond._perm_option;
@@ -168,6 +230,8 @@ namespace pargemslr
       this->_row_perm_vec = std::move(precond._row_perm_vec);
       this->_col_perm_vec = std::move(precond._col_perm_vec);
       this->_x_temp = std::move(precond._x_temp);
+      this->_modified = precond._modified;
+      precond._modified = false;
       
    }
    template precond_ilu_csr_seq_float::IluClass( precond_ilu_csr_seq_float &&precond);
@@ -178,17 +242,34 @@ namespace pargemslr
    template <class MatrixType, class VectorType, typename DataType>
    IluClass<MatrixType, VectorType, DataType>& IluClass<MatrixType, VectorType, DataType>::operator= (const IluClass<MatrixType, VectorType, DataType> &precond)
    {
+      if(this == &precond)
+      {
+         return *this;
+      }
       this->Clear();
       SolverClass<MatrixType, VectorType, DataType>::operator=(precond);
 #ifdef PARGEMSLR_CUDA
       this->_LDU = precond._LDU;
-      this->_matL_info = precond._matL_info;
-      this->_matU_info = precond._matU_info;
-      this->_cusparse_ready = precond._cusparse_ready;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_info = NULL;
+      this->_matU_info = NULL;
+      this->_matL_spsv_info = NULL;
+      this->_matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = 0;
+      this->_cusparse_ready = false;
+#else
+      this->_matL_info = NULL;
+      this->_matU_info = NULL;
+      this->_cusparse_ready = false;
+#endif
 #endif
       this->_location = precond._location;
       this->_n = precond._n;
       this->_complex_shift = precond._complex_shift;
+      this->_diag_shift_milu = precond._diag_shift_milu;
       this->_nnz = precond._nnz;
       this->_L = precond._L;
       this->_D = precond._D;
@@ -218,6 +299,7 @@ namespace pargemslr
       this->_droptol = precond._droptol;
       this->_fill_level = precond._fill_level;
       this->_max_row_nnz = precond._max_row_nnz;
+      this->_max_row_nnz_s = precond._max_row_nnz_s;
       this->_option = precond._option;
       this->_perm_option = precond._perm_option;
       this->_omp_option = precond._omp_option;
@@ -237,6 +319,10 @@ namespace pargemslr
    template <class MatrixType, class VectorType, typename DataType>
    IluClass<MatrixType, VectorType, DataType>& IluClass<MatrixType, VectorType, DataType>::operator= ( IluClass<MatrixType, VectorType, DataType> &&precond)
    {
+      if(this == &precond)
+      {
+         return *this;
+      }
       this->Clear();
       SolverClass<MatrixType, VectorType, DataType>::operator=(std::move(precond));
 #ifdef PARGEMSLR_CUDA
@@ -245,6 +331,20 @@ namespace pargemslr
       precond._matL_info = NULL;
       this->_matU_info = precond._matU_info;
       precond._matU_info = NULL;
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_matL_spsv_info = precond._matL_spsv_info;
+      precond._matL_spsv_info = NULL;
+      this->_matU_spsv_info = precond._matU_spsv_info;
+      precond._matU_spsv_info = NULL;
+      this->_matL_spsv_buffer = precond._matL_spsv_buffer;
+      precond._matL_spsv_buffer = NULL;
+      this->_matU_spsv_buffer = precond._matU_spsv_buffer;
+      precond._matU_spsv_buffer = NULL;
+      this->_matL_spsv_buffer_length = precond._matL_spsv_buffer_length;
+      precond._matL_spsv_buffer_length = 0;
+      this->_matU_spsv_buffer_length = precond._matU_spsv_buffer_length;
+      precond._matU_spsv_buffer_length = 0;
+#endif
       this->_cusparse_ready = precond._cusparse_ready;
       precond._cusparse_ready = false;
 #endif
@@ -254,6 +354,8 @@ namespace pargemslr
       precond._n = 0;
       this->_complex_shift = precond._complex_shift;
       precond._complex_shift = 0;
+      this->_diag_shift_milu = precond._diag_shift_milu;
+      precond._diag_shift_milu = 0;
       this->_nnz = precond._nnz;
       precond._nnz = 0;
       this->_L = std::move(precond._L);
@@ -292,6 +394,8 @@ namespace pargemslr
       precond._fill_level = 1;
       this->_max_row_nnz = precond._max_row_nnz;
       precond._max_row_nnz = 100;
+      this->_max_row_nnz_s = precond._max_row_nnz_s;
+      precond._max_row_nnz_s = 200;
       this->_option = precond._option;
       precond._option = kIluOptionILUT;
       this->_perm_option = precond._perm_option;
@@ -331,6 +435,7 @@ namespace pargemslr
       SolverClass<MatrixType, VectorType, DataType>::Clear();
       this->_location = kMemoryHost;
       this->_n = 0;
+      this->_diag_shift_milu = 0;
       this->_nnz = 0;
       this->_L.Clear();
       this->_D.Clear();
@@ -360,6 +465,7 @@ namespace pargemslr
       this->_droptol = 1e-02;
       this->_fill_level = 1;
       this->_max_row_nnz = 100;
+      this->_max_row_nnz_s = 200;
       this->_option = kIluOptionILUT;
       this->_perm_option = kIluReorderingRcm;
       this->_omp_option = kIluOpenMPLevelScheduling;
@@ -447,9 +553,10 @@ namespace pargemslr
       }
       
       /* setup the solve buffer */
-      if(this->_x_temp.GetLengthLocal() != this->_n)
+      int solve_size = (this->_option == kIluOptionPartialILUT) ? this->_nB : this->_n;
+      if(this->_x_temp.GetLengthLocal() != solve_size)
       {
-         this->_x_temp.Setup( this->_n, this->_location, true);
+         this->_x_temp.Setup( solve_size, this->_location, true);
       }
       
       /* the the preconditioner is ready, move to location */

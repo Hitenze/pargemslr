@@ -394,7 +394,7 @@ namespace pargemslr
       this->GetMpiInfo(np, myid, comm);
       
       char tempfilename[1024];
-      snprintf( tempfilename, 1024, "./%s%05d", datafilename, myid );
+      snprintf( tempfilename, 1024, "%s%05d", datafilename, myid );
       
       /* define the data type */
       typedef typename std::conditional<PargemslrIsDoublePrecision<T>::value, double, float>::type RealDataType;
@@ -420,7 +420,7 @@ namespace pargemslr
          
          for(i = 0 ; i < n_local ; i ++)
          {
-            fprintf(fdata, "%16.12f %16.12f\n", cval[i].Real(), cval[i].Imag());
+            fprintf(fdata, "%.17e %.17e\n", cval[i].Real(), cval[i].Imag());
          }
       }
       else
@@ -429,7 +429,7 @@ namespace pargemslr
          
          for(i = 0 ; i < n_local ; i ++)
          {
-            fprintf(fdata, "%16.12f \n", rval[i]);
+            fprintf(fdata, "%.17e\n", rval[i]);
          }
       }
       
@@ -618,7 +618,7 @@ namespace pargemslr
    template int ParallelVectorClass<complexd>::MoveData( const int &location);
 
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
    
    template <typename T>
    cusparseDnVecDescr_t ParallelVectorClass<T>::GetCusparseVec() const

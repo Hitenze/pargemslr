@@ -21,7 +21,7 @@ namespace pargemslr
    SequentialVectorClass<T>::SequentialVectorClass()
    {
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       this->_cusparse_vec = NULL;
 #endif
 #endif
@@ -39,6 +39,11 @@ namespace pargemslr
    template <typename T>
    SequentialVectorClass<T>::SequentialVectorClass(const SequentialVectorClass<T> &vec) : VectorClass<T>(vec)
    {
+#ifdef PARGEMSLR_CUDA
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_cusparse_vec = NULL;
+#endif
+#endif
       if(vec._hold_data)
       {
          PARGEMSLR_MALLOC( this->_data, vec._maxlength, vec._location, T);
@@ -85,7 +90,7 @@ namespace pargemslr
       vec._maxlength = 0;
       
 #ifdef PARGEMSLR_CUDA
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       this->_cusparse_vec = vec._cusparse_vec;
       vec._cusparse_vec = NULL;
 #endif
@@ -150,7 +155,7 @@ namespace pargemslr
       vec._maxlength = 0;
       
 #ifdef PARGEMSLR_CUDA
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       this->_cusparse_vec = vec._cusparse_vec;
       vec._cusparse_vec = NULL;
 #endif
@@ -445,7 +450,7 @@ namespace pargemslr
       this->_maxlength = 0;
       this->_location = kMemoryHost;
 #ifdef PARGEMSLR_CUDA
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       if( this->_cusparse_vec )
       {
          /* free the current one */
@@ -571,6 +576,14 @@ namespace pargemslr
          /* in this case just change the length */
          _length = length;
       }
+#ifdef PARGEMSLR_CUDA
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      if(this->_location == kMemoryDevice || this->_location == kMemoryUnified)
+      {
+         SequentialVectorCreateCusparseDnVec(*this);
+      }
+#endif
+#endif
       return PARGEMSLR_SUCCESS;
    }
    template int SequentialVectorClass<float>::Resize(int length, int reserve, bool keepdata, bool setzero);
@@ -603,7 +616,7 @@ namespace pargemslr
    template complexd* SequentialVectorClass<complexd>::GetData() const;
    
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
    /**
     * @brief   For cusparse general spmv.
     * @details For cusparse general spmv.
@@ -1011,7 +1024,7 @@ namespace pargemslr
          
          for(i = 0 ; i < this->_length ; i ++)
          {
-            fprintf(fdata, "%16.12f %16.12f\n", cval[i].Real(), cval[i].Imag());
+            fprintf(fdata, "%.17e %.17e\n", cval[i].Real(), cval[i].Imag());
          }
       }
       else
@@ -1020,7 +1033,7 @@ namespace pargemslr
          
          for(i = 0 ; i < this->_length ; i ++)
          {
-            fprintf(fdata, "%16.12f \n", rval[i]);
+            fprintf(fdata, "%.17e\n", rval[i]);
          }
       }
       

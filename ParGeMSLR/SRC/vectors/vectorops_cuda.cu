@@ -228,7 +228,7 @@ namespace pargemslr
 
    int SequentialVectorCreateCusparseDnVec(vector_seq_float &v)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryPinned);
       
@@ -248,7 +248,7 @@ namespace pargemslr
    
    int SequentialVectorCreateCusparseDnVec(vector_seq_double &v)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryPinned);
       
@@ -268,7 +268,7 @@ namespace pargemslr
    
    int SequentialVectorCreateCusparseDnVec(vector_seq_complexs &v)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryPinned);
       
@@ -288,7 +288,7 @@ namespace pargemslr
    
    int SequentialVectorCreateCusparseDnVec(vector_seq_complexd &v)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( v.GetDataLocation() == kMemoryPinned);
       

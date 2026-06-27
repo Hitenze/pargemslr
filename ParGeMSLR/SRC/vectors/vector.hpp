@@ -298,7 +298,7 @@ namespace pargemslr
       virtual int Dot( const VectorClass<T> &y, T &t) const = 0;
 
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       /**
        * @brief   For cusparse general spmv.
        * @details For cusparse general spmv.

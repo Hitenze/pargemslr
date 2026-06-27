@@ -33,7 +33,7 @@ namespace pargemslr
       this->_iscsr = true;
       this->_diagonal_shift = 0.0;
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       _cusparse_mat = NULL;
 #endif
 #endif
@@ -60,6 +60,9 @@ namespace pargemslr
       
 #ifdef PARGEMSLR_CUDA
       int location = this->GetDataLocation();
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      this->_cusparse_mat = NULL;
+#endif
       if(location == kMemoryDevice || location == kMemoryUnified)
       {
          CsrMatrixCreateCusparseSpMat(*this);
@@ -95,7 +98,7 @@ namespace pargemslr
       this->_a_vec = std::move(mat._a_vec);
       
 #ifdef PARGEMSLR_CUDA
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       this->_cusparse_mat = mat._cusparse_mat;
       mat._cusparse_mat = NULL;
 #endif
@@ -164,7 +167,7 @@ namespace pargemslr
       this->_a_vec = std::move(mat._a_vec);
       
 #ifdef PARGEMSLR_CUDA
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       this->_cusparse_mat = mat._cusparse_mat;
       mat._cusparse_mat = NULL;
 #endif
@@ -204,7 +207,7 @@ namespace pargemslr
       this->_iscsr = true;
       this->_diagonal_shift = 0.0;
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       if(this->_cusparse_mat)
       {
          PARGEMSLR_CUSPARSE_CALL( (cusparseDestroySpMat(this->_cusparse_mat)) );
@@ -1103,7 +1106,7 @@ namespace pargemslr
    template const SequentialVectorClass<complexd>& CsrMatrixClass<complexd>::GetDataVector() const;
    
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
    template <typename T>
    cusparseSpMatDescr_t CsrMatrixClass<T>::GetCusparseMat() const
    {
@@ -1122,6 +1125,7 @@ namespace pargemslr
          PARGEMSLR_CUSPARSE_CALL( (cusparseDestroySpMat(this->_cusparse_mat)) );
       }
       this->_cusparse_mat = cusparse_mat;
+      return PARGEMSLR_SUCCESS;
    }
    template int CsrMatrixClass<float>::SetCusparseMat(cusparseSpMatDescr_t cusparse_mat);
    template int CsrMatrixClass<double>::SetCusparseMat(cusparseSpMatDescr_t cusparse_mat);

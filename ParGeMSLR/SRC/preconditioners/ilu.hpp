@@ -140,17 +140,19 @@ namespace pargemslr
        */
       CsrMatrixClass<DataType>            _LDU;
       
-      /**
-       * @brief   The ILU info for L matrix of cusparse.
-       * @details The ILU info for L matrix of cusparse.
-       */
+#if PARGEMSLR_CUSPARSE_GENERIC_API
+      cusparseSpMatDescr_t                _matL_info;
+      cusparseSpMatDescr_t                _matU_info;
+      cusparseSpSVDescr_t                 _matL_spsv_info;
+      cusparseSpSVDescr_t                 _matU_spsv_info;
+      void                                *_matL_spsv_buffer;
+      void                                *_matU_spsv_buffer;
+      size_t                              _matL_spsv_buffer_length;
+      size_t                              _matU_spsv_buffer_length;
+#else
       csrsv2Info_t                        _matL_info;
-      
-      /**
-       * @brief   The ILU info for U matrix of cusparse.
-       * @details The ILU info for U matrix of cusparse.
-       */
       csrsv2Info_t                        _matU_info;
+#endif
       
 #endif
       

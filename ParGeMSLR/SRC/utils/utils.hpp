@@ -15,6 +15,7 @@
 #include <random>
 #include <climits>
 #include <cassert>
+#include "cuda_compat.hpp"
 
 #define PARGEMSLR_FIRM_CHKERR(ierr) {{if(ierr){printf("Err value: %d on MPI rank %d\n",ierr, parallel_log::_grank);assert(!(ierr));};}}
 

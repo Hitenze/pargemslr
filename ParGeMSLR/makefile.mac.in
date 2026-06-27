@@ -26,9 +26,9 @@ ifeq ($(USING_MKL),0)
 MPICC := mpicc
 MPICPP := mpicxx
 else
-#use intel compiler for MKL
-MPICC := mpiicc
-MPICPP := mpiicpc
+# Use Intel oneAPI MPI compiler wrappers for MKL builds.
+MPICC := mpiicx
+MPICPP := mpiicpx
 endif
 
 ifeq ($(USING_CUDA),0)
@@ -92,7 +92,7 @@ ifneq ($(USING_MKL),0)
 FLAGS += -DPARGEMSLR_MKL -qopenmp
 LINK += -qopenmp
 # MKLROOT is the path to MKL
-LIBMKL =  -Wl, --start-group  $(MKL_PATH)/lib/intel64/libmkl_intel_lp64.a $(MKL_PATH)/lib/intel64/libmkl_intel_thread.a $(MKL_PATH)/lib/intel64/libmkl_core.a -Wl, --end-group -lpthread -lm
+LIBMKL =  -L$(MKL_PATH)/lib/intel64/ -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lpthread -lm
 endif
 
 ifneq ($(USING_OPENBLAS),0)

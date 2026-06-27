@@ -166,6 +166,7 @@ namespace pargemslr
          this->_own_matrix = false;
          this->_preconditioner = solver._preconditioner;
          this->_own_preconditioner = false;
+         this->_solution = solver._solution;
          this->_right_hand_side = solver._right_hand_side;
          this->_ready = solver._ready;
          this->_print_option = solver._print_option;
@@ -209,10 +210,15 @@ namespace pargemslr
        */
       SolverClass<MatrixType, VectorType, DataType>& operator= (const SolverClass<MatrixType, VectorType, DataType> &solver)
       {
+         if(this == &solver)
+         {
+            return *this;
+         }
          this->Clear();
          this->_solver_precision = solver._solver_precision;
          this->_solver_type = solver._solver_type;
          this->_is_mixed = solver._is_mixed;
+         this->_matrix = solver._matrix;
          this->_own_matrix = false;
          this->_preconditioner = solver._preconditioner;
          this->_own_preconditioner = false;
@@ -231,6 +237,10 @@ namespace pargemslr
        */
       SolverClass<MatrixType, VectorType, DataType>& operator= (SolverClass<MatrixType, VectorType, DataType> &&solver)
       {
+         if(this == &solver)
+         {
+            return *this;
+         }
          this->Clear();
          this->_solver_precision = solver._solver_precision;
          solver._solver_precision = kUnknownPrecision;

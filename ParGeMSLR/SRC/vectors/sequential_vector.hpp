@@ -31,7 +31,7 @@ namespace pargemslr
       
       /* variables */
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       /**
       * @brief   For cusparse general spmv.
       * @details For cusparse general spmv.
@@ -295,7 +295,7 @@ namespace pargemslr
       virtual T*     GetData() const;
 
 #ifdef PARGEMSLR_CUDA 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       /**
        * @brief   For cusparse general spmv.
        * @details For cusparse general spmv.

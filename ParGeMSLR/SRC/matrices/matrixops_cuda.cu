@@ -329,7 +329,7 @@ namespace pargemslr
       
       cutrans = trans == 'N' ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
 
       size_t      bufferSize;
       
@@ -412,7 +412,7 @@ namespace pargemslr
       
       cutrans = trans == 'N' ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
 
       size_t      bufferSize;
       
@@ -512,7 +512,7 @@ namespace pargemslr
          }
       }
  
-#if (PARGEMSLR_CUDA_VERSION == 11) 
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       
       size_t      bufferSize;
       
@@ -612,7 +612,7 @@ namespace pargemslr
          }
       }
 
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       
       size_t      bufferSize;
       
@@ -682,7 +682,7 @@ namespace pargemslr
    
    int CsrMatrixCreateCusparseSpMat( CsrMatrixClass<float> &A)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryPinned);
       
@@ -713,7 +713,7 @@ namespace pargemslr
    
    int CsrMatrixCreateCusparseSpMat( CsrMatrixClass<double> &A)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryPinned);
       
@@ -744,7 +744,7 @@ namespace pargemslr
    
    int CsrMatrixCreateCusparseSpMat( CsrMatrixClass<complexs> &A)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryPinned);
       
@@ -775,7 +775,7 @@ namespace pargemslr
    
    int CsrMatrixCreateCusparseSpMat( CsrMatrixClass<complexd> &A)
    {
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryHost);
       PARGEMSLR_CHKERR( A.GetDataLocation() == kMemoryPinned);
       
@@ -869,7 +869,7 @@ namespace pargemslr
       if(hold_data)
       {
          /* when holding data, apply permutation to data */
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
          
          /* cusparse vectors */
          cusparseSpVecDescr_t colperm_spVec;
@@ -893,7 +893,7 @@ namespace pargemslr
          
          /* free cusparse vectors */
          PARGEMSLR_CUSPARSE_CALL( (cusparseDestroySpVec(colperm_spVec)) );
-         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVe(temp_dnVec)) );
+         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVec(temp_dnVec)) );
          
 #else
          
@@ -978,7 +978,7 @@ namespace pargemslr
       if(hold_data)
       {
          /* when holding data, apply permutation to data */
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
          
          /* cusparse vectors */
          cusparseSpVecDescr_t colperm_spVec;
@@ -1002,7 +1002,7 @@ namespace pargemslr
          
          /* free cusparse vectors */
          PARGEMSLR_CUSPARSE_CALL( (cusparseDestroySpVec(colperm_spVec)) );
-         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVe(temp_dnVec)) );
+         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVec(temp_dnVec)) );
          
 #else
          
@@ -1087,7 +1087,7 @@ namespace pargemslr
       if(hold_data)
       {
          /* when holding data, apply permutation to data */
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
          
          /* cusparse vectors */
          cusparseSpVecDescr_t colperm_spVec;
@@ -1111,7 +1111,7 @@ namespace pargemslr
          
          /* free cusparse vectors */
          PARGEMSLR_CUSPARSE_CALL( (cusparseDestroySpVec(colperm_spVec)) );
-         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVe(temp_dnVec)) );
+         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVec(temp_dnVec)) );
          
 #else
          
@@ -1196,7 +1196,7 @@ namespace pargemslr
       if(hold_data)
       {
          /* when holding data, apply permutation to data */
-#if (PARGEMSLR_CUDA_VERSION == 11)
+#if PARGEMSLR_CUSPARSE_GENERIC_API
          
          /* cusparse vectors */
          cusparseSpVecDescr_t colperm_spVec;
@@ -1220,7 +1220,7 @@ namespace pargemslr
          
          /* free cusparse vectors */
          PARGEMSLR_CUSPARSE_CALL( (cusparseDestroySpVec(colperm_spVec)) );
-         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVe(temp_dnVec)) );
+         PARGEMSLR_CUSPARSE_CALL( (cusparseDestroyDnVec(temp_dnVec)) );
          
 #else
          
