@@ -1,5 +1,11 @@
 **ParGeMSLR: A MPI based parallel hierarchical low-rank preconditioner (Version 1.0.0)**
 
+**DEVELOPMENT STATUS**
+
+The `version2.0` branch is under active development. The current stable release remains the v1/main branch until a v2.0 release is tagged.
+
+This branch adds CUDA/cuSPARSE modernization, oneAPI build updates, and standardized CPU/GPU regression tests.
+
 **ParGeMSLR** (Parallel Generalized Multilevel Schur Low-Rank) is a MPI-based C++ library. \n 
 This is a distributed-memory Multilevel Low-Rank Preconditioning and Solution package for the solution of large and sparse (non)symmetric linear systems of equations. \n
 The Parallel GeMSLR preconditioner is purely algebraic and is based on a multilevel reordering of the original set of equations/variables. 
@@ -73,6 +79,19 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
    2. For sequential tests, go to folder TESTS/sequential.
    3. For parallel tests, go to folder TESTS/parallel.
    3. Make those tests with make command.
+
+**TESTING**
+
+ * From the repository root, run `make smoke-test` to build the CPU library and run deterministic real Laplacian smoke tests.
+ * The smoke test builds `USING_CUDA=0 USING_MKL=0` by default, then runs:
+   - sequential real Laplacian with `mpirun -np 1`;
+   - parallel real Laplacian with `mpirun -np 2`.
+ * To include the CUDA smoke path, run `PARGEMSLR_TEST_CUDA=1 CUDA_ARCH=86 CUDA_VERSION=11 make smoke-test`.
+ * The smoke test creates temporary Laplacian input files under `/tmp`, checks command exit codes, and verifies the final relative residual against the requested tolerance.
+
+**AI ASSISTANCE STATEMENT**
+
+AI tools may be used to assist with code modernization, review, testing, and documentation. Project contributors are responsible for reviewing, validating, and maintaining all accepted changes.
 
 **SAMPLE RUNS**
 

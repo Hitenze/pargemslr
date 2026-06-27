@@ -70,6 +70,7 @@ rules.ninja
 .claude
 CLAUDE.md
 GEMINI.md
+AGENTS.md
 
 # Generated documentation
 html/
@@ -84,6 +85,7 @@ Doxyfile.bak
 
 # ParMETIS
 parmetis-*.tar.gz
+ParGeMSLR/parmetis
 ParGeMSLR/parmetis/
 
 # Log files
