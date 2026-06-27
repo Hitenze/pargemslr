@@ -7,6 +7,7 @@
 #include "pargemslr.hpp"
 #include "io.hpp"
 #include <iostream>
+#include <limits>
 
 using namespace std;
 using namespace pargemslr;
@@ -25,6 +26,7 @@ int main (int argc, char *argv[])
    char outfile[1024], infile[1024], solfile[1024];
    bool writesol = false;
    int      location;
+   int      ret = 0;
    
    /* print help when necessary */
    if(PargemslrReadInputArg("help", argc, argv))
@@ -292,14 +294,134 @@ int main (int argc, char *argv[])
        * 9. Setup phase
        *-----------------------------------------------*/
       
-      PARGEMSLR_LOCAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SETUP_TIME, (solver.Setup(x, b)));
-      
+      int solve_err = PARGEMSLR_SUCCESS;
+      PARGEMSLR_LOCAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SETUP_TIME, (solve_err = solver.Setup(x, b)));
+      if(solve_err != PARGEMSLR_SUCCESS)
+      {
+         PARGEMSLR_PRINT("Solver setup failed with error code %d\n", solve_err);
+         ret = solve_err;
+      }
+
       /*------------------------------------------------
        * 10. Solve phase
        *-----------------------------------------------*/
-      
-      PARGEMSLR_LOCAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SOLVE_TIME, (solver.Solve(x, b)));
-      
+
+      if(ret == 0)
+      {
+         PARGEMSLR_LOCAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SOLVE_TIME, (solve_err = solver.Solve(x, b)));
+         if(solve_err != PARGEMSLR_SUCCESS)
+         {
+            PARGEMSLR_PRINT("Solver solve failed with error code %d\n", solve_err);
+            ret = solve_err;
+         }
+      }
+      if(ret != 0)
+      {
+         x.Clear();
+         b.Clear();
+         csr_mat.Clear();
+         solver.Clear();
+         precond.Clear();
+         break;
+      }
+
+      double true_rel_res = std::numeric_limits<double>::quiet_NaN();
+      double solution_rel_error = std::numeric_limits<double>::quiet_NaN();
+      int check_err = PARGEMSLR_SUCCESS;
+      {
+         SequentialVectorClass<double> residual;
+         double rhs_norm = 0.0, residual_norm = 0.0;
+         check_err = residual.Setup(n, location, false);
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = csr_mat.MatVec('N', one, x, zero, residual);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = residual.Axpy(-one, b);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = residual.Norm2(residual_norm);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = b.Norm2(rhs_norm);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            true_rel_res = (rhs_norm != 0.0) ? residual_norm / rhs_norm : residual_norm;
+         }
+         residual.Clear();
+      }
+      if(check_err != PARGEMSLR_SUCCESS)
+      {
+         PARGEMSLR_PRINT("Residual validation failed with error code %d\n", check_err);
+         ret = check_err;
+      }
+
+      if(ret == 0 && sol_opt == 0)
+      {
+         SequentialVectorClass<double> exact_sol, sol_error;
+         double exact_norm = 0.0, error_norm = 0.0;
+         check_err = exact_sol.Setup(n, location, false);
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = sol_error.Setup(n, location, false);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = exact_sol.Fill(one);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = sol_error.Fill(zero);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = sol_error.Axpy(one, x);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = sol_error.Axpy(-one, exact_sol);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = sol_error.Norm2(error_norm);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            check_err = exact_sol.Norm2(exact_norm);
+         }
+         if(check_err == PARGEMSLR_SUCCESS)
+         {
+            if(exact_norm != 0.0)
+            {
+               solution_rel_error = error_norm / exact_norm;
+            }
+            else
+            {
+               check_err = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+         }
+         sol_error.Clear();
+         exact_sol.Clear();
+         if(check_err != PARGEMSLR_SUCCESS)
+         {
+            PARGEMSLR_PRINT("Exact-solution validation failed with error code %d\n", check_err);
+            ret = check_err;
+         }
+      }
+      if(ret != 0)
+      {
+         x.Clear();
+         b.Clear();
+         csr_mat.Clear();
+         solver.Clear();
+         precond.Clear();
+         break;
+      }
+
       /*------------------------------------------------
        * 11. Compute fill-level
        *-----------------------------------------------*/
@@ -315,7 +437,12 @@ int main (int argc, char *argv[])
       PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
       PARGEMSLR_PRINT("Solution info:\n");
       PARGEMSLR_PRINT("\tNumber of iterations: %d\n",solver.GetNumberIterations());
-      PARGEMSLR_PRINT("\tFinal rel res: %f\n",solver.GetFinalRelativeResidual());
+      PARGEMSLR_PRINT("\tFinal rel res: %.17e\n",solver.GetFinalRelativeResidual());
+      PARGEMSLR_PRINT("\tTrue rel res: %.17e\n",true_rel_res);
+      if(sol_opt == 0)
+      {
+         PARGEMSLR_PRINT("\tSolution rel error: %.17e\n",solution_rel_error);
+      }
       PARGEMSLR_PRINT("\tPreconditioner fill level: ILU: %f; Low-rank: %f; Total: %f\n",(double)nnzILU/nnzA,(double)nnzLR/nnzA,(double)nnzM/nnzA);
       /*
       if(params[PARGEMSLR_IO_GENERAL_PRINT_LEVEL] > 0)
@@ -340,8 +467,16 @@ int main (int argc, char *argv[])
       if(writesol)
       {
          char tempsolname[2048];
-         snprintf( tempsolname, 2048, "./%s%05d%s", solfile, i, ".sol" );
-         x.WriteToDisk(tempsolname);
+         int write_err = x.MoveData(kMemoryHost);
+         if(write_err == PARGEMSLR_SUCCESS)
+         {
+            snprintf( tempsolname, 2048, "%s%05d%s", solfile, i, ".sol" );
+            write_err = x.WriteToDisk(tempsolname);
+         }
+         if(write_err != PARGEMSLR_SUCCESS)
+         {
+            ret = write_err;
+         }
       }
       
       x.Clear();
@@ -351,7 +486,10 @@ int main (int argc, char *argv[])
       precond.Clear();
    }
    
-   printf("All tests done\n");
+   if(ret == 0)
+   {
+      printf("All tests done\n");
+   }
    
    free(nx);
    free(ny);
@@ -367,5 +505,5 @@ int main (int argc, char *argv[])
    
    PargemslrFinalize();
    
-   return 0;
+   return ret;
 }

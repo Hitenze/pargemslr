@@ -27,7 +27,9 @@ LIB := -L../../ -lpargemslr -L../../$(METIS_PATH)/libparmetis -lparmetis -L../..
 ALLEXE = driver_laplacian_gemslr_par.ex\
 	driver_laplacian_gemslrz_par.ex\
 	driver_gen_gemslr_par.ex\
-	driver_gen_gemslrz_par.ex
+	driver_gen_gemslrz_par.ex\
+	parallel_vector_setup_check.ex\
+	parallel_matrix_ops_check.ex
 
 # Rules
 default: driver_laplacian_gemslr_par.ex\
@@ -41,7 +43,11 @@ all: $(ALLEXE)
 %.o : %.c
 	$(CC) $(FLAGS) $(INCLUDES) -o $@ -c $<
 %.o : %.cpp
+ifeq ($(USING_CUDA),0)
 	$(CXX) $(FLAGS) $(INCLUDES) -o $@ -c $<
+else
+	$(CXX) $(CUDA_CPP_SOURCE) $(FLAGS) $(INCLUDES) -o $@ -c $<
+endif
 ifneq ($(USING_CUDA),0)
 %.o : %.cu
 	$(NVCC) $(FLAGS) $(INCLUDES) -o $@ -c $<
@@ -60,6 +66,12 @@ driver_gen_gemslr_par.ex: $(OBJ_PAR_GEN) $(EXTRA)
 
 driver_gen_gemslrz_par.ex: $(OBJ_PAR_GENZ) $(EXTRA)
 	$(LINK) $(FLAGS) -o driver_gen_gemslrz_par.ex $(INCLUDES) $(OBJ_PAR_GENZ) $(EXTRA) $(LIB)
+
+parallel_vector_setup_check.ex: ../parallel_vector_setup_check.cpp
+	$(LINK) $(FLAGS) -o parallel_vector_setup_check.ex $(INCLUDES) ../parallel_vector_setup_check.cpp $(LIB)
+
+parallel_matrix_ops_check.ex: ../parallel_matrix_ops_check.cpp
+	$(LINK) $(FLAGS) -o parallel_matrix_ops_check.ex $(INCLUDES) ../parallel_matrix_ops_check.cpp $(LIB)
 
 clean:
 	rm -f $(OBJ_ALLTESTS) *.ex *.o

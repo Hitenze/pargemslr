@@ -7,6 +7,7 @@
 #include "pargemslr.hpp"
 #include "io_par.hpp"
 #include <iostream>
+#include <limits>
 
 using namespace std;
 using namespace pargemslr;
@@ -25,6 +26,7 @@ int main (int argc, char *argv[])
    char outfile[1024], infile[1024], lapfile[1024], solfile[1024];
    bool writesol = false;
    int location;
+   int ret = 0;
    
    /*---------parallel CSR matrix */
    ParallelCsrMatrixClass<double> *parcsr_mat = new ParallelCsrMatrixClass<double>();
@@ -124,13 +126,14 @@ int main (int argc, char *argv[])
     * - - - - - - - - - - - - - - - */
    
    /* read from file "input" when necessary */
+   int input_err = PARGEMSLR_SUCCESS;
    if(PargemslrReadInputArg("fromfile", infile, argc, argv))
    {
       if(myid == 0)
       {
          PARGEMSLR_PRINT("Reading setup from file %s\n",infile);
       }
-      read_inputs_from_file( infile, params);
+      input_err = read_inputs_from_file( infile, params);
    }
    else
    {
@@ -138,7 +141,28 @@ int main (int argc, char *argv[])
       {
          PARGEMSLR_PRINT("Reading setup from file \"inputs\"\n");
       }
-      read_inputs_from_file( "inputs", params);
+      input_err = read_inputs_from_file( "inputs", params);
+   }
+   if(input_err != PARGEMSLR_SUCCESS)
+   {
+      if(myid == 0)
+      {
+         PARGEMSLR_PRINT("Reading setup file failed with error code %d\n", input_err);
+      }
+      delete x;
+      delete b;
+      delete parcsr_mat;
+      delete solverp;
+      delete precondp;
+      free(nx);
+      free(ny);
+      free(nz);
+      free(shift);
+      free(alphax);
+      free(alphay);
+      free(alphaz);
+      PargemslrFinalize();
+      return input_err;
    }
    
    if(PargemslrReadInputArg("outfile", outfile, argc, argv))
@@ -396,23 +420,290 @@ int main (int argc, char *argv[])
        * 6. Setup phase
        * - - - - - - - - - - - - - - - */
       
-      PARGEMSLR_GLOBAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SETUP_TIME, (solverp->Setup(*x, *b)));
-      
+      int solve_err = PARGEMSLR_SUCCESS;
+      int global_err = PARGEMSLR_SUCCESS;
+      int mpi_err = MPI_SUCCESS;
+      PARGEMSLR_GLOBAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SETUP_TIME, (solve_err = solverp->Setup(*x, *b)));
+      mpi_err = MPI_Allreduce(&solve_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+      if(mpi_err != MPI_SUCCESS)
+      {
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("MPI_Allreduce failed while checking solver setup status.\n");
+         }
+         ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+      }
+      else if(global_err != PARGEMSLR_SUCCESS)
+      {
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("Solver setup failed with error code %d on at least one rank.\n", global_err);
+         }
+         ret = global_err;
+      }
+
       /* - - - - - - - - - - - - - - - -
-       * 6. Solve phase
+       * 7. Solve phase
        * - - - - - - - - - - - - - - - */
-      
-      PARGEMSLR_GLOBAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SOLVE_TIME, (solverp->Solve(*x, *b)));
-      
+
+      if(ret == 0)
+      {
+         PARGEMSLR_GLOBAL_FIRM_TIME_CALL(PARGEMSLR_TOTAL_SOLVE_TIME, (solve_err = solverp->Solve(*x, *b)));
+         mpi_err = MPI_Allreduce(&solve_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+         if(mpi_err != MPI_SUCCESS)
+         {
+            if(myid == 0)
+            {
+               PARGEMSLR_PRINT("MPI_Allreduce failed while checking solver solve status.\n");
+            }
+            ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+         }
+         else if(global_err != PARGEMSLR_SUCCESS)
+         {
+            if(myid == 0)
+            {
+               PARGEMSLR_PRINT("Solver solve failed with error code %d on at least one rank.\n", global_err);
+            }
+            ret = global_err;
+         }
+      }
+      if(ret != 0)
+      {
+         x->Clear();
+         b->Clear();
+         parcsr_mat->Clear();
+         solverp->Clear();
+         precondp->Clear();
+         break;
+      }
+
+      double true_rel_res = std::numeric_limits<double>::quiet_NaN();
+      double solution_rel_error = std::numeric_limits<double>::quiet_NaN();
+      int check_err = PARGEMSLR_SUCCESS;
+      {
+         ParallelVectorClass<double> residual;
+         double rhs_norm = 0.0, residual_norm = 0.0;
+         check_err = residual.Setup(n_local, location, false, parlog);
+         mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+         if(mpi_err != MPI_SUCCESS)
+         {
+            ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+         }
+         else if(global_err != PARGEMSLR_SUCCESS)
+         {
+            ret = global_err;
+         }
+         if(ret == 0)
+         {
+            check_err = parcsr_mat->MatVec('N', one, *x, zero, residual);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = residual.Axpy(-one, *b);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = residual.Norm2(residual_norm);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = b->Norm2(rhs_norm);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            true_rel_res = (rhs_norm != 0.0) ? residual_norm / rhs_norm : residual_norm;
+         }
+         residual.Clear();
+      }
+      if(ret != 0)
+      {
+         if(myid == 0)
+         {
+            PARGEMSLR_PRINT("Residual validation failed with error code %d\n", ret);
+         }
+      }
+
+      if(ret == 0 && sol_opt == 0)
+      {
+         ParallelVectorClass<double> exact_sol, sol_error;
+         double exact_norm = 0.0, error_norm = 0.0;
+         check_err = exact_sol.Setup(n_local, location, false, parlog);
+         mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+         if(mpi_err != MPI_SUCCESS)
+         {
+            ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+         }
+         else if(global_err != PARGEMSLR_SUCCESS)
+         {
+            ret = global_err;
+         }
+         if(ret == 0)
+         {
+            check_err = sol_error.Setup(n_local, location, false, parlog);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = exact_sol.Fill(one);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = sol_error.Fill(zero);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = sol_error.Axpy(one, *x);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = sol_error.Axpy(-one, exact_sol);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = sol_error.Norm2(error_norm);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            check_err = exact_sol.Norm2(exact_norm);
+            mpi_err = MPI_Allreduce(&check_err, &global_err, 1, MPI_INT, MPI_MAX, comm);
+            if(mpi_err != MPI_SUCCESS)
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+            else if(global_err != PARGEMSLR_SUCCESS)
+            {
+               ret = global_err;
+            }
+         }
+         if(ret == 0)
+         {
+            if(exact_norm != 0.0)
+            {
+               solution_rel_error = error_norm / exact_norm;
+            }
+            else
+            {
+               ret = PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
+            }
+         }
+         sol_error.Clear();
+         exact_sol.Clear();
+         if(ret != 0)
+         {
+            if(myid == 0)
+            {
+               PARGEMSLR_PRINT("Exact-solution validation failed with error code %d\n", ret);
+            }
+         }
+      }
+      if(ret != 0)
+      {
+         x->Clear();
+         b->Clear();
+         parcsr_mat->Clear();
+         solverp->Clear();
+         precondp->Clear();
+         break;
+      }
+
       /* - - - - - - - - - - - - - - - -
-       * 7. Get Fill Level
+       * 8. Get Fill Level
        * - - - - - - - - - - - - - - - */
       
       nnzA = parcsr_mat->GetNumNonzeros();
       nnzM = precondp->GetNumNonzeros(nnzILU, nnzLR);
       
       /* - - - - - - - - - - - - - - - -
-       * 8. Print
+       * 9. Print
        * - - - - - - - - - - - - - - - */
       
       if(myid == 0)
@@ -421,7 +712,12 @@ int main (int argc, char *argv[])
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
          PARGEMSLR_PRINT("Solution info:\n");
          PARGEMSLR_PRINT("\tNumber of iterations: %d\n",solverp->GetNumberIterations());
-         PARGEMSLR_PRINT("\tFinal rel res: %f\n",solverp->GetFinalRelativeResidual());
+         PARGEMSLR_PRINT("\tFinal rel res: %.17e\n",solverp->GetFinalRelativeResidual());
+         PARGEMSLR_PRINT("\tTrue rel res: %.17e\n",true_rel_res);
+         if(sol_opt == 0)
+         {
+            PARGEMSLR_PRINT("\tSolution rel error: %.17e\n",solution_rel_error);
+         }
          PARGEMSLR_PRINT("\tPreconditioner fill level: ILU: %f; Low-rank: %f; Total: %f\n",(double)nnzILU/nnzA,(double)nnzLR/nnzA,(double)nnzM/nnzA);
          /*
          if(params[PARGEMSLR_IO_GENERAL_PRINT_LEVEL] > 0)
@@ -443,8 +739,16 @@ int main (int argc, char *argv[])
       if(writesol)
       {
          char tempsolname[2048];
-         snprintf( tempsolname, 2048, "./%s%05d%s", solfile, i, ".sol" );
-         x->WriteToDisk(tempsolname);
+         int write_err = x->MoveData(kMemoryHost);
+         if(write_err == PARGEMSLR_SUCCESS)
+         {
+            snprintf( tempsolname, 2048, "%s%05d%s", solfile, i, ".sol" );
+            write_err = x->WriteToDisk(tempsolname);
+         }
+         if(write_err != PARGEMSLR_SUCCESS)
+         {
+            ret = write_err;
+         }
       }
       
       x->Clear();
@@ -455,7 +759,7 @@ int main (int argc, char *argv[])
       
    }
    
-   if(myid == 0)
+   if(myid == 0 && ret == 0)
    {
       printf("All tests done\n");
    }
@@ -484,5 +788,5 @@ int main (int argc, char *argv[])
    
    PargemslrFinalize();
    
-   return 0;
+   return ret;
 }

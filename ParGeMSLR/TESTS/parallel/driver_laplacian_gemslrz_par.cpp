@@ -25,6 +25,7 @@ int main (int argc, char *argv[])
    char outfile[1024], infile[1024], lapfile[1024], solfile[1024];
    bool writesol = false;
    int location;
+   int ret = PARGEMSLR_SUCCESS;
    
    /*---------parallel CSR matrix */
    ParallelCsrMatrixClass<complexd> *parcsr_mat = new ParallelCsrMatrixClass<complexd>();
@@ -431,8 +432,16 @@ int main (int argc, char *argv[])
       if(writesol)
       {
          char tempsolname[2048];
-         snprintf( tempsolname, 2048, "./%s%05d%s", solfile, i, ".sol" );
-         x->WriteToDisk(tempsolname);
+         int write_err = x->MoveData(kMemoryHost);
+         if(write_err == PARGEMSLR_SUCCESS)
+         {
+            snprintf( tempsolname, 2048, "%s%05d%s", solfile, i, ".sol" );
+            write_err = x->WriteToDisk(tempsolname);
+         }
+         if(write_err != PARGEMSLR_SUCCESS)
+         {
+            ret = write_err;
+         }
       }
       
       x->Clear();
@@ -443,7 +452,7 @@ int main (int argc, char *argv[])
       
    }
    
-   if(myid == 0)
+   if(myid == 0 && ret == PARGEMSLR_SUCCESS)
    {
       printf("All tests done\n");
    }
@@ -471,5 +480,5 @@ int main (int argc, char *argv[])
    
    PargemslrFinalize();
    
-   return 0;
+   return ret;
 }

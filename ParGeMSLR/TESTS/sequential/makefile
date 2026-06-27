@@ -41,7 +41,11 @@ all: $(ALLEXE)
 %.o : %.c
 	$(CC) $(FLAGS) $(INCLUDES) -o $@ -c $<
 %.o : %.cpp
+ifeq ($(USING_CUDA),0)
 	$(CXX) $(FLAGS) $(INCLUDES) -o $@ -c $<
+else
+	$(CXX) $(CUDA_CPP_SOURCE) $(FLAGS) $(INCLUDES) -o $@ -c $<
+endif
 ifneq ($(USING_CUDA),0)
 %.o : %.cu
 	$(NVCC) $(FLAGS) $(INCLUDES) -o $@ -c $<
