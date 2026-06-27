@@ -25,6 +25,10 @@
 #define HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D    void
 #endif
 
+#define HYPRE_PARGEMSLR_MEMORY_HOST      0
+#define HYPRE_PARGEMSLR_MEMORY_DEVICE    1
+#define HYPRE_PARGEMSLR_MEMORY_UNIFIED   2
+
 /* utils */
 
 /**
@@ -98,6 +102,8 @@ hypre_PargemslrParallelCsrMatrixDDestroy(HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D *
  * @param [in]       ncol_global The number of global cols.
  * @param [in]       nrow_start The number of first global row.
  * @param [in]       ncol_start The number of first global col.
+ * @param [in]       diag_nnz The number of diagonal matrix nonzeros.
+ * @param [in]       offd_nnz The number of off-diagonal matrix nonzeros.
  * @param [in]       diag_i The diagonal matrix row pointer of CSR format.
  * @param [in]       diag_j The diagonal matrix col array of CSR format.
  * @param [in]       diag_data The diagonal matrix data array of CSR format.
@@ -105,7 +111,7 @@ hypre_PargemslrParallelCsrMatrixDDestroy(HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D *
  * @param [in]       offd_j The off-diagonal matrix col array of CSR format.
  * @param [in]       offd_data The off-diagonal matrix data array of CSR format.
  * @param [in]       comm The MPI_Comm.
- * @param [in]       data_location The data location. 0 for host, 1 for device, default is host.
+ * @param [in]       data_location The data location. 0 for host, 1 for device, 2 for unified.
  * @return           Return pointer to the parallel csr matrix.
  */
 HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_S* 
@@ -115,6 +121,8 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
                                           long int ncol_start,
                                           int nrow_local,
                                           int ncol_local,
+                                          int diag_nnz,
+                                          int offd_nnz,
                                           int *diag_i,
                                           int *diag_j,
                                           float *diag_data,
@@ -133,6 +141,8 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
  * @param [in]       ncol_global The number of global cols.
  * @param [in]       nrow_start The number of first global row.
  * @param [in]       ncol_start The number of first global col.
+ * @param [in]       diag_nnz The number of diagonal matrix nonzeros.
+ * @param [in]       offd_nnz The number of off-diagonal matrix nonzeros.
  * @param [in]       diag_i The diagonal matrix row pointer of CSR format.
  * @param [in]       diag_j The diagonal matrix col array of CSR format.
  * @param [in]       diag_data The diagonal matrix data array of CSR format.
@@ -140,7 +150,7 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
  * @param [in]       offd_j The off-diagonal matrix col array of CSR format.
  * @param [in]       offd_data The off-diagonal matrix data array of CSR format.
  * @param [in]       comm The MPI_Comm.
- * @param [in]       data_location The data location. 0 for host, 1 for device, default is host.
+ * @param [in]       data_location The data location. 0 for host, 1 for device, 2 for unified.
  * @return           Return pointer to the parallel csr matrix.
  */
 HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D* 
@@ -150,6 +160,8 @@ hypre_PargemslrParallelCsrMatrixDCreate( long int nrow_global,
                                           long int ncol_start,
                                           int nrow_local,
                                           int ncol_local,
+                                          int diag_nnz,
+                                          int offd_nnz,
                                           int *diag_i,
                                           int *diag_j,
                                           double *diag_data,
@@ -209,7 +221,8 @@ int
 hypre_PargemslrParallelGEMSLRSSetup(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_S *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_S *matrix, 
                            float *x,
-                           float *rhs);
+                           float *rhs,
+                           int data_location);
 
 /**
  * @brief   Setup phase of the Double Precision ParGEMSLR preconditioner.
@@ -225,7 +238,8 @@ int
 hypre_PargemslrParallelGEMSLRDSetup(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_D *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D *matrix, 
                            double *x,
-                           double *rhs);
+                           double *rhs,
+                           int data_location);
 
 /**
  * @brief   Solve phase of the Single Precision ParGEMSLR preconditioner. Only one single solve M^{-1}rhs would be applied.
@@ -240,7 +254,8 @@ int
 hypre_PargemslrParallelGEMSLRSSolve(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_S *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_S *matrix, 
                            float *x,
-                           float *rhs);
+                           float *rhs,
+                           int data_location);
 
 /**
  * @brief   Solve phase of the Double Precision ParGEMSLR preconditioner. Only one single solve M^{-1}rhs would be applied.
@@ -255,7 +270,8 @@ int
 hypre_PargemslrParallelGEMSLRDSolve(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_D *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D *matrix, 
                            double *x,
-                           double *rhs);
+                           double *rhs,
+                           int data_location);
 
 /**
  * @brief   Setup with parameter array.

@@ -1,0 +1,3 @@
+[submodule "ParGeMSLR/external/hypre"]
+	path = ParGeMSLR/external/hypre
+	url = https://github.com/hypre-space/hypre.git

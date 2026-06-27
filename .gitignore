@@ -48,6 +48,7 @@ _CPack_Packages/
 Testing/
 CTestResults.xml
 test_results/
+ParGeMSLR/TESTS/hypre/ij
 
 # Ninja build files
 .ninja_deps
@@ -87,6 +88,9 @@ Doxyfile.bak
 parmetis-*.tar.gz
 ParGeMSLR/parmetis
 ParGeMSLR/parmetis/
+
+# hypre bundled builds
+ParGeMSLR/external/hypre-build/
 
 # Log files
 *.log
