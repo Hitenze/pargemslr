@@ -5,8 +5,34 @@
 
 default:all
 
+HYPRE_PATH_ORIGIN := $(origin HYPRE_PATH)
+
 include ../../makefile.in
-include ../../$(HYPRE_PATH)/config/Makefile.config
+
+ifneq ($(USING_CUDA),0)
+ifeq ($(HYPRE_PATH_ORIGIN),undefined)
+HYPRE_PATH = external/hypre-build/cuda/src
+endif
+endif
+
+ifeq ($(filter /%,$(HYPRE_PATH)),)
+HYPRE_CONFIG = ../../$(HYPRE_PATH)/config/Makefile.config
+else
+HYPRE_CONFIG = $(HYPRE_PATH)/config/Makefile.config
+endif
+ifeq ($(wildcard $(HYPRE_CONFIG)),)
+$(error hypre config not found at $(HYPRE_CONFIG). Run ../../buildhypre.sh or set HYPRE_PATH=/path/to/hypre/build)
+endif
+include $(HYPRE_CONFIG)
+
+ifneq ($(USING_CUDA),0)
+ifeq ($(strip $(HYPRE_CUDA_PATH)),)
+$(error USING_CUDA=1 requires a CUDA-enabled hypre config at $(HYPRE_CONFIG). Run ../../buildhypre.sh cuda or set HYPRE_PATH=/path/to/cuda/hypre/build)
+endif
+ifeq ($(strip $(CUDA_ARCH)),)
+$(error USING_CUDA=1 requires CUDA_ARCH from a CUDA-enabled hypre config at $(HYPRE_CONFIG))
+endif
+endif
 
 LINK_CXX +=  -std=c++11
 CFLAGS += -I../../INC
@@ -37,7 +63,8 @@ CXX_COMPILE_FLAGS = \
  ${CXXDEFS}
  
 ifneq ($(USING_CUDA),0)
-CXX_COMPILE_FLAGS += $(CUFLAGS) -DPARGEMSLR_CUDA -DPARGEMSLR_CUDA_VERSION=10
+LINK_CXX = $(CUCC)
+CXX_COMPILE_FLAGS += $(CUFLAGS) -DPARGEMSLR_CUDA -DPARGEMSLR_CUDA_VERSION=$(CUDA_VERSION)
 endif
 
 F77_COMPILE_FLAGS = \
@@ -51,8 +78,8 @@ LAPACKLIBFLAGS = ${LAPACKLIBDIRS} ${LAPACKLIBS}
 BLASLIBFLAGS = ${BLASLIBDIRS} ${BLASLIBS}
 LIBFLAGS = ${LDFLAGS} ${LIBS}
 
-ifeq (${LINK_CC}, nvcc)
-   XLINK = -Xlinker=-rpath,${HYPRE_BUILD_DIR}/lib
+ifneq ($(USING_CUDA),0)
+   XLINK = -Xlinker -rpath -Xlinker ${HYPRE_BUILD_DIR}/lib
 else
    XLINK = -Wl,-rpath,${HYPRE_BUILD_DIR}/lib
 endif

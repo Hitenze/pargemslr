@@ -13,8 +13,9 @@ CUDA_HOSTCXX ?= $(MPICPP)
 CUDA_GENCODE ?= -gencode arch=compute_$(CUDA_ARCH),code=sm_$(CUDA_ARCH)
 CUDA_CPP_SOURCE ?= -x cu
 
-# Path to support library
-HYPRE_PATH = ./hypre/src
+# Path to configured hypre build, relative to this directory or absolute.
+# TESTS/hypre uses the bundled CUDA hypre build by default when USING_CUDA=1.
+HYPRE_PATH ?= external/hypre-build/cpu/src
 #METIS_PATH = ./parmetis/build/Darwin-x86_64
 METIS_PATH = ./parmetis/build/Linux-x86_64
 # also change LIBLAPACK when changing the LAPACK

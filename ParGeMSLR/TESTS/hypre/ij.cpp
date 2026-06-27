@@ -38,6 +38,21 @@
 
 #include "HYPRE_lobpcg.h"
 
+#if defined(HYPRE_RELEASE_NUMBER) && (HYPRE_RELEASE_NUMBER >= 30100)
+#include "_hypre_lobpcg.h"
+#if defined(HYPRE_USING_GPU)
+#define hypre_CSRMatrixGpuSpMVAnalysis hypre_CSRMatrixSpMVAnalysisDevice
+#else
+#define hypre_CSRMatrixGpuSpMVAnalysis(matrix) (0)
+#endif
+#define HYPRE_MGRSetGlobalsmoothType HYPRE_MGRSetGlobalSmoothType
+#define HYPRE_MGRSetMaxGlobalsmoothIters HYPRE_MGRSetMaxGlobalSmoothIters
+#define hypre_SyncCudaDevice(handle) hypre_SyncDevice()
+#define hypre_ResetCudaDevice(handle) hypre_ResetDevice()
+#define hypre_SetSpGemmHashType(value) (0)
+#define GenerateCoordinates hypre_GenerateCoordinates
+#endif
+
 #include "HYPRE_pargemslr.hpp"
 
 /* max dt */

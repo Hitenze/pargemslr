@@ -81,6 +81,8 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
                                           long int ncol_start,
                                           int nrow_local,
                                           int ncol_local,
+                                          int diag_nnz,
+                                          int offd_nnz,
                                           int *diag_i,
                                           int *diag_j,
                                           float *diag_data,
@@ -92,13 +94,17 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
                                           MPI_Comm comm,
                                           int data_location)
 {
-   int location = kMemoryHost, diag_nnz, offd_nnz;
+   int location = kMemoryHost;
    matrix_csr_par_float *parcsr_mat = new matrix_csr_par_float();
    parallel_log parlog(comm);
    
-   if(data_location == 1)
+   if(data_location == HYPRE_PARGEMSLR_MEMORY_DEVICE)
    {
       location = kMemoryDevice;
+   }
+   else if(data_location == HYPRE_PARGEMSLR_MEMORY_UNIFIED)
+   {
+      location = kMemoryUnified;
    }
    
    parcsr_mat->Setup(nrow_local, nrow_start, nrow_global, ncol_local, ncol_start, ncol_global, parlog);
@@ -106,9 +112,6 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
    matrix_csr_float &diag_mat = parcsr_mat->GetDiagMat();
    matrix_csr_float &offd_mat = parcsr_mat->GetOffdMat();
    vector_long &offd_map_v = parcsr_mat->GetOffdMap();
-   
-   diag_nnz = diag_i[nrow_local];
-   offd_nnz = offd_i[nrow_local];
    
    /* create data str */
    diag_mat.Setup(nrow_local, ncol_local, diag_nnz);
@@ -126,7 +129,7 @@ hypre_PargemslrParallelCsrMatrixSCreate( long int nrow_global,
    PARGEMSLR_MEMCPY( offd_mat.GetData(), offd_data, offd_nnz, kMemoryHost, location, float);
    
    /* copy offd map */
-   PARGEMSLR_MEMCPY( offd_map_v.GetData(), offd_map, n_offd_map, kMemoryHost, location, long int);
+   PARGEMSLR_MEMCPY( offd_map_v.GetData(), offd_map, n_offd_map, kMemoryHost, kMemoryHost, long int);
    
    parcsr_mat->SetupMatvec();
    
@@ -145,6 +148,8 @@ hypre_PargemslrParallelCsrMatrixDCreate( long int nrow_global,
                                           long int ncol_start,
                                           int nrow_local,
                                           int ncol_local,
+                                          int diag_nnz,
+                                          int offd_nnz,
                                           int *diag_i,
                                           int *diag_j,
                                           double *diag_data,
@@ -156,13 +161,17 @@ hypre_PargemslrParallelCsrMatrixDCreate( long int nrow_global,
                                           MPI_Comm comm,
                                           int data_location)
 {
-   int location = kMemoryHost, diag_nnz, offd_nnz;
+   int location = kMemoryHost;
    matrix_csr_par_double *parcsr_mat = new matrix_csr_par_double();
    parallel_log parlog(comm);
    
-   if(data_location == 1)
+   if(data_location == HYPRE_PARGEMSLR_MEMORY_DEVICE)
    {
       location = kMemoryDevice;
+   }
+   else if(data_location == HYPRE_PARGEMSLR_MEMORY_UNIFIED)
+   {
+      location = kMemoryUnified;
    }
    
    parcsr_mat->Setup(nrow_local, nrow_start, nrow_global, ncol_local, ncol_start, ncol_global, parlog);
@@ -170,9 +179,6 @@ hypre_PargemslrParallelCsrMatrixDCreate( long int nrow_global,
    matrix_csr_double &diag_mat = parcsr_mat->GetDiagMat();
    matrix_csr_double &offd_mat = parcsr_mat->GetOffdMat();
    vector_long &offd_map_v = parcsr_mat->GetOffdMap();
-   
-   diag_nnz = diag_i[nrow_local];
-   offd_nnz = offd_i[nrow_local];
    
    /* create data str */
    diag_mat.Setup(nrow_local, ncol_local, diag_nnz);
@@ -190,7 +196,7 @@ hypre_PargemslrParallelCsrMatrixDCreate( long int nrow_global,
    PARGEMSLR_MEMCPY( offd_mat.GetData(), offd_data, offd_nnz, kMemoryHost, location, double);
    
    /* copy offd map */
-   PARGEMSLR_MEMCPY( offd_map_v.GetData(), offd_map, n_offd_map, kMemoryHost, location, long int);
+   PARGEMSLR_MEMCPY( offd_map_v.GetData(), offd_map, n_offd_map, kMemoryHost, kMemoryHost, long int);
    
    parcsr_mat->SetupMatvec();
    
@@ -247,13 +253,18 @@ int
 hypre_PargemslrParallelGEMSLRSSetup(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_S *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_S *matrix, 
                            float *x,
-                           float *rhs)
+                           float *rhs,
+                           int data_location)
 {
    
    precond_gemslr_csr_par_float *gemslr = (precond_gemslr_csr_par_float*) pargemslr_data;
    matrix_csr_par_float *parcsr_mat = (matrix_csr_par_float*) matrix;
    
    int location = parcsr_mat->GetDataLocation();
+   if(location != data_location)
+   {
+      return PARGEMSLR_ERROR_MEMORY_LOCATION;
+   }
    
    vector_par_float par_x, par_rhs;
    
@@ -279,13 +290,18 @@ int
 hypre_PargemslrParallelGEMSLRDSetup(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_D *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D *matrix, 
                            double *x,
-                           double *rhs)
+                           double *rhs,
+                           int data_location)
 {
    
    precond_gemslr_csr_par_double *gemslr = (precond_gemslr_csr_par_double*) pargemslr_data;
    matrix_csr_par_double *parcsr_mat = (matrix_csr_par_double*) matrix;
    
    int location = parcsr_mat->GetDataLocation();
+   if(location != data_location)
+   {
+      return PARGEMSLR_ERROR_MEMORY_LOCATION;
+   }
    
    vector_par_double par_x, par_rhs;
    
@@ -296,13 +312,10 @@ hypre_PargemslrParallelGEMSLRDSetup(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_D *pargemslr
    par_rhs.UpdatePtr(rhs, location);
    
    gemslr->SetMatrixP(parcsr_mat);
-   gemslr->SetOwnMatrix(false);
+   gemslr->SetOwnMatrix(true);
    gemslr->SetSolveLocation(location);
    
    gemslr->Setup(par_x, par_rhs);
-   
-   par_x.Clear();
-   par_rhs.Clear();
    
    par_x.Clear();
    par_rhs.Clear();
@@ -314,14 +327,18 @@ int
 hypre_PargemslrParallelGEMSLRSSolve(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_S *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_S *matrix, 
                            float *x,
-                           float *rhs)
+                           float *rhs,
+                           int data_location)
 {
    
    precond_gemslr_csr_par_float *gemslr = (precond_gemslr_csr_par_float*) pargemslr_data;
-   //matrix_csr_par_double *parcsr_mat = (matrix_csr_par_double*) matrix;
    matrix_csr_par_float *parcsr_mat = (matrix_csr_par_float*) gemslr->GetMatrix();
    
    int location = parcsr_mat->GetDataLocation();
+   if(location != data_location)
+   {
+      return PARGEMSLR_ERROR_MEMORY_LOCATION;
+   }
    
    vector_par_float par_x, par_rhs;
    
@@ -344,14 +361,18 @@ int
 hypre_PargemslrParallelGEMSLRDSolve(HYPRE_PARGEMSLR_PARALLEL_GEMSLR_D *pargemslr_data, 
                            HYPRE_PARGEMSLR_PARALLEL_CSR_MATRIX_D *matrix, 
                            double *x,
-                           double *rhs)
+                           double *rhs,
+                           int data_location)
 {
    
    precond_gemslr_csr_par_double *gemslr = (precond_gemslr_csr_par_double*) pargemslr_data;
-   //matrix_csr_par_double *parcsr_mat = (matrix_csr_par_double*) matrix;
    matrix_csr_par_double *parcsr_mat = (matrix_csr_par_double*) gemslr->GetMatrix();
    
    int location = parcsr_mat->GetDataLocation();
+   if(location != data_location)
+   {
+      return PARGEMSLR_ERROR_MEMORY_LOCATION;
+   }
    
    vector_par_double par_x, par_rhs;
    

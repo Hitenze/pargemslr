@@ -1,16 +1,66 @@
-To run test with HYRPE, first set the path to HYPRE in makefile.in. After that, use make to build the test file ij.
-The GeMSLR solver option is 83. 
-Sample runs:
-0. Print help message
-./ij -help
-1. FGMRES(50)-GeMSLR with 32*32*32 shifted Laplacian
-mpirun -np 2 ./ij -solver 83 -n 32 32 32 -shift 0.5 -k 50
-2. AMG
-mpirun -np 2 ./ij -solver 0 -n 32 32 32 -shift 0.0
-3. FGMRES(50)-AMG
-mpirun -np 2 ./ij -solver 3 -n 32 32 32 -shift 0.0 -k 50
-4. FGMRES(50)-BJ-ILUT
-mpirun -np 2 ./ij -solver 82 -n 32 32 32 -shift 0.16 -k 50 -ilu_type 1 -ilu_droptol 1e-03 -ilu_max_row_nnz 1000
-5. FGMRES(50)-Schur-ILUT (a two-level ILU approach)
-mpirun -np 2 ./ij -solver 82 -n 32 32 32 -shift 0.16 -k 50 -ilu_type 11 -ilu_droptol 1e-05 -ilu_max_row_nnz 1000
+# hypre Interface Tests
 
+This directory builds the hypre `ij` driver with the ParGeMSLR preconditioner registered as solver option 83. The tested bundled hypre baseline is v3.1.0 from `ParGeMSLR/external/hypre`.
+
+## Build hypre
+
+From `ParGeMSLR`, build the bundled CPU hypre:
+
+```bash
+bash buildhypre.sh cpu
+```
+
+For a bundled CUDA hypre build, use:
+
+```bash
+CUDA_ARCH=86 bash buildhypre.sh cuda
+```
+
+`HYPRE_UNIFIED_MEMORY=1` and `HYPRE_GPU_AWARE_MPI=1` can be added to the CUDA build command when those modes are required by the target system. The bundled CUDA build defaults to `--without-umpire`; set `HYPRE_WITH_UMPIRE=1` plus `HYPRE_UMPIRE_INCLUDE`, `HYPRE_UMPIRE_LIB_DIRS`, and `HYPRE_UMPIRE_LIBS` to use a system Umpire install.
+
+## CPU Build and Checks
+
+Build ParGeMSLR first, then build this test driver:
+
+```bash
+cd ParGeMSLR
+make
+cd TESTS/hypre
+make
+```
+
+To use a system or module-provided hypre build, pass a configured hypre build directory while building the driver. Relative `HYPRE_PATH` values are interpreted from the `ParGeMSLR` directory; absolute paths are also accepted.
+
+```bash
+cd ParGeMSLR/TESTS/hypre
+make HYPRE_PATH=/path/to/hypre/build
+```
+
+Basic CPU checks:
+
+```bash
+mpirun -np 1 ./ij -solver 83 -n 8 8 8 -shift 0.5 -k 50 -exec_host
+mpirun -np 2 ./ij -solver 83 -n 8 8 8 -shift 0.5 -k 50 -exec_host
+```
+
+## CUDA Build and Checks
+
+Build both ParGeMSLR and this driver with CUDA enabled:
+
+```bash
+cd ParGeMSLR
+make USING_CUDA=1 CUDA_VERSION=12 CUDA_ARCH=86
+cd TESTS/hypre
+make USING_CUDA=1 CUDA_VERSION=12
+```
+
+When `USING_CUDA=1` and `HYPRE_PATH` is not set, this test Makefile selects `external/hypre-build/cuda/src`. Set `HYPRE_PATH=/path/to/cuda/hypre/build` while building the driver to use a system CUDA hypre build.
+
+CUDA checks:
+
+```bash
+mpirun -np 1 ./ij -solver 83 -n 8 8 8 -shift 0.5 -k 50 -exec_device
+mpirun -np 2 ./ij -solver 83 -n 8 8 8 -shift 0.5 -k 50 -exec_device
+```
+
+Use the reported `Final FlexGMRES Relative Residual Norm` and iteration count to compare CPU, MPI rank counts, and CUDA runs.
