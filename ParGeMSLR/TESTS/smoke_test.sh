@@ -11,6 +11,7 @@ read -r -a mpirun_cmd <<< "${MPIRUN:-mpirun}"
 mpirun_rank_flag="${MPIRUN_RANK_FLAG:--np}"
 seq_ranks="${PARGEMSLR_SEQ_RANKS:-1}"
 par_ranks="${PARGEMSLR_PAR_RANKS:-2}"
+setup_check_ranks="${PARGEMSLR_SETUP_CHECK_RANKS:-2}"
 smoke_n="${PARGEMSLR_SMOKE_N:-16}"
 smoke_tol="${PARGEMSLR_SMOKE_TOL:-1e-10}"
 smoke_sol_tol="${PARGEMSLR_SMOKE_SOL_TOL:-1e-10}"
@@ -24,6 +25,10 @@ write_sol="${PARGEMSLR_SMOKE_WRITE_SOL:-0}"
 
 if [[ ! "${smoke_threads}" =~ ^[0-9]+$ || "${smoke_threads}" -lt 1 ]]; then
   echo "PARGEMSLR_SMOKE_THREADS must be a positive integer." >&2
+  exit 1
+fi
+if [[ ! "${setup_check_ranks}" =~ ^[0-9]+$ || "${setup_check_ranks}" -lt 2 ]]; then
+  echo "PARGEMSLR_SETUP_CHECK_RANKS must be an integer greater than or equal to 2." >&2
   exit 1
 fi
 
@@ -215,6 +220,18 @@ build_parallel_matrix_ops_check() {
     parallel_matrix_ops_check.ex
 }
 
+build_parallel_gemslr_setup_check() {
+  run "${make_cmd[@]}" -C "${par_dir}" \
+    USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" \
+    parallel_gemslr_setup_check.ex
+}
+
+build_ilu_solve_state_check() {
+  run "${make_cmd[@]}" -C "${par_dir}" \
+    USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" \
+    ilu_solve_state_check.ex
+}
+
 seq_workdir="${workdir}/sequential"
 mkdir -p "${seq_workdir}"
 printf '1\n%s %s %s 0.0 0.01 -0.01 0.0\n' "${smoke_n}" "${smoke_n}" "${smoke_n}" > "${seq_workdir}/lapfile_real"
@@ -238,8 +255,16 @@ build_parallel_matrix_ops_check
 run_plain_case "parallel matrix structural operations" "${workdir}" "${workdir}/parallel_matrix_ops.log" \
   mpi_run "${par_ranks}" "${par_dir}/parallel_matrix_ops_check.ex"
 
+build_parallel_gemslr_setup_check
+run_plain_case "parallel GeMSLR repeated setup" "${workdir}" "${workdir}/parallel_gemslr_setup.log" \
+  mpi_run "${setup_check_ranks}" "${par_dir}/parallel_gemslr_setup_check.ex"
+
+build_ilu_solve_state_check
+run_plain_case "ILU solve state" "${workdir}" "${workdir}/ilu_solve_state.log" \
+  mpi_run 1 "${par_dir}/ilu_solve_state_check.ex"
+
 sequential_cpu_cmd=(mpi_run "${seq_ranks}" "${seq_dir}/driver_laplacian_gemslr_seq.ex"
-  -fromfile "${seq_dir}/inputs" -maxits "${smoke_maxits}" -kdim "${smoke_kdim}" -tol "${smoke_tol}"
+  -fromfile "${seq_dir}/inputs" -solone -maxits "${smoke_maxits}" -kdim "${smoke_kdim}" -tol "${smoke_tol}"
   -nthreads "${smoke_threads}")
 if [[ "${write_sol}" == "1" ]]; then
   sequential_cpu_cmd+=(-writesol "${workdir}/sequential_cpu")
@@ -248,7 +273,7 @@ run_and_check "sequential CPU Laplacian" "${seq_workdir}" "${workdir}/sequential
   "${sequential_cpu_cmd[@]}"
 
 parallel_cpu_cmd=(mpi_run "${par_ranks}" "${par_dir}/driver_laplacian_gemslr_par.ex"
-  -lapfile "${par_lapfile}" -fromfile "${par_dir}/inputs"
+  -lapfile "${par_lapfile}" -fromfile "${par_dir}/inputs" -solone
   -maxits "${smoke_maxits}" -kdim "${smoke_kdim}" -tol "${smoke_tol}"
   -nthreads "${smoke_threads}")
 if [[ "${write_sol}" == "1" ]]; then
@@ -265,9 +290,21 @@ if [[ "${PARGEMSLR_TEST_CUDA:-0}" == "1" ]]; then
   run "${make_cmd[@]}" -C "${project_dir}" clean
   run "${make_cmd[@]}" -C "${project_dir}" USING_CUDA=1 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" CUDA_ARCH="${cuda_arch}" CUDA_VERSION="${cuda_version}"
   run "${make_cmd[@]}" -C "${par_dir}" USING_CUDA=1 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" CUDA_ARCH="${cuda_arch}" CUDA_VERSION="${cuda_version}" driver_laplacian_gemslr_par.ex
+  run "${make_cmd[@]}" -C "${par_dir}" USING_CUDA=1 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" CUDA_ARCH="${cuda_arch}" CUDA_VERSION="${cuda_version}" parallel_vector_setup_check.ex
+  run_plain_case "parallel vector Setup offsets (CUDA build)" "${workdir}" "${workdir}/parallel_vector_setup_cuda.log" \
+    mpi_run "${par_ranks}" "${par_dir}/parallel_vector_setup_check.ex"
+  run "${make_cmd[@]}" -C "${par_dir}" USING_CUDA=1 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" CUDA_ARCH="${cuda_arch}" CUDA_VERSION="${cuda_version}" parallel_matrix_ops_check.ex
+  run_plain_case "parallel matrix structural operations (CUDA build)" "${workdir}" "${workdir}/parallel_matrix_ops_cuda.log" \
+    mpi_run "${par_ranks}" "${par_dir}/parallel_matrix_ops_check.ex"
+  run "${make_cmd[@]}" -C "${par_dir}" USING_CUDA=1 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" CUDA_ARCH="${cuda_arch}" CUDA_VERSION="${cuda_version}" parallel_gemslr_setup_check.ex
+  run_plain_case "parallel GeMSLR repeated setup (CUDA build)" "${workdir}" "${workdir}/parallel_gemslr_setup_cuda.log" \
+    mpi_run "${setup_check_ranks}" "${par_dir}/parallel_gemslr_setup_check.ex" --device
+  run "${make_cmd[@]}" -C "${par_dir}" USING_CUDA=1 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" CUDA_ARCH="${cuda_arch}" CUDA_VERSION="${cuda_version}" ilu_solve_state_check.ex
+  run_plain_case "ILU solve state (CUDA build)" "${workdir}" "${workdir}/ilu_solve_state_cuda.log" \
+    mpi_run 1 "${par_dir}/ilu_solve_state_check.ex"
 
   parallel_cuda_cmd=(mpi_run "${par_ranks}" "${par_dir}/driver_laplacian_gemslr_par.ex"
-    -gpu -lapfile "${par_lapfile}" -fromfile "${par_dir}/inputs"
+    -gpu -lapfile "${par_lapfile}" -fromfile "${par_dir}/inputs" -solone
     -maxits "${smoke_maxits}" -kdim "${smoke_kdim}" -tol "${smoke_tol}"
     -nthreads "${smoke_threads}")
   if [[ "${write_sol}" == "1" ]]; then
