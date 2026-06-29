@@ -23,7 +23,14 @@ EXTRASRC = ./SRC/utils/utils.o\
 	./SRC/matrices/coo_matrix.o\
 	./SRC/matrices/csr_matrix.o\
 	./SRC/matrices/parallel_csr_matrix.o\
-	./SRC/matrices/matrixops.o\
+	./SRC/matrices/dense_matrix_ops.o\
+	./SRC/matrices/csr_matrix_ops.o\
+	./SRC/matrices/csr_matrix_partition.o\
+	./SRC/matrices/csr_matrix_ordering.o\
+	./SRC/matrices/matrix_arnoldi_ops.o\
+	./SRC/matrices/matrix_io_plot_ops.o\
+	./SRC/matrices/csr_matrix_permutation.o\
+	./SRC/matrices/parallel_csr_matrix_permutation.o\
 	./SRC/preconditioners/ilu.o\
 	./SRC/preconditioners/gemslr.o\
 	./SRC/preconditioners/block_jacobi.o\
