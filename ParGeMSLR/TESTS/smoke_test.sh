@@ -226,6 +226,16 @@ build_parallel_gemslr_setup_check() {
     parallel_gemslr_setup_check.ex
 }
 
+build_parallel_gemslr_setup_check_release() {
+  run "${make_cmd[@]}" -C "${par_dir}" clean
+  run "${make_cmd[@]}" -C "${project_dir}" clean
+  run "${make_cmd[@]}" -C "${project_dir}" \
+    USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" DEBUG_MODE=0
+  run "${make_cmd[@]}" -C "${par_dir}" \
+    USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" DEBUG_MODE=0 \
+    parallel_gemslr_setup_check.ex
+}
+
 build_ilu_solve_state_check() {
   run "${make_cmd[@]}" -C "${par_dir}" \
     USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" \
@@ -281,6 +291,10 @@ if [[ "${write_sol}" == "1" ]]; then
 fi
 run_and_check "parallel CPU Laplacian" "${workdir}" "${workdir}/parallel_cpu.log" \
   "${parallel_cpu_cmd[@]}"
+
+build_parallel_gemslr_setup_check_release
+run_plain_case "parallel GeMSLR setup error handling (release)" "${workdir}" "${workdir}/parallel_gemslr_setup_release.log" \
+  mpi_run "${setup_check_ranks}" "${par_dir}/parallel_gemslr_setup_check.ex" --setup-error-only
 
 if [[ "${PARGEMSLR_TEST_CUDA:-0}" == "1" ]]; then
   cuda_arch="${CUDA_ARCH:-86}"

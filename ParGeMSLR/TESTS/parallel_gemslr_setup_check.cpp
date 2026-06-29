@@ -187,11 +187,11 @@ static int CheckEffectiveOption(const pargemslr::precond_gemslr_csr_par_double &
                                 const char *stage,
                                 int rank)
 {
-   if(precond._global_precond_option != expected_option)
+   if(precond.GetGlobalPrecondOption() != expected_option)
    {
       std::fprintf(stderr,
                    "rank %d %s effective global preconditioner is %d, expected %d\n",
-                   rank, stage, precond._global_precond_option, expected_option);
+                   rank, stage, precond.GetGlobalPrecondOption(), expected_option);
       return PARGEMSLR_ERROR_INVALED_OPTION;
    }
    return PARGEMSLR_SUCCESS;
@@ -449,9 +449,10 @@ static int CheckSetupErrorRestoresMatrix(pargemslr::ParallelCsrMatrixClass<doubl
 int main(int argc, char **argv)
 {
    int location = pargemslr::kMemoryHost;
-   if(argc > 1)
+   bool setup_error_only = false;
+   for(int argi = 1; argi < argc; argi++)
    {
-      if(std::strcmp(argv[1], "--device") == 0)
+      if(std::strcmp(argv[argi], "--device") == 0)
       {
 #ifdef PARGEMSLR_CUDA
          location = pargemslr::kMemoryDevice;
@@ -460,9 +461,13 @@ int main(int argc, char **argv)
          return PARGEMSLR_ERROR_INVALED_PARAM;
 #endif
       }
+      else if(std::strcmp(argv[argi], "--setup-error-only") == 0)
+      {
+         setup_error_only = true;
+      }
       else
       {
-         std::fprintf(stderr, "unknown option: %s\n", argv[1]);
+         std::fprintf(stderr, "unknown option: %s\n", argv[argi]);
          return PARGEMSLR_ERROR_INVALED_PARAM;
       }
    }
@@ -488,13 +493,45 @@ int main(int argc, char **argv)
       pargemslr::ParallelCsrMatrixClass<double> mat_e;
       pargemslr::ParallelCsrMatrixClass<double> mat_f;
       pargemslr::ParallelCsrMatrixClass<double> mat_g;
+      pargemslr::ParallelCsrMatrixClass<double> mat_h;
+      pargemslr::ParallelCsrMatrixClass<double> mat_i;
       pargemslr::precond_gemslr_csr_par_double precond;
       pargemslr::precond_gemslr_csr_par_double fallback_precond;
+      pargemslr::precond_gemslr_csr_par_double option_precond;
       pargemslr::precond_gemslr_csr_par_double params_precond;
       pargemslr::precond_gemslr_csr_par_double recovery_precond;
 
+      int local_ok = true;
+      if(setup_error_only)
+      {
+         err = BuildIdentity(2, parlog, mat_g, rank, location);
+         local_ok = err == PARGEMSLR_SUCCESS;
+         if(AllRanksOk(local_ok, comm))
+         {
+            err = CheckSetupErrorRestoresMatrix(mat_g, parlog, rank, location);
+            local_ok = err == PARGEMSLR_SUCCESS;
+         }
+         if(!AllRanksOk(local_ok, comm))
+         {
+            exit_code = 1;
+         }
+         else if(rank == 0)
+         {
+            std::printf("parallel GeMSLR setup error check passed: ranks=%d location=%s\n",
+                        np, location == pargemslr::kMemoryDevice ? "device" : "host");
+         }
+         mat_g.Clear();
+         parlog.Clear();
+         err = pargemslr::PargemslrFinalize();
+         if(exit_code == 0 && err != PARGEMSLR_SUCCESS)
+         {
+            exit_code = err;
+         }
+         return exit_code;
+      }
+
       err = CheckInvalidSolveLevelReturns(parlog, rank, location);
-      int local_ok = err == PARGEMSLR_SUCCESS;
+      local_ok = err == PARGEMSLR_SUCCESS;
       if(AllRanksOk(local_ok, comm))
       {
          err = ConfigurePreconditioner(precond, pargemslr::kGemslrGlobalPrecondBJ, 1);
@@ -580,6 +617,47 @@ int main(int argc, char **argv)
          local_ok = err == PARGEMSLR_SUCCESS;
       }
 
+      if(np >= 2 && AllRanksOk(local_ok, comm))
+      {
+         err = ConfigurePreconditioner(option_precond, pargemslr::kGemslrGlobalPrecondGeMSLR, 2);
+         local_ok = err == PARGEMSLR_SUCCESS;
+      }
+      if(np >= 2 && AllRanksOk(local_ok, comm))
+      {
+         err = BuildIdentity(8, parlog, mat_h, rank, location);
+         local_ok = err == PARGEMSLR_SUCCESS;
+      }
+      if(np >= 2 && AllRanksOk(local_ok, comm))
+      {
+         err = SetupOnce(option_precond, mat_h, parlog, rank, location);
+         if(err == PARGEMSLR_SUCCESS)
+         {
+            err = CheckEffectiveOption(option_precond, pargemslr::kGemslrGlobalPrecondGeMSLR,
+                                       "option initial setup", rank);
+         }
+         local_ok = err == PARGEMSLR_SUCCESS;
+      }
+      if(np >= 2 && AllRanksOk(local_ok, comm))
+      {
+         option_precond._global_precond_option = pargemslr::kGemslrGlobalPrecondBJ;
+         err = BuildIdentity(9, parlog, mat_i, rank, location);
+         local_ok = err == PARGEMSLR_SUCCESS;
+      }
+      if(np >= 2 && AllRanksOk(local_ok, comm))
+      {
+         err = SetupOnce(option_precond, mat_i, parlog, rank, location);
+         if(err == PARGEMSLR_SUCCESS)
+         {
+            err = CheckEffectiveOption(option_precond, pargemslr::kGemslrGlobalPrecondBJ,
+                                       "public option setup", rank);
+         }
+         if(err == PARGEMSLR_SUCCESS)
+         {
+            err = CheckGlobalPartition(option_precond, false, "public option setup", rank);
+         }
+         local_ok = err == PARGEMSLR_SUCCESS;
+      }
+
       if(AllRanksOk(local_ok, comm))
       {
          err = ConfigurePreconditionerWithParameters(params_precond,
@@ -629,6 +707,7 @@ int main(int argc, char **argv)
 
       precond.Clear();
       fallback_precond.Clear();
+      option_precond.Clear();
       params_precond.Clear();
       recovery_precond.Clear();
       mat_a.Clear();
@@ -638,6 +717,8 @@ int main(int argc, char **argv)
       mat_e.Clear();
       mat_f.Clear();
       mat_g.Clear();
+      mat_h.Clear();
+      mat_i.Clear();
       parlog.Clear();
    }
 

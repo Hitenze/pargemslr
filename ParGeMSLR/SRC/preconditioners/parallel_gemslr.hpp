@@ -889,6 +889,16 @@ namespace pargemslr
        * @details The location this preconditioner applied to.
        */
       int                                 _location;
+
+      /**
+       * @brief   User-requested global partition option before setup-time fallbacks.
+       */
+      bool                                _global_partition_setup_requested;
+
+      /**
+       * @brief   Effective global preconditioner option after setup-time fallbacks.
+       */
+      int                                 _global_precond_option_effective;
       
       /**
        * @brief   Free the current precondioner.
@@ -1619,6 +1629,7 @@ namespace pargemslr
          this->_gemslr_setups._vertexsep_setup                 = params[PARGEMSLR_IO_PREPOSS_VTXSEP_GLOBAL] != 0;
          this->_gemslr_setups._vertexsep_B_setup               = params[PARGEMSLR_IO_PREPOSS_VTXSEP_LOCAL] != 0;
          this->_gemslr_setups._global_partition_setup          = params[PARGEMSLR_IO_PREPOSS_GLOBAL_PARTITION] != 0;
+         this->_global_partition_setup_requested               = this->_gemslr_setups._global_partition_setup;
          
          this->_gemslr_setups._enable_inner_iters_setup        = params[PARGEMSLR_IO_SCHUR_ENABLE] != 0;
          this->_gemslr_setups._inner_iters_tol_setup           = params[PARGEMSLR_IO_SCHUR_ITER_TOL];
@@ -1931,9 +1942,28 @@ namespace pargemslr
       {
          PARGEMSLR_FIRM_CHKERR(this->CheckReadySetups("ParallelGemslrSets"));
          this->_gemslr_setups._global_partition_setup = option;
+         this->_global_partition_setup_requested = option;
          return PARGEMSLR_SUCCESS;
       }
       
+      /**
+       * @brief   Get the effective global preconditioner option of GeMSLR.
+       * @return  Return the current option.
+       */
+      int         GetGlobalPrecondOption() const
+      {
+         return this->_global_precond_option_effective;
+      }
+
+      /**
+       * @brief   Get the effective global partition option of GeMSLR.
+       * @return  Return the current option.
+       */
+      bool        GetGlobalPartitionOption() const
+      {
+         return this->_gemslr_setups._global_partition_setup;
+      }
+
       /** 
        * @brief   Set the inner iteration option of GeMSLR.
        * @details Set the inner iteration option of GeMSLR.

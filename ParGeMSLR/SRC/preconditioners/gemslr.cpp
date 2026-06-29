@@ -1204,6 +1204,7 @@ namespace pargemslr
       this->_kfactor_B_setup                             = 1;
       this->_vertexsep_setup                             = true;
       this->_vertexsep_B_setup                           = true;
+      this->_global_partition_setup                      = false;
       this->_solve_phase_setup                           = kGemslrPhaseSetup;
       this->_cuda_lowrank_only                           = false;
       this->_enable_inner_iters_setup                    = true;
@@ -1235,6 +1236,7 @@ namespace pargemslr
       this->_kfactor_B_setup                             = 1;
       this->_vertexsep_setup                             = true;
       this->_vertexsep_B_setup                           = true;
+      this->_global_partition_setup                      = false;
       this->_solve_phase_setup                           = kGemslrPhaseSetup;
       this->_cuda_lowrank_only                           = false;
       this->_enable_inner_iters_setup                    = true;
@@ -1268,6 +1270,7 @@ namespace pargemslr
       this->_kfactor_B_setup                             = str._kfactor_B_setup;
       this->_vertexsep_setup                             = str._vertexsep_setup;
       this->_vertexsep_B_setup                           = str._vertexsep_B_setup;
+      this->_global_partition_setup                      = str._global_partition_setup;
       this->_solve_phase_setup                           = str._solve_phase_setup;
       this->_cuda_lowrank_only                           = str._cuda_lowrank_only;
       this->_enable_inner_iters_setup                    = str._enable_inner_iters_setup;
@@ -1301,6 +1304,7 @@ namespace pargemslr
       this->_kfactor_B_setup                             = str._kfactor_B_setup;
       this->_vertexsep_setup                             = str._vertexsep_setup;
       this->_vertexsep_B_setup                           = str._vertexsep_B_setup;
+      this->_global_partition_setup                      = str._global_partition_setup;
       this->_solve_phase_setup                           = str._solve_phase_setup;
       this->_cuda_lowrank_only                           = str._cuda_lowrank_only;
       this->_enable_inner_iters_setup                    = str._enable_inner_iters_setup;
@@ -1337,6 +1341,7 @@ namespace pargemslr
       this->_kfactor_B_setup                             = str._kfactor_B_setup;
       this->_vertexsep_setup                             = str._vertexsep_setup;
       this->_vertexsep_B_setup                           = str._vertexsep_B_setup;
+      this->_global_partition_setup                      = str._global_partition_setup;
       this->_solve_phase_setup                           = str._solve_phase_setup;
       this->_cuda_lowrank_only                           = str._cuda_lowrank_only;
       this->_enable_inner_iters_setup                    = str._enable_inner_iters_setup;
@@ -1372,6 +1377,7 @@ namespace pargemslr
       this->_kfactor_B_setup                             = str._kfactor_B_setup;
       this->_vertexsep_setup                             = str._vertexsep_setup;
       this->_vertexsep_B_setup                           = str._vertexsep_B_setup;
+      this->_global_partition_setup                      = str._global_partition_setup;
       this->_solve_phase_setup                           = str._solve_phase_setup;
       this->_cuda_lowrank_only                           = str._cuda_lowrank_only;
       this->_enable_inner_iters_setup                    = str._enable_inner_iters_setup;

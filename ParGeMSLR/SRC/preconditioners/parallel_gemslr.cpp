@@ -1068,7 +1068,10 @@ namespace pargemslr
       this->_nlev_max                           = 0;
       this->_nlev_used                          = 0;
       this->_location                           = kMemoryHost;
+      this->_gemslr_setups._global_partition_setup = false;
       this->_global_precond_option              = kGemslrGlobalPrecondGeMSLR;
+      this->_global_precond_option_effective    = kGemslrGlobalPrecondGeMSLR;
+      this->_global_partition_setup_requested   = false;
    }
    template precond_gemslr_csr_par_float::ParallelGemslrClass();
    template precond_gemslr_csr_par_double::ParallelGemslrClass();
@@ -1082,6 +1085,7 @@ namespace pargemslr
       int i;
       
       this->_n                                  = precond._n;
+      this->_gemslr_setups                      = precond._gemslr_setups;
       this->_nlev_max                           = precond._nlev_max;
       this->_nlev_used                          = precond._nlev_used;
       this->_location                           = precond._location;
@@ -1103,6 +1107,8 @@ namespace pargemslr
       }
       
       this->_global_precond_option = precond._global_precond_option;
+      this->_global_precond_option_effective = precond._global_precond_option_effective;
+      this->_global_partition_setup_requested = precond._global_partition_setup_requested;
       
       this->_inner_iters_matrix = precond._inner_iters_matrix;
       this->_inner_iters_precond = precond._inner_iters_precond;
@@ -1121,6 +1127,7 @@ namespace pargemslr
       int i;
       
       this->_n                                  = precond._n;precond._n = 0;
+      this->_gemslr_setups                      = precond._gemslr_setups;precond._gemslr_setups.SetDefault();
       this->_nlev_max                           = precond._nlev_max;precond._nlev_max = 0;
       this->_nlev_used                          = precond._nlev_used;precond._nlev_used = 0;
       this->_location                           = precond._location;precond._location = kMemoryHost;
@@ -1145,6 +1152,8 @@ namespace pargemslr
       }
       
       this->_global_precond_option = precond._global_precond_option;precond._global_precond_option = kGemslrGlobalPrecondGeMSLR;
+      this->_global_precond_option_effective = precond._global_precond_option_effective;precond._global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
+      this->_global_partition_setup_requested = precond._global_partition_setup_requested;precond._global_partition_setup_requested = false;
       
       this->_inner_iters_matrix = std::move(precond._inner_iters_matrix);
       this->_inner_iters_precond = std::move(precond._inner_iters_precond);
@@ -1165,6 +1174,7 @@ namespace pargemslr
       int i;
       
       this->_n                                  = precond._n;
+      this->_gemslr_setups                      = precond._gemslr_setups;
       this->_nlev_max                           = precond._nlev_max;
       this->_nlev_used                          = precond._nlev_used;
       this->_location                           = precond._location;
@@ -1186,6 +1196,8 @@ namespace pargemslr
       }
       
       this->_global_precond_option = precond._global_precond_option;
+      this->_global_precond_option_effective = precond._global_precond_option_effective;
+      this->_global_partition_setup_requested = precond._global_partition_setup_requested;
       
       this->_inner_iters_matrix = precond._inner_iters_matrix;
       this->_inner_iters_precond = precond._inner_iters_precond;
@@ -1207,6 +1219,7 @@ namespace pargemslr
       int i;
       
       this->_n                                  = precond._n;precond._n = 0;
+      this->_gemslr_setups                      = precond._gemslr_setups;precond._gemslr_setups.SetDefault();
       this->_nlev_max                           = precond._nlev_max;precond._nlev_max = 0;
       this->_nlev_used                          = precond._nlev_used;precond._nlev_used = 0;
       this->_location                           = precond._location;precond._location = kMemoryHost;
@@ -1231,6 +1244,8 @@ namespace pargemslr
       }
       
       this->_global_precond_option = precond._global_precond_option;precond._global_precond_option = kGemslrGlobalPrecondGeMSLR;
+      this->_global_precond_option_effective = precond._global_precond_option_effective;precond._global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
+      this->_global_partition_setup_requested = precond._global_partition_setup_requested;precond._global_partition_setup_requested = false;
       
       this->_inner_iters_matrix = std::move(precond._inner_iters_matrix);
       this->_inner_iters_precond = std::move(precond._inner_iters_precond);
@@ -1281,7 +1296,11 @@ namespace pargemslr
       this->_nlev_used                          = 0;
       this->_location                           = kMemoryHost;
       
+      this->_gemslr_setups.SetDefault();
+      this->_gemslr_setups._global_partition_setup = false;
       this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+      this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
+      this->_global_partition_setup_requested = false;
       
       this->_inner_iters_matrix.Clear();
       this->_inner_iters_precond.Clear();
@@ -1309,7 +1328,7 @@ namespace pargemslr
       if(myid == 0)
       {
          PargemslrPrintDashLine(pargemslr::pargemslr_global::_dash_line_width);
-         switch(this->_global_precond_option)
+         switch(this->_global_precond_option_effective)
          {
             case kGemslrGlobalPrecondBJ:
             {
@@ -1494,7 +1513,7 @@ namespace pargemslr
        *    2. When np is 1 and number of levels greater than 1, switch to GeMSLR with global reordering.
        * 
        */
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ:
          {
@@ -1507,7 +1526,7 @@ namespace pargemslr
             if(this->_gemslr_setups._nlev_setup < 2)
             {
                /* nlev less than 2, go to bj */
-               this->_global_precond_option = kGemslrGlobalPrecondBJ;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondBJ;
                //this->_gemslr_setups._global_partition_setup = true;
                break;
             }
@@ -1516,7 +1535,7 @@ namespace pargemslr
             if( np == 1 )
             {
                /* single np, no input DD, goto GeMSLR with global reordering */
-               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                this->_gemslr_setups._global_partition_setup = true;
                if(myid == 0)
                {
@@ -1528,7 +1547,7 @@ namespace pargemslr
             if(this->_gemslr_setups._solve_option_setup == kGemslrMulSolve)
             {
                /* no multiplicative solve, goto GeMSLR with global reordering */
-               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                this->_gemslr_setups._global_partition_setup = true;
                if(myid == 0)
                {
@@ -1544,7 +1563,7 @@ namespace pargemslr
                 this->_gemslr_setups._level_setups._C_solve_option != kGemslrCSolveBJILUT)
             {
                /* 2 levels with PSMR */
-               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                this->_gemslr_setups._global_partition_setup = true;
                if(myid == 0)
                {
@@ -1562,7 +1581,7 @@ namespace pargemslr
             if(this->_gemslr_setups._nlev_setup < 2)
             {
                /* nlev less than 2, go to bj */
-               this->_global_precond_option = kGemslrGlobalPrecondBJ;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondBJ;
                break;
             }
             
@@ -1629,8 +1648,15 @@ namespace pargemslr
       int np, myid;
       MPI_Comm comm;
       this->_matrix->GetMpiInfo(np, myid, comm);
+
+      this->_global_precond_option_effective = this->_global_precond_option;
+      this->_gemslr_setups._global_partition_setup = this->_global_partition_setup_requested;
       
-      this->CheckParameters();
+      int err = this->CheckParameters();
+      if(err != PARGEMSLR_SUCCESS)
+      {
+         return err;
+      }
       
       /* update the solver precision, leave this interface for half precision */
       this->_solver_precision = x.GetPrecision();
@@ -1658,7 +1684,7 @@ namespace pargemslr
       if(this->_gemslr_setups._global_partition_setup)
       {
          /* In this case, we use the input DD of the original system */
-         switch(this->_global_precond_option)
+         switch(this->_global_precond_option_effective)
          {
             case kGemslrGlobalPrecondBJ:
             {
@@ -1700,7 +1726,7 @@ namespace pargemslr
             {
                /* Currently not supported */
                
-               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                goto label_mlev_global;
                
                break;
@@ -1743,7 +1769,7 @@ label_mlev_global:
       else
       {
          /* In this case, we use the input DD of the original system */
-         switch(this->_global_precond_option)
+         switch(this->_global_precond_option_effective)
          {
             case kGemslrGlobalPrecondBJ:
             {
@@ -1778,7 +1804,7 @@ label_esmslr_local:
                if(this->SetupPermutation() == PARGEMSLR_RETURN_PARILU_NO_INTERIOR)
                {
                   /* input DD is not good, switch to GeMSLR */
-                  this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+                  this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                   this->_gemslr_setups._global_partition_setup = true;
                   
                   PARGEMSLR_WARNING("The input DD is not good enough, switch to GeMSLR with global reordering.");
@@ -1808,7 +1834,7 @@ label_esmslr_local:
             {
                /* the PSLR option */
                
-               this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+               this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                this->_gemslr_setups._global_partition_setup = true;
                
                goto label_mlev_global;
@@ -1824,7 +1850,7 @@ label_esmslr_local:
                if(this->SetupPermutation() == PARGEMSLR_RETURN_PARILU_NO_INTERIOR)
                {
                   /* partition fail, switch to global option */
-                  this->_global_precond_option = kGemslrGlobalPrecondGeMSLR;
+                  this->_global_precond_option_effective = kGemslrGlobalPrecondGeMSLR;
                   this->_gemslr_setups._global_partition_setup = true;
                   
                   PARGEMSLR_WARNING("The input DD is not good enough, switch to GeMSLR with global reordering.");
@@ -1862,7 +1888,7 @@ label_esmslr_local:
       this->_matrix->MoveData(location);
       
       /* set inner solve */
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ:
          {
@@ -1974,7 +2000,7 @@ label_esmslr_local:
        * 
        */
       
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ:
          {
@@ -2297,7 +2323,7 @@ perm_gemslr_global:
       }
       
       /* build level structure */
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ:
          {
@@ -3931,7 +3957,7 @@ perm_gemslr_global:
        * If we use the BJ, we consider it as B solve (apply the top level option).
        * For other options, we consider it as C solve (apply the last level option).
        */
-      if(this->_global_precond_option != kGemslrGlobalPrecondBJ)
+      if(this->_global_precond_option_effective != kGemslrGlobalPrecondBJ)
       {
          level = this->_nlev_used - 1;
          
@@ -3999,7 +4025,7 @@ perm_gemslr_global:
       }
       
       /* setup levels */
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ:
          {
@@ -4437,7 +4463,7 @@ perm_gemslr_global:
          level_str._E_mat.MoveData(this->_location);
          level_str._F_mat.MoveData(this->_location);
          
-         switch(this->_global_precond_option)
+         switch(this->_global_precond_option_effective)
          {
             case kGemslrGlobalPrecondBJ:
             {
@@ -4558,7 +4584,7 @@ perm_gemslr_global:
          /* 1st step, move matrix to the location */
          this->_matrix->MoveData(this->_location);
       
-         switch(this->_global_precond_option)
+         switch(this->_global_precond_option_effective)
          {
             case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondESMSLR: case kGemslrGlobalPrecondPSLR: case kGemslrGlobalPrecondGeMSLR:
             {
@@ -5516,7 +5542,7 @@ perm_gemslr_global:
       
       VectorType &temp_rhs = (this->_lev_A[0]._lrc > 0) ? this->_lev_A[0]._xlr_temp : rhs ;
       
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondGeMSLR:
          {
@@ -6470,9 +6496,9 @@ perm_gemslr_global:
        * solve them one by one
        */
       
-      if( this->_global_precond_option != kGemslrGlobalPrecondBJ && 
-            this->_global_precond_option != kGemslrGlobalPrecondGeMSLR && 
-            this->_global_precond_option != kGemslrGlobalPrecondESMSLR)
+      if( this->_global_precond_option_effective != kGemslrGlobalPrecondBJ &&
+            this->_global_precond_option_effective != kGemslrGlobalPrecondGeMSLR &&
+            this->_global_precond_option_effective != kGemslrGlobalPrecondESMSLR)
       {
          PARGEMSLR_ERROR("Invalid Global Precond Option.");
          return PARGEMSLR_ERROR_INVALED_OPTION;
@@ -6525,7 +6551,7 @@ perm_gemslr_global:
                
                /* now solve B*ei = ri */
                ei.Fill(DataType());
-               switch(this->_global_precond_option)
+               switch(this->_global_precond_option_effective)
                {
                   case kGemslrGlobalPrecondESMSLR:
                   {
@@ -6574,7 +6600,7 @@ perm_gemslr_global:
          }
          else
          {
-            switch(this->_global_precond_option)
+            switch(this->_global_precond_option_effective)
             {
                case kGemslrGlobalPrecondESMSLR:
                {
@@ -7015,7 +7041,7 @@ perm_gemslr_global:
       y_temp.UpdatePtr( this->_lev_A[0]._work_vector.GetData(), this->_location);
       
       /* Compute M^{-1}x, put into y_temp */
-      switch(this->_global_precond_option)
+      switch(this->_global_precond_option_effective)
       {
          case kGemslrGlobalPrecondBJ: case kGemslrGlobalPrecondGeMSLR:
          {
