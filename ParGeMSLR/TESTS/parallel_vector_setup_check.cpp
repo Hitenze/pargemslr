@@ -1,5 +1,6 @@
 #include "pargemslr.hpp"
 #include <cstdio>
+#include <unistd.h>
 
 static int CheckVector(const char *label,
                        const pargemslr::ParallelVectorClass<double> &vec,
@@ -53,6 +54,23 @@ static int CheckZeroNorm(const char *label,
       return 1;
    }
    return 0;
+}
+
+static int WriteShortVectorFile(const char *filename, int rank)
+{
+   if(rank != 0)
+   {
+      return 0;
+   }
+
+   FILE *file = std::fopen(filename, "w");
+   if(file == NULL)
+   {
+      return 1;
+   }
+   const int wrote = std::fprintf(file, "%%%%MatrixMarket matrix coordinate real general\n1 1 0\n");
+   const int close_err = std::fclose(file);
+   return (wrote < 0 || close_err != 0) ? 1 : 0;
 }
 
 int main(int argc, char **argv)
@@ -149,6 +167,68 @@ int main(int argc, char **argv)
          else
          {
             exit_code |= CheckVector("Setup(n_local, location, setzero, parlog)", vec, local_n, expected_start, expected_global, rank);
+         }
+      }
+
+      if(AllRanksOk(exit_code == 0, comm))
+      {
+         char missing_file[128];
+         std::snprintf(missing_file, sizeof(missing_file),
+                       "pargemslr_missing_parallel_vector_rank_%d.mtx", rank);
+         std::remove(missing_file);
+
+         pargemslr::ParallelVectorClass<double> missing_vec;
+         err = missing_vec.Setup(local_n, parlog);
+         if(err == PARGEMSLR_SUCCESS)
+         {
+            err = missing_vec.ReadFromSingleMMFile(missing_file, 0);
+         }
+         if(err != PARGEMSLR_ERROR_IO_ERROR)
+         {
+            std::fprintf(stderr,
+                         "rank %d missing parallel vector Matrix Market read returned %d, expected %d\n",
+                         rank, err, PARGEMSLR_ERROR_IO_ERROR);
+            exit_code = 1;
+         }
+      }
+
+      if(AllRanksOk(exit_code == 0, comm))
+      {
+         char mismatch_file[128];
+         std::snprintf(mismatch_file, sizeof(mismatch_file),
+                       "pargemslr_short_parallel_vector_rank_%d_pid_%ld.mtx",
+                       rank, static_cast<long>(getpid()));
+         const int file_ok = WriteShortVectorFile(mismatch_file, rank) == 0;
+         int all_file_ok = 0;
+         MPI_Allreduce(&file_ok, &all_file_ok, 1, MPI_INT, MPI_MIN, comm);
+         MPI_Barrier(comm);
+
+         if(!all_file_ok)
+         {
+            std::fprintf(stderr, "rank %d failed to create vector mismatch fixture\n", rank);
+            exit_code = 1;
+         }
+         else
+         {
+            pargemslr::ParallelVectorClass<double> mismatch_vec;
+            err = mismatch_vec.Setup(local_n, parlog);
+            if(err == PARGEMSLR_SUCCESS)
+            {
+               err = mismatch_vec.ReadFromSingleMMFile(mismatch_file, 0);
+            }
+            if(err != PARGEMSLR_ERROR_INVALED_PARAM)
+            {
+               std::fprintf(stderr,
+                            "rank %d mismatched parallel vector Matrix Market read returned %d, expected %d\n",
+                            rank, err, PARGEMSLR_ERROR_INVALED_PARAM);
+               exit_code = 1;
+            }
+         }
+
+         MPI_Barrier(comm);
+         if(rank == 0)
+         {
+            std::remove(mismatch_file);
          }
       }
 

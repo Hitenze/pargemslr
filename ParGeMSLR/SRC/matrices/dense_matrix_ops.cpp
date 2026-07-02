@@ -748,13 +748,13 @@ namespace pargemslr
       ipiv.Setup(m);
 
       /* LU factorization */
-      PARGEMSLR_BLASLAPACK_SGETRF( &m, &m, A.GetData(), &ldim, ipiv.GetData(), &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_SGETRF( &m, &m, A.GetData(), &ldim, ipiv.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       lwork = m;
       work.Setup(m);
 
       /* invert */
-      PARGEMSLR_BLASLAPACK_SGETRI( &m, A.GetData(), &ldim, ipiv.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_SGETRI( &m, A.GetData(), &ldim, ipiv.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       work.Clear();
       ipiv.Clear();
@@ -792,13 +792,13 @@ namespace pargemslr
       ipiv.Setup(m);
 
       /* LU factorization */
-      PARGEMSLR_BLASLAPACK_DGETRF( &m, &m, A.GetData(), &ldim, ipiv.GetData(), &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DGETRF( &m, &m, A.GetData(), &ldim, ipiv.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       lwork = m;
       work.Setup(m);
 
       /* invert */
-      PARGEMSLR_BLASLAPACK_DGETRI( &m, A.GetData(), &ldim, ipiv.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DGETRI( &m, A.GetData(), &ldim, ipiv.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       work.Clear();
       ipiv.Clear();
@@ -836,14 +836,14 @@ namespace pargemslr
 
       /* LU factorization */
       PARGEMSLR_BLASLAPACK_CGETRF( &m, &m, PARGEMSLR_CAST(ccomplexs* ,A.GetData()),
-                                 &ldim, ipiv.GetData(), &info); PARGEMSLR_CHKERR(info);
+                                 &ldim, ipiv.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       lwork = m;
       work.Setup(m);
 
       /* invert */
       PARGEMSLR_BLASLAPACK_CGETRI( &m, PARGEMSLR_CAST(ccomplexs* ,A.GetData()),
-                                 &ldim, ipiv.GetData(), PARGEMSLR_CAST(ccomplexs* ,work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                 &ldim, ipiv.GetData(), PARGEMSLR_CAST(ccomplexs* ,work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       work.Clear();
       ipiv.Clear();
@@ -881,14 +881,14 @@ namespace pargemslr
 
       /* LU factorization */
       PARGEMSLR_BLASLAPACK_ZGETRF( &m, &m, PARGEMSLR_CAST(ccomplexd* ,A.GetData()),
-                                 &ldim, ipiv.GetData(), &info); PARGEMSLR_CHKERR(info);
+                                 &ldim, ipiv.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       lwork = m;
       work.Setup(m);
 
       /* invert */
       PARGEMSLR_BLASLAPACK_ZGETRI( &m, PARGEMSLR_CAST(ccomplexd* ,A.GetData()),
-                                 &ldim, ipiv.GetData(), PARGEMSLR_CAST(ccomplexd* ,work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                 &ldim, ipiv.GetData(), PARGEMSLR_CAST(ccomplexd* ,work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       work.Clear();
       ipiv.Clear();
@@ -922,7 +922,7 @@ namespace pargemslr
       char        uplo = 'U';
       char        diag = 'N';
 
-      PARGEMSLR_BLASLAPACK_STRTRI( &uplo, &diag, &m, A.GetData(), &ldim, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_STRTRI( &uplo, &diag, &m, A.GetData(), &ldim, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       return PARGEMSLR_SUCCESS;
    }
@@ -953,7 +953,7 @@ namespace pargemslr
       char        uplo = 'U';
       char        diag = 'N';
 
-      PARGEMSLR_BLASLAPACK_DTRTRI( &uplo, &diag, &m, A.GetData(), &ldim, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DTRTRI( &uplo, &diag, &m, A.GetData(), &ldim, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       return PARGEMSLR_SUCCESS;
    }
@@ -984,7 +984,7 @@ namespace pargemslr
       char        uplo = 'U';
       char        diag = 'N';
 
-      PARGEMSLR_BLASLAPACK_CTRTRI( &uplo, &diag, &m, PARGEMSLR_CAST(ccomplexs* ,A.GetData()), &ldim, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_CTRTRI( &uplo, &diag, &m, PARGEMSLR_CAST(ccomplexs* ,A.GetData()), &ldim, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       return PARGEMSLR_SUCCESS;
    }
@@ -1015,7 +1015,7 @@ namespace pargemslr
       char        uplo = 'U';
       char        diag = 'N';
 
-      PARGEMSLR_BLASLAPACK_ZTRTRI( &uplo, &diag, &m, PARGEMSLR_CAST(ccomplexd* ,A.GetData()), &ldim, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_ZTRTRI( &uplo, &diag, &m, PARGEMSLR_CAST(ccomplexd* ,A.GetData()), &ldim, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       return PARGEMSLR_SUCCESS;
    }
@@ -1112,11 +1112,11 @@ namespace pargemslr
       /* generate matrix Q */
       if(m > n)
       {
-         PARGEMSLR_BLASLAPACK_SORGQR(&m, &n, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_CHKERR(info);
+         PARGEMSLR_BLASLAPACK_SORGQR(&m, &n, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
       else
       {
-         PARGEMSLR_BLASLAPACK_SORGQR(&m, &m, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_CHKERR(info);
+         PARGEMSLR_BLASLAPACK_SORGQR(&m, &m, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
 
       /* deallocate */
@@ -1220,11 +1220,11 @@ namespace pargemslr
       /* generate matrix Q */
       if(m > n)
       {
-         PARGEMSLR_BLASLAPACK_DORGQR(&m, &n, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_CHKERR(info);
+         PARGEMSLR_BLASLAPACK_DORGQR(&m, &n, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
       else
       {
-         PARGEMSLR_BLASLAPACK_DORGQR(&m, &m, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_CHKERR(info);
+         PARGEMSLR_BLASLAPACK_DORGQR(&m, &m, &minmn, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
 
       /* deallocate */
@@ -1329,12 +1329,12 @@ namespace pargemslr
       if(m > n)
       {
          PARGEMSLR_BLASLAPACK_CUNGQR(&m, &n, &minmn, PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexs*, tau.GetData()),
-                                    PARGEMSLR_CAST( ccomplexs*, work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                    PARGEMSLR_CAST( ccomplexs*, work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
       else
       {
          PARGEMSLR_BLASLAPACK_CUNGQR(&m, &m, &minmn, PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexs*, tau.GetData()),
-                                    PARGEMSLR_CAST( ccomplexs*, work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                    PARGEMSLR_CAST( ccomplexs*, work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
 
       /* deallocate */
@@ -1439,12 +1439,12 @@ namespace pargemslr
       if(m > n)
       {
          PARGEMSLR_BLASLAPACK_ZUNGQR(&m, &n, &minmn, PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexd*, tau.GetData()),
-                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
       else
       {
          PARGEMSLR_BLASLAPACK_ZUNGQR(&m, &m, &minmn, PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexd*, tau.GetData()),
-                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
       }
 
       /* deallocate */
@@ -1496,7 +1496,7 @@ namespace pargemslr
       work.Setup(m);
 
       /* reduce to upper Hessenberg form */
-      PARGEMSLR_BLASLAPACK_SGEHRD( &m, &one, &m, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_SGEHRD( &m, &one, &m, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1511,7 +1511,7 @@ namespace pargemslr
 
       /* generate matrix Q */
       tau[0] = 0.0;
-      PARGEMSLR_BLASLAPACK_SORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_SORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1565,7 +1565,7 @@ namespace pargemslr
        */
       ilo = start + 1;
       ihi = end;
-      PARGEMSLR_BLASLAPACK_SGEHRD( &m, &ilo, &ihi, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_SGEHRD( &m, &ilo, &ihi, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1580,7 +1580,7 @@ namespace pargemslr
 
       /* generate matrix Q */
       tau[0] = 0.0;
-      PARGEMSLR_BLASLAPACK_SORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_SORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1630,7 +1630,7 @@ namespace pargemslr
       work.Setup(m);
 
       /* reduce to upper Hessenberg form */
-      PARGEMSLR_BLASLAPACK_DGEHRD( &m, &one, &m, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DGEHRD( &m, &one, &m, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1645,7 +1645,7 @@ namespace pargemslr
 
       /* generate matrix Q */
       tau[0] = 0.0;
-      PARGEMSLR_BLASLAPACK_DORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1699,7 +1699,7 @@ namespace pargemslr
        */
       ilo = start + 1;
       ihi = end;
-      PARGEMSLR_BLASLAPACK_DGEHRD( &m, &ilo, &ihi, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DGEHRD( &m, &ilo, &ihi, A.GetData(), &ldim_A, tau.GetData()+1, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1714,7 +1714,7 @@ namespace pargemslr
 
       /* generate matrix Q */
       tau[0] = 0.0;
-      PARGEMSLR_BLASLAPACK_DORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+      PARGEMSLR_BLASLAPACK_DORGQR(&m, &m, &m, Q.GetData(), &ldim_Q, tau.GetData(), work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1765,7 +1765,7 @@ namespace pargemslr
 
       /* reduce to upper Hessenberg form */
       PARGEMSLR_BLASLAPACK_CGEHRD( &m, &one, &m, PARGEMSLR_CAST( ccomplexs*, A.GetData()), &ldim_A, PARGEMSLR_CAST( ccomplexs*, tau.GetData()+1),
-                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1781,7 +1781,7 @@ namespace pargemslr
       /* generate matrix Q */
       tau[0] = complexs(0.0,0.0);
       PARGEMSLR_BLASLAPACK_CUNGQR(&m, &m, &m, PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexs*, tau.GetData()),
-                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1836,7 +1836,7 @@ namespace pargemslr
       ilo = start + 1;
       ihi = end;
       PARGEMSLR_BLASLAPACK_CGEHRD( &m, &ilo, &ihi, PARGEMSLR_CAST( ccomplexs*, A.GetData()), &ldim_A, PARGEMSLR_CAST( ccomplexs*, tau.GetData()+1),
-                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1852,7 +1852,7 @@ namespace pargemslr
       /* generate matrix Q */
       tau[0] = complexs(0.0,0.0);
       PARGEMSLR_BLASLAPACK_CUNGQR(&m, &m, &m, PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexs*, tau.GetData()),
-                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1903,7 +1903,7 @@ namespace pargemslr
 
       /* reduce to upper Hessenberg form */
       PARGEMSLR_BLASLAPACK_ZGEHRD( &m, &one, &m, PARGEMSLR_CAST( ccomplexd*, A.GetData()), &ldim_A, PARGEMSLR_CAST( ccomplexd*, tau.GetData()+1),
-                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1919,7 +1919,7 @@ namespace pargemslr
       /* generate matrix Q */
       tau[0] = complexd(0.0,0.0);
       PARGEMSLR_BLASLAPACK_ZUNGQR(&m, &m, &m, PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexd*, tau.GetData()),
-                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -1974,7 +1974,7 @@ namespace pargemslr
       ilo = start + 1;
       ihi = end;
       PARGEMSLR_BLASLAPACK_ZGEHRD( &m, &ilo, &ihi, PARGEMSLR_CAST( ccomplexd*, A.GetData()), &ldim_A, PARGEMSLR_CAST( ccomplexd*, tau.GetData()+1),
-                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       Q.Fill(0.0);
       /* copy data */
@@ -1990,7 +1990,7 @@ namespace pargemslr
       /* generate matrix Q */
       tau[0] = complexd(0.0,0.0);
       PARGEMSLR_BLASLAPACK_ZUNGQR(&m, &m, &m, PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexd*, tau.GetData()),
-                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+                                 PARGEMSLR_CAST( ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       tau.Clear();
@@ -2055,7 +2055,7 @@ namespace pargemslr
       work.Setup(m);
 
       PARGEMSLR_BLASLAPACK_SHSEQR(&job_schur, &compz, &m, &one, &m, A.GetData(), &ldim_A,
-            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2124,7 +2124,7 @@ namespace pargemslr
       ilo = start + 1;
       ihi = end;
       PARGEMSLR_BLASLAPACK_SHSEQR(&job_schur, &compz, &m, &ilo, &ihi, A.GetData(), &ldim_A,
-            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2188,7 +2188,7 @@ namespace pargemslr
       work.Setup(m);
 
       PARGEMSLR_BLASLAPACK_DHSEQR(&job_schur, &compz, &m, &one, &m, A.GetData(), &ldim_A,
-            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2257,7 +2257,7 @@ namespace pargemslr
       ilo = start + 1;
       ihi = end;
       PARGEMSLR_BLASLAPACK_DHSEQR(&job_schur, &compz, &m, &ilo, &ihi, A.GetData(), &ldim_A,
-            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_CHKERR(info);
+            wr.GetData(), wi.GetData(), Q.GetData(), &ldim_Q, work.GetData(), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2314,7 +2314,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_CHSEQR(&job_schur, &compz, &m, &one, &m, PARGEMSLR_CAST(ccomplexs*, A.GetData()),
             &ldim_A, PARGEMSLR_CAST(ccomplexs*, w.GetData()), PARGEMSLR_CAST(ccomplexs*, Q.GetData()),
-            &ldim_Q, PARGEMSLR_CAST(ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+            &ldim_Q, PARGEMSLR_CAST(ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2373,7 +2373,7 @@ namespace pargemslr
       ihi = end;
       PARGEMSLR_BLASLAPACK_CHSEQR(&job_schur, &compz, &m, &ilo, &ihi, PARGEMSLR_CAST(ccomplexs*, A.GetData()),
             &ldim_A, PARGEMSLR_CAST(ccomplexs*, w.GetData()), PARGEMSLR_CAST(ccomplexs*, Q.GetData()),
-            &ldim_Q, PARGEMSLR_CAST(ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+            &ldim_Q, PARGEMSLR_CAST(ccomplexs*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2430,7 +2430,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_ZHSEQR(&job_schur, &compz, &m, &one, &m, PARGEMSLR_CAST(ccomplexd*, A.GetData()),
             &ldim_A, PARGEMSLR_CAST(ccomplexd*, w.GetData()), PARGEMSLR_CAST(ccomplexd*, Q.GetData()),
-            &ldim_Q, PARGEMSLR_CAST(ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+            &ldim_Q, PARGEMSLR_CAST(ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2489,7 +2489,7 @@ namespace pargemslr
       ihi = end;
       PARGEMSLR_BLASLAPACK_ZHSEQR(&job_schur, &compz, &m, &ilo, &ihi, PARGEMSLR_CAST(ccomplexd*, A.GetData()),
             &ldim_A, PARGEMSLR_CAST(ccomplexd*, w.GetData()), PARGEMSLR_CAST(ccomplexd*, Q.GetData()),
-            &ldim_Q, PARGEMSLR_CAST(ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_CHKERR(info);
+            &ldim_Q, PARGEMSLR_CAST(ccomplexd*, work.GetData()), &m, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2563,7 +2563,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_SHSEIN(&side, &eigsrc, &initv, select.GetData(), &m,
                                  A.GetData(), &ldim_A, wr.GetData(), wi.GetData(), NULL, &one,
-                                 Q.GetData(), &ldim_Q, &mm, &mmm, work.GetData(), NULL, ifailr.GetData(), &info); PARGEMSLR_CHKERR(info);
+                                 Q.GetData(), &ldim_Q, &mm, &mmm, work.GetData(), NULL, ifailr.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       //deallocate
       work.Clear();
@@ -2639,7 +2639,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_DHSEIN(&side, &eigsrc, &initv, select.GetData(), &m,
                                  A.GetData(), &ldim_A, wr.GetData(), wi.GetData(), NULL, &one,
-                                 Q.GetData(), &ldim_Q, &mm, &mmm, work.GetData(), NULL, ifailr.GetData(), &info); PARGEMSLR_CHKERR(info);
+                                 Q.GetData(), &ldim_Q, &mm, &mmm, work.GetData(), NULL, ifailr.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       //deallocate
       work.Clear();
@@ -2713,7 +2713,7 @@ namespace pargemslr
                               PARGEMSLR_CAST(ccomplexs*, A.GetData()), &ldim_A, PARGEMSLR_CAST(ccomplexs*, w.GetData()),
                               NULL, &one, PARGEMSLR_CAST(ccomplexs*, Q.GetData()), &ldim_Q,
                               &mm, &mmm, PARGEMSLR_CAST(ccomplexs*, work.GetData()), rwork.GetData(),
-                              NULL, ifailr.GetData(), &info); PARGEMSLR_CHKERR(info);
+                              NULL, ifailr.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       //deallocate
       work.Clear();
@@ -2788,7 +2788,7 @@ namespace pargemslr
                               PARGEMSLR_CAST(ccomplexd*, A.GetData()), &ldim_A, PARGEMSLR_CAST(ccomplexd*, w.GetData()),
                               NULL, &one, PARGEMSLR_CAST(ccomplexd*, Q.GetData()), &ldim_Q,
                               &mm, &mmm, PARGEMSLR_CAST(ccomplexd*, work.GetData()), rwork.GetData(),
-                              NULL, ifailr.GetData(), &info); PARGEMSLR_CHKERR(info);
+                              NULL, ifailr.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       //deallocate
       work.Clear();
@@ -2870,7 +2870,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_STRSEN( &job, &compq, select.GetData(), &m, A.GetData(), &ldim_A,
                Q.GetData(), &ldim_Q, wr.GetData(), wi.GetData(), &mm, NULL, NULL, work.GetData(),
-               &lwork, iwork.GetData(), &liwork, &info); PARGEMSLR_CHKERR(info);
+               &lwork, iwork.GetData(), &liwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -2950,7 +2950,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_DTRSEN( &job, &compq, select.GetData(), &m, A.GetData(), &ldim_A,
                Q.GetData(), &ldim_Q, wr.GetData(), wi.GetData(), &mm, NULL, NULL, work.GetData(),
-               &lwork, iwork.GetData(), &liwork, &info); PARGEMSLR_CHKERR(info);
+               &lwork, iwork.GetData(), &liwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -3017,7 +3017,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_CTRSEN(&job, &compq, select.GetData(), &m, PARGEMSLR_CAST( ccomplexs*, A.GetData()), &ldim_A,
                                  PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexs*, w.GetData()),
-                                 &mm, NULL, NULL, PARGEMSLR_CAST( ccomplexs*, work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                 &mm, NULL, NULL, PARGEMSLR_CAST( ccomplexs*, work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -3083,7 +3083,7 @@ namespace pargemslr
 
       PARGEMSLR_BLASLAPACK_ZTRSEN(&job, &compq, select.GetData(), &m, PARGEMSLR_CAST( ccomplexd*, A.GetData()), &ldim_A,
                                  PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, PARGEMSLR_CAST( ccomplexd*, w.GetData()),
-                                 &mm, NULL, NULL, PARGEMSLR_CAST( ccomplexd*, work.GetData()), &lwork, &info); PARGEMSLR_CHKERR(info);
+                                 &mm, NULL, NULL, PARGEMSLR_CAST( ccomplexd*, work.GetData()), &lwork, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
       /* deallocate */
       work.Clear();
@@ -3287,7 +3287,7 @@ namespace pargemslr
             /* apply the insert */
             ifst = idx+1;
             ilst = i+1;
-            PARGEMSLR_BLASLAPACK_STREXC(&compq, &m, A.GetData(), &ldim_A, Q.GetData(), &ldim_Q, &ifst, &ilst, work.GetData(), &info); PARGEMSLR_CHKERR(info);
+            PARGEMSLR_BLASLAPACK_STREXC(&compq, &m, A.GetData(), &ldim_A, Q.GetData(), &ldim_Q, &ifst, &ilst, work.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
             switch (case_number)
             {
@@ -3620,7 +3620,7 @@ namespace pargemslr
             /* apply the insert */
             ifst = idx+1;
             ilst = i+1;
-            PARGEMSLR_BLASLAPACK_DTREXC(&compq, &m, A.GetData(), &ldim_A, Q.GetData(), &ldim_Q, &ifst, &ilst, work.GetData(), &info); PARGEMSLR_CHKERR(info);
+            PARGEMSLR_BLASLAPACK_DTREXC(&compq, &m, A.GetData(), &ldim_A, Q.GetData(), &ldim_Q, &ifst, &ilst, work.GetData(), &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
             switch (case_number)
             {
@@ -3840,7 +3840,7 @@ namespace pargemslr
             ifst = idx+1;
             ilst = i+1;
             PARGEMSLR_BLASLAPACK_CTREXC(&compq, &m, PARGEMSLR_CAST( ccomplexs*, A.GetData()), &ldim_A,
-                                       PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, &ifst, &ilst, &info); PARGEMSLR_CHKERR(info);
+                                       PARGEMSLR_CAST( ccomplexs*, Q.GetData()), &ldim_Q, &ifst, &ilst, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
             /* after the swap, if we have order[k] = i, we need to update order[k] = idx */
 
@@ -3958,7 +3958,7 @@ namespace pargemslr
             ifst = idx+1;
             ilst = i+1;
             PARGEMSLR_BLASLAPACK_ZTREXC(&compq, &m, PARGEMSLR_CAST( ccomplexd*, A.GetData()), &ldim_A,
-                                       PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, &ifst, &ilst, &info); PARGEMSLR_CHKERR(info);
+                                       PARGEMSLR_CAST( ccomplexd*, Q.GetData()), &ldim_Q, &ifst, &ilst, &info); PARGEMSLR_RETURN_ON_LAPACK_INFO(info);
 
             /* after the swap, if we have order[k] = i, we need to update order[k] = idx */
 

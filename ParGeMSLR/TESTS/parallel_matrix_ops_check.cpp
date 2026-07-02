@@ -63,6 +63,47 @@ static int CheckIdentityGraph(pargemslr::vector_long &vtxdist,
    return exit_code;
 }
 
+static int CheckCooEye(int rank)
+{
+   pargemslr::CooMatrixClass<double> coo;
+   pargemslr::CsrMatrixClass<double> csr;
+   int err = coo.Setup(4, 4);
+   if(err == PARGEMSLR_SUCCESS)
+   {
+      err = coo.Eye();
+   }
+   if(err == PARGEMSLR_SUCCESS)
+   {
+      err = coo.ToCsr(pargemslr::kMemoryHost, csr);
+   }
+   if(err != PARGEMSLR_SUCCESS)
+   {
+      std::fprintf(stderr, "rank %d COO identity construction returned %d\n", rank, err);
+      return 1;
+   }
+
+   int exit_code = 0;
+   exit_code |= CheckEqualLong("COO identity rows", csr.GetNumRowsLocal(), 4, rank);
+   exit_code |= CheckEqualLong("COO identity cols", csr.GetNumColsLocal(), 4, rank);
+   exit_code |= CheckEqualLong("COO identity nnz", csr.GetNumNonzeros(), 4, rank);
+
+   int *row_ptr = csr.GetI();
+   int *col_ind = csr.GetJ();
+   double *data = csr.GetData();
+   for(int row = 0; row < 4; row++)
+   {
+      const int row_start = row_ptr[row];
+      const int row_nnz = row_ptr[row + 1] - row_start;
+      exit_code |= CheckEqualLong("COO identity row nnz", row_nnz, 1, rank);
+      if(row_nnz == 1)
+      {
+         exit_code |= CheckEqualLong("COO identity column", col_ind[row_start], row, rank);
+         exit_code |= CheckEqualDouble("COO identity value", data[row_start], 1.0, rank);
+      }
+   }
+   return exit_code;
+}
+
 int main(int argc, char **argv)
 {
    int err = pargemslr::PargemslrInit(&argc, &argv);
@@ -232,6 +273,29 @@ int main(int argc, char **argv)
                   }
                }
             }
+         }
+      }
+
+      if(AllRanksOk(exit_code == 0, comm))
+      {
+         exit_code |= CheckCooEye(rank);
+      }
+
+      if(AllRanksOk(exit_code == 0, comm))
+      {
+         char missing_file[128];
+         std::snprintf(missing_file, sizeof(missing_file),
+                       "pargemslr_missing_parallel_matrix_rank_%d.mtx", rank);
+         std::remove(missing_file);
+
+         pargemslr::ParallelCsrMatrixClass<double> missing_mat;
+         const int read_err = missing_mat.ReadFromSingleMMFile(missing_file, 0, parlog);
+         if(read_err != PARGEMSLR_ERROR_IO_ERROR)
+         {
+            std::fprintf(stderr,
+                         "rank %d missing parallel Matrix Market read returned %d, expected %d\n",
+                         rank, read_err, PARGEMSLR_ERROR_IO_ERROR);
+            exit_code = 1;
          }
       }
 

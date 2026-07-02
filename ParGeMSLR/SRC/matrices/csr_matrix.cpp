@@ -719,7 +719,7 @@ namespace pargemslr
       row_perm.Resize(nr, true, false);
       col_perm.Resize(nc, true, false);
       
-      err = this->SubMatrix(row_perm, col_perm, location, csrmat_out); PARGEMSLR_CHKERR(err);
+      err = this->SubMatrix(row_perm, col_perm, location, csrmat_out); PARGEMSLR_RETURN_ON_ERROR(err);
       
       return err;
    }
@@ -1222,11 +1222,11 @@ namespace pargemslr
       this->_nnz = n;
       
       /* create I, J, and A */
-      err = this->_i_vec.UnitPerm(); PARGEMSLR_CHKERR(err);
-      err = this->_j_vec.Setup(n); PARGEMSLR_CHKERR(err);
-      err = this->_j_vec.UnitPerm(); PARGEMSLR_CHKERR(err);
-      err = this->_a_vec.Setup(n); PARGEMSLR_CHKERR(err);
-      err = this->_a_vec.Fill(1.0); PARGEMSLR_CHKERR(err);
+      err = this->_i_vec.UnitPerm(); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_j_vec.Setup(n); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_j_vec.UnitPerm(); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_a_vec.Setup(n); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_a_vec.Fill(1.0); PARGEMSLR_RETURN_ON_ERROR(err);
       
       return err;
       
@@ -1253,7 +1253,7 @@ namespace pargemslr
    {
       int err = 0;
       
-      err = this->_a_vec.Fill(v); PARGEMSLR_CHKERR(err);
+      err = this->_a_vec.Fill(v); PARGEMSLR_RETURN_ON_ERROR(err);
       
       return err;
    }
@@ -1681,9 +1681,9 @@ namespace pargemslr
    {
       int err;
       CooMatrixClass<T> coo_mat;
-      err = coo_mat.Laplacian( nx, ny, nz, alphax, alphay, alphaz, shift, rand_perturb); PARGEMSLR_CHKERR(err);
-      err = coo_mat.ToCsr( kMemoryHost, *this); PARGEMSLR_CHKERR(err);
-      err = coo_mat.Clear(); PARGEMSLR_CHKERR(err);
+      err = coo_mat.Laplacian( nx, ny, nz, alphax, alphay, alphaz, shift, rand_perturb); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = coo_mat.ToCsr( kMemoryHost, *this); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = coo_mat.Clear(); PARGEMSLR_RETURN_ON_ERROR(err);
 
       return err;
    }
@@ -1697,9 +1697,9 @@ namespace pargemslr
    {
       int err;
       CooMatrixClass<T> coo_mat;
-      err = coo_mat.Helmholtz( n, w); PARGEMSLR_CHKERR(err);
-      err = coo_mat.ToCsr( kMemoryHost, *this); PARGEMSLR_CHKERR(err);
-      err = coo_mat.Clear(); PARGEMSLR_CHKERR(err);
+      err = coo_mat.Helmholtz( n, w); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = coo_mat.ToCsr( kMemoryHost, *this); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = coo_mat.Clear(); PARGEMSLR_RETURN_ON_ERROR(err);
 
       return err;
    }
@@ -1711,9 +1711,9 @@ namespace pargemslr
    {
       int err;
       CooMatrixClass<T> coo_mat;
-      err = coo_mat.ReadFromMMFile( matfile, idxin); PARGEMSLR_CHKERR(err);
-      err = coo_mat.ToCsr( kMemoryHost, *this); PARGEMSLR_CHKERR(err);
-      err = coo_mat.Clear(); PARGEMSLR_CHKERR(err);
+      err = coo_mat.ReadFromMMFile( matfile, idxin); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = coo_mat.ToCsr( kMemoryHost, *this); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = coo_mat.Clear(); PARGEMSLR_RETURN_ON_ERROR(err);
 
       return err;
    }

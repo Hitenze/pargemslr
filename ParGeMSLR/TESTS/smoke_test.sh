@@ -226,14 +226,14 @@ build_parallel_gemslr_setup_check() {
     parallel_gemslr_setup_check.ex
 }
 
-build_parallel_gemslr_setup_check_release() {
+build_parallel_error_checks_release() {
   run "${make_cmd[@]}" -C "${par_dir}" clean
   run "${make_cmd[@]}" -C "${project_dir}" clean
   run "${make_cmd[@]}" -C "${project_dir}" \
     USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" DEBUG_MODE=0
   run "${make_cmd[@]}" -C "${par_dir}" \
     USING_CUDA=0 USING_MKL="${using_mkl}" USING_OPENMP="${using_openmp}" DEBUG_MODE=0 \
-    parallel_gemslr_setup_check.ex
+    parallel_vector_setup_check.ex parallel_matrix_ops_check.ex parallel_gemslr_setup_check.ex
 }
 
 build_ilu_solve_state_check() {
@@ -292,7 +292,11 @@ fi
 run_and_check "parallel CPU Laplacian" "${workdir}" "${workdir}/parallel_cpu.log" \
   "${parallel_cpu_cmd[@]}"
 
-build_parallel_gemslr_setup_check_release
+build_parallel_error_checks_release
+run_plain_case "parallel vector Setup offsets (release)" "${workdir}" "${workdir}/parallel_vector_setup_release.log" \
+  mpi_run "${par_ranks}" "${par_dir}/parallel_vector_setup_check.ex"
+run_plain_case "parallel matrix structural operations (release)" "${workdir}" "${workdir}/parallel_matrix_ops_release.log" \
+  mpi_run "${par_ranks}" "${par_dir}/parallel_matrix_ops_check.ex"
 run_plain_case "parallel GeMSLR setup error handling (release)" "${workdir}" "${workdir}/parallel_gemslr_setup_release.log" \
   mpi_run "${setup_check_ranks}" "${par_dir}/parallel_gemslr_setup_check.ex" --setup-error-only
 

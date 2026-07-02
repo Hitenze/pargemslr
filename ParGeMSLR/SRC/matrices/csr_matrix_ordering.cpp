@@ -41,7 +41,7 @@ namespace pargemslr
       CsrMatrixClass<T> B;
 
       /* get that sub matrix */
-      err = A.SubMatrix(rowscols, rowscols, kMemoryHost, B); PARGEMSLR_CHKERR(err);
+      err = A.SubMatrix(rowscols, rowscols, kMemoryHost, B); PARGEMSLR_RETURN_ON_ERROR(err);
 
       /* apply RCM */
       err = CsrMatrixAmdHost(B, perm);
@@ -121,7 +121,7 @@ namespace pargemslr
 
       A2.SortRow();
 
-      err = amd_order( nA, A2.GetI(), A2.GetJ(), perm.GetData(), NULL, NULL); PARGEMSLR_CHKERR(err);
+      err = amd_order( nA, A2.GetI(), A2.GetJ(), perm.GetData(), NULL, NULL); PARGEMSLR_RETURN_ON_ERROR(err);
 
       A2.Clear();
 
@@ -141,7 +141,7 @@ namespace pargemslr
       CsrMatrixClass<T> B;
 
       /* get that sub matrix */
-      err = A.SubMatrix(rowscols, rowscols, kMemoryHost, B); PARGEMSLR_CHKERR(err);
+      err = A.SubMatrix(rowscols, rowscols, kMemoryHost, B); PARGEMSLR_RETURN_ON_ERROR(err);
 
       /* apply RCM */
       err = CsrMatrixNdHost(B, perm);
@@ -294,7 +294,7 @@ namespace pargemslr
       CsrMatrixClass<T> B;
 
       /* get that sub matrix */
-      err = A.SubMatrix(rowscols, rowscols, kMemoryHost, B); PARGEMSLR_CHKERR(err);
+      err = A.SubMatrix(rowscols, rowscols, kMemoryHost, B); PARGEMSLR_RETURN_ON_ERROR(err);
 
       /* apply RCM */
       err = CsrMatrixRcmHost(B, perm);

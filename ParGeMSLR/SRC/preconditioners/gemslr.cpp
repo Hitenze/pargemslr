@@ -1820,7 +1820,7 @@ namespace pargemslr
       
       /* 3. apply RKway, obtain map vector */
       mapptr_v[0] = 0;
-      err = SetupPermutationRKwayRecursive( AAT, this->_gemslr_setups._vertexsep_setup, clvl, tlvl, num_dom, minsep, kmin, kfactor, map_v, mapptr_v); PARGEMSLR_CHKERR(err);
+      err = SetupPermutationRKwayRecursive( AAT, this->_gemslr_setups._vertexsep_setup, clvl, tlvl, num_dom, minsep, kmin, kfactor, map_v, mapptr_v); PARGEMSLR_RETURN_ON_ERROR(err);
       mapptr_v.Resize( tlvl+1, true, false);
       AAT.Clear();
       
@@ -1861,7 +1861,7 @@ namespace pargemslr
       clvl     = 0;
       
       /* 3. apply RKway, obtain map vector */
-      err = SetupPermutationNDRecursive( AAT, this->_gemslr_setups._vertexsep_setup, clvl, tlvl, minsep, level_str); PARGEMSLR_CHKERR(err);
+      err = SetupPermutationNDRecursive( AAT, this->_gemslr_setups._vertexsep_setup, clvl, tlvl, minsep, level_str); PARGEMSLR_RETURN_ON_ERROR(err);
       
       AAT.Clear();
       

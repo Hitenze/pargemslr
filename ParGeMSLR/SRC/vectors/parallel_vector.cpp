@@ -662,9 +662,8 @@ namespace pargemslr
       /* only one MPI rank, do as sequential */
       if(np == 1)
       {
-         err = global_vec.ReadFromMMFile( vecfile, idxin); PARGEMSLR_CHKERR(err);
-         
-         PARGEMSLR_CHKERR( this->_n_global != (long int)(global_vec.GetLengthLocal()));
+         err = global_vec.ReadFromMMFile( vecfile, idxin); PARGEMSLR_RETURN_ON_ERROR(err);
+         PARGEMSLR_RETURN_IF(this->_n_global != (long int)(global_vec.GetLengthLocal()), PARGEMSLR_ERROR_INVALED_PARAM);
          
          this->_data_vec = std::move(global_vec);
          
@@ -674,8 +673,18 @@ namespace pargemslr
       if(myid == 0)
       {
          /* read the global vector */
-         err = global_vec.ReadFromMMFile( vecfile, idxin); PARGEMSLR_CHKERR(err);
-         PARGEMSLR_CHKERR( this->_n_global != (long int)(global_vec.GetLengthLocal()));
+         err = global_vec.ReadFromMMFile( vecfile, idxin);
+         if(err == PARGEMSLR_SUCCESS && this->_n_global != (long int)(global_vec.GetLengthLocal()))
+         {
+            err = PARGEMSLR_ERROR_INVALED_PARAM;
+         }
+      }
+      int global_err = PARGEMSLR_SUCCESS;
+      PARGEMSLR_RETURN_ON_MPI_ERROR(MPI_Allreduce(&err, &global_err, 1, MPI_INT, MPI_MAX, comm));
+      PARGEMSLR_RETURN_ON_ERROR(global_err);
+
+      if(myid == 0)
+      {
          nstarts.Setup(np+1);
       }
       

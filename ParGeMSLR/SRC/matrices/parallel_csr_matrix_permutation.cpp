@@ -52,7 +52,7 @@ namespace pargemslr
       {
          clvl = 1;
          mapptr_v.Setup(1, true);
-         err = SetupPermutationParallelRKwayRecursive2( A, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
+         err = SetupPermutationParallelRKwayRecursive2( A, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_RETURN_ON_ERROR(err);
       }
       */
 
@@ -62,7 +62,7 @@ namespace pargemslr
       clvl = 1;
       mapptr_v.Setup(1, true);
 
-      err = SetupPermutationParallelRKwayRecursive( vtxdist, xadj, adjncy, vertexsep, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_CHKERR(err);
+      err = SetupPermutationParallelRKwayRecursive( vtxdist, xadj, adjncy, vertexsep, clvl, nlev, ncomp, minsep, kmin, kfactor, map_v, mapptr_v, bj_last, A); PARGEMSLR_RETURN_ON_ERROR(err);
 
       return err;
    }
@@ -94,7 +94,7 @@ namespace pargemslr
          /* call parMetis for partition */
          ncomp2 = ncomp;
 
-         err = ParmetisKwayHost( vtxdist, xadj, adjncy, ncomp2, map, parlog); //PARGEMSLR_CHKERR(err);
+         err = ParmetisKwayHost( vtxdist, xadj, adjncy, ncomp2, map, parlog); //PARGEMSLR_RETURN_ON_ERROR(err);
 
          if( err || ncomp2 < ncomp)
          {
@@ -230,7 +230,7 @@ namespace pargemslr
                tlvl = clvl;
                return PARGEMSLR_SUCCESS;
             }
-            PARGEMSLR_CHKERR(err);
+            PARGEMSLR_RETURN_ON_ERROR(err);
 
             mapptr_v.PushBack(mapptr_v.Back()+ncomp2);
 
@@ -1199,7 +1199,7 @@ namespace pargemslr
          }
          else
          {
-            err = SetupPermutationParallelKwayVertexSep( A, ncomp2, map, perm_sep, parlog); PARGEMSLR_CHKERR(err);
+            err = SetupPermutationParallelKwayVertexSep( A, ncomp2, map, perm_sep, parlog); PARGEMSLR_RETURN_ON_ERROR(err);
          }
 
          if(ncomp2 < ncomp)
@@ -2193,7 +2193,7 @@ namespace pargemslr
          /* in this case, only a single processor, apply the sequential one */
          clvl = 0;
          tlvl = nlev;
-         err = SetupPermutationNDRecursive( A_diag, vertexsep, clvl, tlvl, minsep, level_str); PARGEMSLR_CHKERR(err);
+         err = SetupPermutationNDRecursive( A_diag, vertexsep, clvl, tlvl, minsep, level_str); PARGEMSLR_RETURN_ON_ERROR(err);
 
          /* 4. prepare return value */
          map_v.Setup(n_local);

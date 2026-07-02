@@ -446,6 +446,26 @@ static int CheckSetupErrorRestoresMatrix(pargemslr::ParallelCsrMatrixClass<doubl
 #endif
 }
 
+static int CheckMatrixMarketReadError(int rank)
+{
+   char missing_file[128];
+   std::snprintf(missing_file, sizeof(missing_file),
+                 "pargemslr_missing_matrix_rank_%d.mtx", rank);
+   std::remove(missing_file);
+
+   pargemslr::CsrMatrixClass<double> mat;
+   const int err = mat.ReadFromMMFile(missing_file, 0);
+   mat.Clear();
+   if(err != PARGEMSLR_ERROR_IO_ERROR)
+   {
+      std::fprintf(stderr,
+                   "rank %d missing Matrix Market read returned %d, expected %d\n",
+                   rank, err, PARGEMSLR_ERROR_IO_ERROR);
+      return PARGEMSLR_ERROR_IO_ERROR;
+   }
+   return PARGEMSLR_SUCCESS;
+}
+
 int main(int argc, char **argv)
 {
    int location = pargemslr::kMemoryHost;
@@ -511,13 +531,18 @@ int main(int argc, char **argv)
             err = CheckSetupErrorRestoresMatrix(mat_g, parlog, rank, location);
             local_ok = err == PARGEMSLR_SUCCESS;
          }
+         if(AllRanksOk(local_ok, comm))
+         {
+            err = CheckMatrixMarketReadError(rank);
+            local_ok = err == PARGEMSLR_SUCCESS;
+         }
          if(!AllRanksOk(local_ok, comm))
          {
             exit_code = 1;
          }
          else if(rank == 0)
          {
-            std::printf("parallel GeMSLR setup error check passed: ranks=%d location=%s\n",
+            std::printf("parallel GeMSLR release error checks passed: ranks=%d location=%s\n",
                         np, location == pargemslr::kMemoryDevice ? "device" : "host");
          }
          mat_g.Clear();

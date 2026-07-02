@@ -133,11 +133,11 @@ namespace pargemslr
       PARGEMSLR_CHKERR(this->_matrix == NULL);
       
       /* set matrix to the diagonal mat */
-      err = this->_local_precond->SetMatrix(this->_matrix->GetDiagMat()); PARGEMSLR_CHKERR(err);
-      err = this->_local_precond->SetSolveLocation(this->_location); PARGEMSLR_CHKERR(err);
+      err = this->_local_precond->SetMatrix(this->_matrix->GetDiagMat()); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_local_precond->SetSolveLocation(this->_location); PARGEMSLR_RETURN_ON_ERROR(err);
       
       /* setup the local preconditioner */
-      err = this->_local_precond->Setup(x.GetDataVector(), rhs.GetDataVector()); PARGEMSLR_CHKERR(err);
+      err = this->_local_precond->Setup(x.GetDataVector(), rhs.GetDataVector()); PARGEMSLR_RETURN_ON_ERROR(err);
       
       this->_solver_precision = x.GetPrecision();
       
@@ -161,7 +161,7 @@ namespace pargemslr
          return PARGEMSLR_ERROR_FUNCTION_CALL_ERR;
       }
       
-      err = this->_local_precond->Solve(x.GetDataVector(), rhs.GetDataVector()); PARGEMSLR_CHKERR(err);
+      err = this->_local_precond->Solve(x.GetDataVector(), rhs.GetDataVector()); PARGEMSLR_RETURN_ON_ERROR(err);
       
       return err;
    }

@@ -40,12 +40,12 @@ namespace pargemslr
       this->_nnz = n;
       
       /* create I, J, and A */
-      err = this->_j_vec.Setup(n, location, false); PARGEMSLR_CHKERR(err);
-      err = this->_i_vec.UnitPerm(); PARGEMSLR_CHKERR(err);
-      err = this->_j_vec.Setup(n, location, false); PARGEMSLR_CHKERR(err);
-      err = this->_j_vec.UnitPerm(); PARGEMSLR_CHKERR(err);
-      err = this->_a_vec.Setup(n, location, false); PARGEMSLR_CHKERR(err);
-      err = this->_a_vec.Fill(1.0); PARGEMSLR_CHKERR(err);
+      err = this->_i_vec.Setup(n, location, false); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_i_vec.UnitPerm(); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_j_vec.Setup(n, location, false); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_j_vec.UnitPerm(); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_a_vec.Setup(n, location, false); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->_a_vec.Fill(1.0); PARGEMSLR_RETURN_ON_ERROR(err);
       
       return err;
       

@@ -5157,7 +5157,7 @@ namespace pargemslr
       
       if(np == 1)
       {
-         err = global_coo_mat.ReadFromMMFile( matfile, idxin); PARGEMSLR_CHKERR(err);
+         err = global_coo_mat.ReadFromMMFile( matfile, idxin); PARGEMSLR_RETURN_ON_ERROR(err);
          
          nrow_global = global_coo_mat.GetNumRowsLocal();
          ncol_global = global_coo_mat.GetNumColsLocal();
@@ -5174,8 +5174,14 @@ namespace pargemslr
       if(myid == 0)
       {
          /* read the global matrix */
-         err = global_coo_mat.ReadFromMMFile( matfile, idxin); PARGEMSLR_CHKERR(err);
-         
+         err = global_coo_mat.ReadFromMMFile( matfile, idxin);
+      }
+      int global_err = PARGEMSLR_SUCCESS;
+      PARGEMSLR_RETURN_ON_MPI_ERROR(MPI_Allreduce(&err, &global_err, 1, MPI_INT, MPI_MAX, comm));
+      PARGEMSLR_RETURN_ON_ERROR(global_err);
+
+      if(myid == 0)
+      {
          nrow_locals.Setup(np);
          ncol_locals.Setup(np);
          nrow_disps.Setup(np+1);

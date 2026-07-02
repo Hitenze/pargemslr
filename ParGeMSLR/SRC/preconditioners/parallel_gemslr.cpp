@@ -2455,7 +2455,7 @@ perm_gemslr_global:
       }
       
       /* apply RKway, obtain map vector */
-      err = ParallelCsrMatrixSetupPermutationParallelRKway( A, this->_gemslr_setups._vertexsep_setup, tlvl, num_dom, minsep, kmin, kfactor, map_v, mapptr_v, bj_last); PARGEMSLR_CHKERR(err);
+      err = ParallelCsrMatrixSetupPermutationParallelRKway( A, this->_gemslr_setups._vertexsep_setup, tlvl, num_dom, minsep, kmin, kfactor, map_v, mapptr_v, bj_last); PARGEMSLR_RETURN_ON_ERROR(err);
       
       /* we can't have C in parallel in this option */
       switch(this->_gemslr_setups._level_setups._C_solve_option)

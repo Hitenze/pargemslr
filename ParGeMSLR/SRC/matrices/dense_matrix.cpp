@@ -637,8 +637,8 @@ namespace pargemslr
       }
       
       DenseMatrixClass<T> Q1, Q2;
-      err = this->Hess(Q1); PARGEMSLR_CHKERR(err);
-      err = this->HessSchur(Q2, wr, wi); PARGEMSLR_CHKERR(err);
+      err = this->Hess(Q1); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->HessSchur(Q2, wr, wi); PARGEMSLR_RETURN_ON_ERROR(err);
       
       Q.MatMat( alpha, Q1, 'N', Q2, 'N', beta);
       
@@ -668,8 +668,8 @@ namespace pargemslr
       }
       
       DenseMatrixClass<T> Q1, Q2;
-      err = this->Hess(Q1, start, end); PARGEMSLR_CHKERR(err);
-      err = this->HessSchur(Q2, start, end, wr, wi); PARGEMSLR_CHKERR(err);
+      err = this->Hess(Q1, start, end); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->HessSchur(Q2, start, end, wr, wi); PARGEMSLR_RETURN_ON_ERROR(err);
       
       Q.MatMat( alpha, Q1, 'N', Q2, 'N', beta);
       
@@ -699,8 +699,8 @@ namespace pargemslr
       }
       
       DenseMatrixClass<T> Q1, Q2;
-      err = this->Hess(Q1); PARGEMSLR_CHKERR(err);
-      err = this->HessSchur(Q2, w); PARGEMSLR_CHKERR(err);
+      err = this->Hess(Q1); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->HessSchur(Q2, w); PARGEMSLR_RETURN_ON_ERROR(err);
       
       Q.MatMat( alpha, Q1, 'N', Q2, 'N', beta);
       
@@ -730,8 +730,8 @@ namespace pargemslr
       }
       
       DenseMatrixClass<T> Q1, Q2;
-      err = this->Hess(Q1, start, end); PARGEMSLR_CHKERR(err);
-      err = this->HessSchur(Q2, start, end, w); PARGEMSLR_CHKERR(err);
+      err = this->Hess(Q1, start, end); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->HessSchur(Q2, start, end, w); PARGEMSLR_RETURN_ON_ERROR(err);
       
       Q.MatMat( alpha, Q1, 'N', Q2, 'N', beta);
       
@@ -767,8 +767,8 @@ namespace pargemslr
    int DenseMatrixClass<T>::Eig( DenseMatrixClass<T> &QS, DenseMatrixClass<T> &QE, SequentialVectorClass<T> &wr, SequentialVectorClass<T> &wi)
    {
       int err;
-      err = this->Schur( QS, wr, wi); PARGEMSLR_CHKERR(err);
-      err = this->HessEig( QE, wr, wi); PARGEMSLR_CHKERR(err);
+      err = this->Schur( QS, wr, wi); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->HessEig( QE, wr, wi); PARGEMSLR_RETURN_ON_ERROR(err);
       return err;
    }
    template int DenseMatrixClass<float>::Eig( DenseMatrixClass<float> &QS, DenseMatrixClass<float> &QE, SequentialVectorClass<float> &wr, SequentialVectorClass<float> &wi);
@@ -778,8 +778,8 @@ namespace pargemslr
    int DenseMatrixClass<T>::Eig( DenseMatrixClass<T> &QS, DenseMatrixClass<T> &QE, SequentialVectorClass<T> &w)
    {
       int err;
-      err = this->Schur( QS, w); PARGEMSLR_CHKERR(err);
-      err = this->HessEig( QE, w); PARGEMSLR_CHKERR(err);
+      err = this->Schur( QS, w); PARGEMSLR_RETURN_ON_ERROR(err);
+      err = this->HessEig( QE, w); PARGEMSLR_RETURN_ON_ERROR(err);
       return err;
    }
    template int DenseMatrixClass<complexs>::Eig( DenseMatrixClass<complexs> &QS, DenseMatrixClass<complexs> &QE, SequentialVectorClass<complexs> &w);

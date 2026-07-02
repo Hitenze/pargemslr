@@ -451,7 +451,7 @@ namespace pargemslr
              */
             tlvls[i] = tlvl;
             std::vector<std::vector<vector_int> > sub_level_str;
-            err = SetupPermutationNDRecursive( B, vertexsep, clvl+1, tlvls[i], minsep, sub_level_str); PARGEMSLR_CHKERR(err);
+            err = SetupPermutationNDRecursive( B, vertexsep, clvl+1, tlvls[i], minsep, sub_level_str); PARGEMSLR_RETURN_ON_ERROR(err);
 
             /* now back, set indices */
             for( j = 0 ; j < tlvls[i] ; j ++)

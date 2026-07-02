@@ -28,6 +28,31 @@
    #define PARGEMSLR_CHKERR(ierr) {;}
    #define PARGEMSLR_PRINT_DEBUG(conda, condb, ...) {;}
 #endif
+
+/* PARGEMSLR_CHKERR is a debug-only invariant check and intentionally compiles
+ * away in release builds. Use these return helpers for real runtime errors
+ * that must propagate in both debug and release builds.
+ */
+#define PARGEMSLR_RETURN_ON_ERROR(ierr) \
+   do { int _pargemslr_ierr = (ierr); if(_pargemslr_ierr != PARGEMSLR_SUCCESS) return _pargemslr_ierr; } while(0)
+
+#define PARGEMSLR_RETURN_IF(cond, ierr) \
+   do { if(cond) return (ierr); } while(0)
+
+#define PARGEMSLR_RETURN_ON_LAPACK_INFO(info) \
+   do { int _pargemslr_info = (info); if(_pargemslr_info != 0) return PARGEMSLR_ERROR_FUNCTION_CALL_ERR; } while(0)
+
+#define PARGEMSLR_RETURN_ON_MPI_ERROR(ierr) \
+   do { int _pargemslr_ierr = (ierr); if(_pargemslr_ierr != MPI_SUCCESS) return PARGEMSLR_ERROR_FUNCTION_CALL_ERR; } while(0)
+
+#ifdef PARGEMSLR_CUDA
+#define PARGEMSLR_RETURN_ON_CUDA_ERROR(ierr) \
+   do { if((ierr) != cudaSuccess) return PARGEMSLR_ERROR_FUNCTION_CALL_ERR; } while(0)
+
+#define PARGEMSLR_RETURN_ON_CUSPARSE_ERROR(ierr) \
+   do { if((ierr) != CUSPARSE_STATUS_SUCCESS) return PARGEMSLR_ERROR_FUNCTION_CALL_ERR; } while(0)
+#endif
+
 #ifdef PARGEMSLR_NO_WARNING
    #define PARGEMSLR_WARNING(message) {;}
 #else
