@@ -2,6 +2,12 @@
 
 This directory builds the hypre `ij` driver with the ParGeMSLR preconditioner registered as solver option 83. The tested bundled hypre baseline is v3.1.0 from `ParGeMSLR/external/hypre`.
 
+The repository CMake build can compile the pinned hypre source, adapter, and
+`ij` driver together with `PARGEMSLR_ENABLE_HYPRE=ON`. It registers strict
+host tests at one and two MPI ranks; CUDA builds also register matching device
+tests. See [`BUILDING.md`](../../../BUILDING.md) for bundled and system-provider
+commands.
+
 ## Build hypre
 
 From `ParGeMSLR`, build the bundled CPU hypre:

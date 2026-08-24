@@ -73,6 +73,9 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
  * Package
    1. Edit makefile.in. Set the path of BLAS, LAPACK, and ParMETIS (please use INT_64 and DOUBLE for ParMETIS by changing IDXTYPEWIDTH and REALTYPEWIDTH in parmetis/metis/include/metis.h from 32 to 64). Change compile options.
    2. Make the library with make command.
+
+ * CMake
+   - CMake is available as an alternative, out-of-source build path. See [BUILDING.md](BUILDING.md) for CPU, OpenMP, oneAPI MKL, CUDA, and hypre configurations.
    
  * Tests
    1. Make the library.
@@ -83,6 +86,7 @@ For questions/feedback send e-mail to Yousef Saad [saad@umn.edu] or Tianshi Xu [
 **TESTING**
 
  * From the repository root, run `make smoke-test` to build the CPU library and run deterministic real Laplacian smoke tests.
+ * For CMake builds, run `cd <build-dir> && ctest --output-on-failure`.
  * The smoke test builds `USING_CUDA=0 USING_MKL=0` by default, then runs:
    - sequential real Laplacian with `mpirun -np 1`;
    - parallel real Laplacian with `mpirun -np 2`.
