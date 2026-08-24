@@ -341,25 +341,48 @@ static int CheckInvalidSolveLevelReturns(pargemslr::parallel_log &parlog,
    {
       err = b.Setup(local_n, row_start, n_global, location, true, parlog);
    }
-   if(err == PARGEMSLR_SUCCESS)
+   const int invalid_levels[] = {-1, 0};
+   const int num_invalid_levels =
+      static_cast<int>(sizeof(invalid_levels) / sizeof(invalid_levels[0]));
+   for(int i = 0; i < num_invalid_levels && err == PARGEMSLR_SUCCESS; i++)
    {
-      const int solve_err = precond.SolveLevelGemslr(x, b, -1, false);
-      if(solve_err != PARGEMSLR_ERROR_INVALED_PARAM)
+      const int level = invalid_levels[i];
+      const int gemslr_err = precond.SolveLevelGemslr(x, b, level, false);
+      if(gemslr_err != PARGEMSLR_ERROR_INVALED_PARAM)
       {
          std::fprintf(stderr,
-                      "rank %d invalid Parallel GeMSLR solve level returned %d, expected %d\n",
-                      rank, solve_err, PARGEMSLR_ERROR_INVALED_PARAM);
+                      "rank %d invalid Parallel GeMSLR level %d returned %d, expected %d\n",
+                      rank, level, gemslr_err, PARGEMSLR_ERROR_INVALED_PARAM);
          err = PARGEMSLR_ERROR_INVALED_PARAM;
+         continue;
       }
-   }
-   if(err == PARGEMSLR_SUCCESS)
-   {
-      const int solve_err = precond.SolveB(x, b, 0, -1);
-      if(solve_err != PARGEMSLR_ERROR_INVALED_PARAM)
+
+      const int gemslr_mul_err = precond.SolveLevelGemslrMul(x, b, level, false);
+      if(gemslr_mul_err != PARGEMSLR_ERROR_INVALED_PARAM)
       {
          std::fprintf(stderr,
-                      "rank %d invalid Parallel GeMSLR B solve level returned %d, expected %d\n",
-                      rank, solve_err, PARGEMSLR_ERROR_INVALED_PARAM);
+                      "rank %d invalid multiplicative Parallel GeMSLR level %d returned %d, expected %d\n",
+                      rank, level, gemslr_mul_err, PARGEMSLR_ERROR_INVALED_PARAM);
+         err = PARGEMSLR_ERROR_INVALED_PARAM;
+         continue;
+      }
+
+      const int esmslr_err = precond.SolveLevelEsmslr(x, b, level, false);
+      if(esmslr_err != PARGEMSLR_ERROR_INVALED_PARAM)
+      {
+         std::fprintf(stderr,
+                      "rank %d invalid Parallel ESMSLR level %d returned %d, expected %d\n",
+                      rank, level, esmslr_err, PARGEMSLR_ERROR_INVALED_PARAM);
+         err = PARGEMSLR_ERROR_INVALED_PARAM;
+         continue;
+      }
+
+      const int solve_b_err = precond.SolveB(x, b, 0, level);
+      if(solve_b_err != PARGEMSLR_ERROR_INVALED_PARAM)
+      {
+         std::fprintf(stderr,
+                      "rank %d invalid Parallel GeMSLR B level %d returned %d, expected %d\n",
+                      rank, level, solve_b_err, PARGEMSLR_ERROR_INVALED_PARAM);
          err = PARGEMSLR_ERROR_INVALED_PARAM;
       }
    }
@@ -524,8 +547,13 @@ int main(int argc, char **argv)
       int local_ok = true;
       if(setup_error_only)
       {
-         err = BuildIdentity(2, parlog, mat_g, rank, location);
+         err = CheckInvalidSolveLevelReturns(parlog, rank, location);
          local_ok = err == PARGEMSLR_SUCCESS;
+         if(AllRanksOk(local_ok, comm))
+         {
+            err = BuildIdentity(2, parlog, mat_g, rank, location);
+            local_ok = err == PARGEMSLR_SUCCESS;
+         }
          if(AllRanksOk(local_ok, comm))
          {
             err = CheckSetupErrorRestoresMatrix(mat_g, parlog, rank, location);

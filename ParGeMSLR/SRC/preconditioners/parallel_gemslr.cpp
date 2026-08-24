@@ -5598,6 +5598,9 @@ perm_gemslr_global:
       /* define the data type */
       typedef DataType T;
 
+      PARGEMSLR_RETURN_IF(level < 0 || level >= this->_nlev_used,
+                          PARGEMSLR_ERROR_INVALED_PARAM);
+
 #ifdef PARGEMSLR_TIMING
       int np, myid;
       MPI_Comm comm;
@@ -5605,9 +5608,6 @@ perm_gemslr_global:
 #endif
       
       /* the solve phase of GeMSLR */
-      
-      PARGEMSLR_CHKERR(level < 0);
-      PARGEMSLR_CHKERR(level >= this->_nlev_used);
       
       int n_local;
       
@@ -5851,6 +5851,9 @@ perm_gemslr_global:
       /* define the data type */
       typedef DataType T;
 
+      PARGEMSLR_RETURN_IF(level < 0 || level >= this->_nlev_used,
+                          PARGEMSLR_ERROR_INVALED_PARAM);
+
 #ifdef PARGEMSLR_TIMING
       int np, myid;
       MPI_Comm comm;
@@ -5858,9 +5861,6 @@ perm_gemslr_global:
 #endif
       
       /* the solve phase of GeMSLR */
-      
-      PARGEMSLR_CHKERR(level < 0);
-      PARGEMSLR_CHKERR(level >= this->_nlev_used);
       
       int n_local;
       int solve_option = 0;
@@ -6091,15 +6091,15 @@ perm_gemslr_global:
       
       /* define the data type */
       typedef DataType T;
+
+      PARGEMSLR_RETURN_IF(level < 0 || level >= this->_nlev_used,
+                          PARGEMSLR_ERROR_INVALED_PARAM);
       
       int np, myid;
       MPI_Comm comm;
       this->_matrix->GetMpiInfo(np, myid, comm);
       
       /* the solve phase of GeMSLR */
-      
-      PARGEMSLR_CHKERR(level < 0);
-      PARGEMSLR_CHKERR(level >= this->_nlev_used);
       
       int n_local;
       
@@ -6480,8 +6480,8 @@ perm_gemslr_global:
        * No extra buffer required if turn off residual iteration.
        */
       
-      PARGEMSLR_CHKERR(level < 0);
-      PARGEMSLR_CHKERR(level >= this->_nlev_used);
+      PARGEMSLR_RETURN_IF(level < 0 || level >= this->_nlev_used,
+                          PARGEMSLR_ERROR_INVALED_PARAM);
       
       int i, ncomp, n_start, n1, n2;
       
